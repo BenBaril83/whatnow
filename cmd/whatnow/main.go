@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jameynakama/whatnow/internal/agent"
 	"github.com/jameynakama/whatnow/internal/cleanup"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/llm"
@@ -72,6 +73,7 @@ func serve(addr, dbPath string) error {
 		OnCapture: runner.Enqueue,
 		NewClient: settings.NewClient,
 		Planner:   plans,
+		Agent:     agent.New(svc, hub, plans, time.Local, time.Now),
 	})
 	// No WriteTimeout: it would cut off the long-lived SSE stream.
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}

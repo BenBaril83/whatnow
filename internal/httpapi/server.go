@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jameynakama/whatnow/internal/agent"
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
@@ -36,6 +37,7 @@ type Deps struct {
 	// NewClient builds an LLM client from settings, for the connection test.
 	NewClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)
 	Planner   *planner.Planner
+	Agent     *agent.Agent
 }
 
 type Server struct {
@@ -72,6 +74,8 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("POST /api/v1/today/wrap", s.wrapUp)
 	mux.HandleFunc("PUT /api/v1/today/pace", s.setPace)
 	mux.HandleFunc("POST /api/v1/whatnow", s.whatNow)
+	mux.HandleFunc("GET /api/v1/chat", s.chatHistory)
+	mux.HandleFunc("POST /api/v1/chat", s.chat)
 	mux.HandleFunc("GET /api/v1/stream", s.stream)
 	mux.HandleFunc("GET /api/v1/settings", s.getSettings)
 	mux.HandleFunc("PUT /api/v1/settings", s.putSettings)
@@ -158,7 +162,7 @@ func writeError(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusBadRequest, errorBody{err.Error()})
 	case errors.Is(err, service.ErrNotFound), errors.Is(err, planner.ErrNothingToDo):
 		writeJSON(w, http.StatusNotFound, errorBody{err.Error()})
-	case errors.Is(err, service.ErrConflict), errors.Is(err, planner.ErrNoDay):
+	case errors.Is(err, service.ErrConflict), errors.Is(err, planner.ErrNoDay), errors.Is(err, agent.ErrBusy):
 		writeJSON(w, http.StatusConflict, errorBody{err.Error()})
 	default:
 		log.Printf("internal error: %v", err)

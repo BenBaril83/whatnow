@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jameynakama/whatnow/internal/agent"
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/llm"
@@ -50,6 +51,7 @@ func newAPI(t *testing.T) *testAPI {
 		}
 		return api.model, settings.ProviderConfig{MainModel: "main"}, settings.Defaults(), nil
 	}
+	plans := planner.New(svc, api.hub, active, testLoc, now)
 	api.handler = httpapi.New(httpapi.Deps{
 		Service:   svc,
 		Hub:       api.hub,
@@ -62,7 +64,8 @@ func newAPI(t *testing.T) *testAPI {
 			}
 			return api.model, settings.ProviderConfig{MainModel: "main"}, nil
 		},
-		Planner: planner.New(svc, api.hub, active, testLoc, now),
+		Planner: plans,
+		Agent:   agent.New(svc, api.hub, plans, testLoc, now),
 	})
 	return api
 }
@@ -70,6 +73,12 @@ func newAPI(t *testing.T) *testAPI {
 // do sends a request the way the web client will: from a loopback host, with a JSON body type on
 // every write.
 func (a *testAPI) do(method, path string, body any) *httptest.ResponseRecorder {
+	a.t.Helper()
+	return a.doContext(context.Background(), method, path, body)
+}
+
+// doContext is do with the request's context, such as one the client has already cancelled.
+func (a *testAPI) doContext(ctx context.Context, method, path string, body any) *httptest.ResponseRecorder {
 	a.t.Helper()
 	var rd io.Reader
 	if body != nil {
@@ -79,7 +88,7 @@ func (a *testAPI) do(method, path string, body any) *httptest.ResponseRecorder {
 		}
 		rd = bytes.NewReader(b)
 	}
-	req := httptest.NewRequest(method, path, rd)
+	req := httptest.NewRequestWithContext(ctx, method, path, rd)
 	req.Host = "127.0.0.1:7777" // httptest defaults to example.com, which the guard rejects
 	if method != http.MethodGet {
 		req.Header.Set("Content-Type", "application/json")
