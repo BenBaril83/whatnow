@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jameynakama/whatnow/internal/domain"
 )
@@ -194,6 +195,32 @@ func (s *Service) GetTask(ctx context.Context, id int64) (domain.Task, error) {
 // ListTasks returns every task that isn't deleted, oldest first.
 func (s *Service) ListTasks(ctx context.Context) ([]domain.Task, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+taskColumns+` FROM tasks WHERE deleted_at IS NULL ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	tasks := []domain.Task{}
+	for rows.Next() {
+		t, err := scanTask(rows)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, t)
+	}
+	return tasks, rows.Err()
+}
+
+// DoneBetween returns tasks that are done now and were marked done in [from, to), by a batch
+// that hasn't been undone.
+func (s *Service) DoneBetween(ctx context.Context, from, to time.Time) ([]domain.Task, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+taskColumns+` FROM tasks t
+		 WHERE t.deleted_at IS NULL AND t.status = ? AND EXISTS (
+		   SELECT 1 FROM activity a JOIN batches b ON b.id = a.batch_id
+		   WHERE a.entity = ? AND a.entity_id = t.id AND a.action = ? AND b.undone_at IS NULL
+		     AND json_extract(a.after_json, '$.status') = ? AND a.created_at >= ? AND a.created_at < ?)
+		 ORDER BY t.id`,
+		domain.StatusDone, entityTask, actionStatus, domain.StatusDone, formatTime(from), formatTime(to))
 	if err != nil {
 		return nil, err
 	}

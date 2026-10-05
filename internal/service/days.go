@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jameynakama/whatnow/internal/domain"
 )
@@ -68,7 +69,7 @@ func (s *Service) SetPace(ctx context.Context, batch int64, date domain.Date, pa
 	return d, err
 }
 
-const dayColumns = `id, date, pace, mood_note, started_at, wrapped_at`
+const dayColumns = `id, date, pace, mood_note, started_at, wrapped_at, tomorrow_note, summary`
 
 func dayByDate(ctx context.Context, q querier, date domain.Date) (domain.Day, error) {
 	d, err := scanDay(q.QueryRowContext(ctx, `SELECT `+dayColumns+` FROM days WHERE date = ?`, date))
@@ -82,7 +83,7 @@ func scanDay(row scanner) (domain.Day, error) {
 	var d domain.Day
 	var startedAt string
 	var wrappedAt sql.NullString
-	if err := row.Scan(&d.ID, &d.Date, &d.Pace, &d.MoodNote, &startedAt, &wrappedAt); err != nil {
+	if err := row.Scan(&d.ID, &d.Date, &d.Pace, &d.MoodNote, &startedAt, &wrappedAt, &d.TomorrowNote, &d.Summary); err != nil {
 		return d, err
 	}
 	var err error
@@ -93,11 +94,60 @@ func scanDay(row scanner) (domain.Day, error) {
 	return d, err
 }
 
-// writeDay overwrites a day's editable columns. Undo uses it to restore a snapshot.
+// writeDay writes the columns a batch can change: pace and mood. Undo uses it to restore a
+// snapshot, so it must leave wrapping and the summary alone, which aren't in batches.
 func writeDay(ctx context.Context, tx *sql.Tx, d domain.Day) error {
-	_, err := tx.ExecContext(ctx, `UPDATE days SET pace = ?, mood_note = ?, wrapped_at = ? WHERE id = ?`,
-		d.Pace, d.MoodNote, formatNullTime(d.WrappedAt), d.ID)
+	_, err := tx.ExecContext(ctx, `UPDATE days SET pace = ?, mood_note = ? WHERE id = ?`, d.Pace, d.MoodNote, d.ID)
 	return err
+}
+
+// WrapDay closes a day, with an optional note for the next one. Like starting, it isn't in a
+// batch; what happens to the day's tasks is.
+func (s *Service) WrapDay(ctx context.Context, dayID int64, note string) (domain.Day, error) {
+	var d domain.Day
+	err := s.inTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		if d, err = dayByID(ctx, tx, dayID); err != nil {
+			return err
+		}
+		if d.WrappedAt != nil {
+			return fmt.Errorf("%w: %s is already wrapped", ErrConflict, d.Date)
+		}
+		wrapped := s.now().UTC()
+		d.WrappedAt, d.TomorrowNote = &wrapped, strings.TrimSpace(note)
+		_, err = tx.ExecContext(ctx, `UPDATE days SET wrapped_at = ?, tomorrow_note = ? WHERE id = ?`,
+			formatTime(wrapped), d.TomorrowNote, d.ID)
+		return err
+	})
+	return d, err
+}
+
+func (s *Service) SetDaySummary(ctx context.Context, dayID int64, summary string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE days SET summary = ? WHERE id = ?`, summary, dayID)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return errors.Join(err, fmt.Errorf("%w: day %d", ErrNotFound, dayID))
+	}
+	return nil
+}
+
+// LastDayBefore returns the most recent day started before date.
+func (s *Service) LastDayBefore(ctx context.Context, date domain.Date) (domain.Day, error) {
+	d, err := scanDay(s.db.QueryRowContext(ctx, `SELECT `+dayColumns+` FROM days WHERE date < ? ORDER BY date DESC LIMIT 1`, date))
+	if errors.Is(err, sql.ErrNoRows) {
+		return d, fmt.Errorf("%w: no day before %s", ErrNotFound, date)
+	}
+	return d, err
+}
+
+func dayByID(ctx context.Context, q querier, id int64) (domain.Day, error) {
+	d, err := scanDay(q.QueryRowContext(ctx, `SELECT `+dayColumns+` FROM days WHERE id = ?`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return d, fmt.Errorf("%w: day %d", ErrNotFound, id)
+	}
+	return d, err
 }
 
 // SavePlan stores a new version of a day's plan and returns it with its ID and version.

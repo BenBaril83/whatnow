@@ -130,6 +130,10 @@ type Day struct {
 	MoodNote  string     `json:"mood_note"`
 	StartedAt time.Time  `json:"started_at"`
 	WrappedAt *time.Time `json:"wrapped_at"`
+	// TomorrowNote is what the user left for the next day when wrapping up.
+	TomorrowNote string `json:"tomorrow_note"`
+	// Summary is the light model's short account of the day, written when it's wrapped.
+	Summary string `json:"summary"`
 }
 
 type Tier string
