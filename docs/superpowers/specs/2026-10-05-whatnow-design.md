@@ -58,6 +58,16 @@ Each provider has two model settings:
 | Main | Agent, plans, "what now?" | `claude-sonnet-5-5` |
 | Light | Cleanup, day summaries | `claude-haiku-4-5` |
 
+OpenAI-compatible models have no defaults, since they depend on the server.
+
+Structured replies use the provider's JSON-schema output (`output_config.format` on Claude,
+strict `response_format` on OpenAI), never a forced tool call: Claude Sonnet 5.5 and Opus 5.5
+reject forced `tool_choice`. Constrained decoding writes fields in schema order, so a schema
+lists fields in the order the model should decide them.
+
+Calls to Claude's main-tier models should opt into server-side refusal fallbacks. These need
+the beta endpoint and do nothing on OpenAI.
+
 Subscriptions (Claude Pro, Max, Team, or Enterprise, and ChatGPT plans) cannot power this app.
 Anthropic forbids using consumer OAuth credentials in third-party tools, and ChatGPT plans don't
 include API access. That rules out shelling out to `claude -p` or `codex exec` as a provider: it
@@ -260,7 +270,7 @@ its budget, the oldest turns are folded into a running summary.
 **Seams:**
 - An injected clock, used everywhere.
 - The LLM provider interface, with a scripted fake.
-- A small keychain interface.
+- go-keyring's `MockInit`, standing in for the real keychain.
 
 **Go:** stdlib `testing`, table-driven tests, and `go-cmp`.
 
