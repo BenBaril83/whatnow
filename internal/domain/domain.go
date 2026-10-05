@@ -179,3 +179,36 @@ type Plan struct {
 	Fallback  bool        `json:"fallback"`
 	CreatedAt time.Time   `json:"created_at"`
 }
+
+type Role string
+
+const (
+	RoleUser      Role = "user"
+	RoleAssistant Role = "assistant"
+)
+
+// ToolUse is one tool the agent ran in a reply, shown as a chip. Error is set when it failed.
+type ToolUse struct {
+	Tool  string `json:"tool"`
+	Label string `json:"label"`
+	Error string `json:"error"`
+}
+
+// Message is one chat message. BatchID is the reply's changes, or 0 when it changed nothing. Error
+// is set on a reply the provider couldn't give, and Text then says so in plain words.
+type Message struct {
+	ID        int64     `json:"id"`
+	Date      Date      `json:"date"`
+	Role      Role      `json:"role"`
+	Text      string    `json:"text"`
+	Tools     []ToolUse `json:"tools"`
+	BatchID   int64     `json:"batch_id"`
+	Error     string    `json:"error"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ChatFold is the running summary of a date's older chat. Messages up to ThroughID are in it.
+type ChatFold struct {
+	Summary   string `json:"summary"`
+	ThroughID int64  `json:"through_id"`
+}

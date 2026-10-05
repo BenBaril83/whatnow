@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/service"
 )
@@ -84,6 +85,9 @@ func TestUpdateAndDeleteEvent(t *testing.T) {
 	if updated.RawText != "1:1 at 2" {
 		t.Errorf("raw text changed on update: %q", updated.RawText)
 	}
+	if got, err := svc.GetEvent(ctx, e.ID); err != nil || !cmp.Equal(got, updated) {
+		t.Errorf("get = %+v, %v; want %+v", got, err, updated)
+	}
 
 	if err := svc.DeleteEvent(ctx, newBatch(t, svc, domain.ActorUser), e.ID); err != nil {
 		t.Fatal(err)
@@ -98,5 +102,8 @@ func TestUpdateAndDeleteEvent(t *testing.T) {
 	_, err = svc.UpdateEvent(ctx, newBatch(t, svc, domain.ActorUser), e.ID, service.EventFields{Title: "x", StartsAt: start})
 	if !errors.Is(err, service.ErrNotFound) {
 		t.Errorf("update deleted event: err = %v, want ErrNotFound", err)
+	}
+	if _, err := svc.GetEvent(ctx, e.ID); !errors.Is(err, service.ErrNotFound) {
+		t.Errorf("get deleted event: err = %v, want ErrNotFound", err)
 	}
 }

@@ -161,7 +161,7 @@ func TestUndoneBatchIsClosed(t *testing.T) {
 func TestLastUndoableBatch(t *testing.T) {
 	svc, _ := newService(t)
 	ctx := context.Background()
-	if _, err := svc.LastUndoableBatch(ctx, domain.ActorAgent); !errors.Is(err, service.ErrNotFound) {
+	if _, err := svc.LastUndoableBatch(ctx, domain.ActorAgent, 0); !errors.Is(err, service.ErrNotFound) {
 		t.Fatalf("no batches: err = %v, want ErrNotFound", err)
 	}
 
@@ -179,12 +179,20 @@ func TestLastUndoableBatch(t *testing.T) {
 	newBatch(t, svc, domain.ActorAgent) // empty: nothing to undo
 	createTask(t, svc, "user's own change")
 
-	got, err := svc.LastUndoableBatch(ctx, domain.ActorAgent)
+	got, err := svc.LastUndoableBatch(ctx, domain.ActorAgent, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != older {
 		t.Errorf("got batch %d, want %d", got, older)
+	}
+
+	newer := newBatch(t, svc, domain.ActorAgent)
+	if _, err := svc.CreateTask(ctx, newer, service.TaskFields{Title: "c"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := svc.LastUndoableBatch(ctx, domain.ActorAgent, newer); got != older {
+		t.Errorf("leaving out %d: got batch %d, want %d", newer, got, older)
 	}
 }
 

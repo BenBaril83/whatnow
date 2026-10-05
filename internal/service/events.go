@@ -91,10 +91,7 @@ func (s *Service) changeEvent(ctx context.Context, batch, id int64, action strin
 		if _, err := batchActor(ctx, tx, batch); err != nil {
 			return err
 		}
-		before, err := scanEvent(tx.QueryRowContext(ctx, `SELECT `+eventColumns+` FROM events WHERE id = ? AND deleted_at IS NULL`, id))
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: event %d", ErrNotFound, id)
-		}
+		before, err := liveEvent(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -107,6 +104,10 @@ func (s *Service) changeEvent(ctx context.Context, batch, id int64, action strin
 		return record(ctx, tx, batch, action, entityEvent, id, before, e)
 	})
 	return e, err
+}
+
+func (s *Service) GetEvent(ctx context.Context, id int64) (domain.Event, error) {
+	return liveEvent(ctx, s.db, id)
 }
 
 // ListEvents returns events that start in [from, to), earliest first.
@@ -128,6 +129,14 @@ func (s *Service) ListEvents(ctx context.Context, from, to time.Time) ([]domain.
 		events = append(events, e)
 	}
 	return events, rows.Err()
+}
+
+func liveEvent(ctx context.Context, q querier, id int64) (domain.Event, error) {
+	e, err := scanEvent(q.QueryRowContext(ctx, `SELECT `+eventColumns+` FROM events WHERE id = ? AND deleted_at IS NULL`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return e, fmt.Errorf("%w: event %d", ErrNotFound, id)
+	}
+	return e, err
 }
 
 const eventColumns = `id, title, starts_at, ends_at, raw_text, created_at, updated_at, deleted_at`

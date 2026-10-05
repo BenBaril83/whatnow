@@ -205,3 +205,21 @@ func (s *Service) LatestPlan(ctx context.Context, dayID int64) (domain.Plan, err
 	p.CreatedAt, err = parseTime(createdAt)
 	return p, err
 }
+
+// DaysBetween returns the days started on dates in [from, to), oldest first.
+func (s *Service) DaysBetween(ctx context.Context, from, to domain.Date) ([]domain.Day, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+dayColumns+` FROM days WHERE date >= ? AND date < ? ORDER BY date`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	days := []domain.Day{}
+	for rows.Next() {
+		d, err := scanDay(rows)
+		if err != nil {
+			return nil, err
+		}
+		days = append(days, d)
+	}
+	return days, rows.Err()
+}

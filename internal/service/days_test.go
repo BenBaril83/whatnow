@@ -76,7 +76,7 @@ func TestSetPaceKeepsMoodUnlessGivenAndUndoes(t *testing.T) {
 	if err := svc.Undo(ctx, batch); !errors.Is(err, service.ErrConflict) {
 		t.Errorf("undo under a newer change: err = %v, want ErrConflict", err)
 	}
-	last, err := svc.LastUndoableBatch(ctx, domain.ActorAgent)
+	last, err := svc.LastUndoableBatch(ctx, domain.ActorAgent, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

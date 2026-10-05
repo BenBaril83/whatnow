@@ -103,13 +103,15 @@ func revert(ctx context.Context, tx *sql.Tx, a domain.Activity, now time.Time) e
 	return fmt.Errorf("revert: unknown entity %q", a.Entity)
 }
 
-// LastUndoableBatch returns the newest batch by actor that changed something and isn't undone.
-func (s *Service) LastUndoableBatch(ctx context.Context, actor domain.Actor) (int64, error) {
+// LastUndoableBatch returns the newest batch by actor that changed something and isn't undone,
+// other than except. Pass 0 to leave none out.
+func (s *Service) LastUndoableBatch(ctx context.Context, actor domain.Actor, except int64) (int64, error) {
 	var id int64
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id FROM batches
-		 WHERE actor = ? AND undone_at IS NULL AND EXISTS (SELECT 1 FROM activity WHERE activity.batch_id = batches.id)
-		 ORDER BY id DESC LIMIT 1`, actor).Scan(&id)
+		 WHERE actor = ? AND id != ? AND undone_at IS NULL
+		   AND EXISTS (SELECT 1 FROM activity WHERE activity.batch_id = batches.id)
+		 ORDER BY id DESC LIMIT 1`, actor, except).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, fmt.Errorf("%w: no undoable %s batch", ErrNotFound, actor)
 	}
