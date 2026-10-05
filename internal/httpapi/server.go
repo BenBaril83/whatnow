@@ -50,6 +50,10 @@ func New(svc *service.Service, hub *stream.Hub, loc *time.Location) http.Handler
 	mux.HandleFunc("POST /api/v1/tasks/{id}/blockers", s.addBlocker)
 	mux.HandleFunc("DELETE /api/v1/tasks/{id}/blockers/{blockedBy}", s.removeBlocker)
 	mux.HandleFunc("POST /api/v1/batches/{id}/undo", s.undo)
+	mux.HandleFunc("GET /api/v1/events", s.listEvents)
+	mux.HandleFunc("POST /api/v1/events", s.createEvent)
+	mux.HandleFunc("PUT /api/v1/events/{id}", s.updateEvent)
+	mux.HandleFunc("DELETE /api/v1/events/{id}", s.deleteEvent)
 	return localOnly(mux)
 }
 
