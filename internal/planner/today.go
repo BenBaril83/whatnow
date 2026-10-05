@@ -2,8 +2,10 @@ package planner
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/service"
 )
 
 // Today is the state of the day for the home screen. Day and Plan are nil until the day starts.
@@ -40,9 +42,20 @@ func (p *Planner) Today(ctx context.Context) (Today, error) {
 	return t, nil
 }
 
-// StartDay starts today at a pace and makes its first plan.
+// StartDay starts today at a pace and makes its first plan. If today started but its first plan
+// was never saved (the request was cancelled, say), starting again makes that plan and keeps the
+// pace already chosen. A day that has a plan can't start again.
 func (p *Planner) StartDay(ctx context.Context, pace domain.Pace, moodNote string) (domain.Day, domain.Plan, error) {
 	day, err := p.svc.StartDay(ctx, p.Date(), pace, moodNote)
+	if started := err; errors.Is(started, service.ErrConflict) {
+		if day, err = p.svc.GetDay(ctx, p.Date()); err == nil {
+			if _, err = p.svc.LatestPlan(ctx, day.ID); err == nil {
+				err = started
+			} else if errors.Is(err, service.ErrNotFound) {
+				err = nil
+			}
+		}
+	}
 	if err != nil {
 		return domain.Day{}, domain.Plan{}, err
 	}

@@ -59,6 +59,8 @@ func (p *Planner) askPlan(ctx context.Context, st state, trigger domain.Trigger,
 	if st.model == nil {
 		return planReply{}, st.modelErr
 	}
+	ctx, cancel := context.WithTimeout(ctx, modelTimeout)
+	defer cancel()
 	user := "Plan my day."
 	if trigger != domain.TriggerMorning {
 		user = fmt.Sprintf("Something changed: %s. Update the plan.", reason)

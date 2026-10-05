@@ -86,6 +86,10 @@ func Compute(in Input) Facts {
 	f.DayEnd = dayEnd(dayStart, in.EndOfDay, in.Loc)
 	f.Events = todays(in.Events, dayStart, dayStart.AddDate(0, 0, 1))
 	f.Gaps = gaps(now, f.DayEnd, f.Events)
+	// Event times arrive in UTC from the store; gaps read in the user's zone.
+	for i := range f.Gaps {
+		f.Gaps[i].Start, f.Gaps[i].End = f.Gaps[i].Start.In(in.Loc), f.Gaps[i].End.In(in.Loc)
+	}
 
 	byID := map[int64]domain.Task{}
 	for _, t := range in.Tasks {

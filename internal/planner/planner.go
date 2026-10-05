@@ -42,6 +42,10 @@ type Planner struct {
 
 const maxTokens = 8192
 
+// modelTimeout bounds one plan or pick, retry included. A hung provider then falls back instead
+// of stalling the trigger watcher while the changes it misses pile up.
+var modelTimeout = time.Minute
+
 func New(svc *service.Service, hub *stream.Hub, client ClientFunc, loc *time.Location, now func() time.Time) *Planner {
 	return &Planner{svc: svc, hub: hub, client: client, loc: loc, now: now}
 }

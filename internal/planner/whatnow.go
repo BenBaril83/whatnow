@@ -53,6 +53,8 @@ func (p *Planner) askPick(ctx context.Context, st state, exclude int64) (Pick, e
 	if st.model == nil {
 		return Pick{}, st.modelErr
 	}
+	ctx, cancel := context.WithTimeout(ctx, modelTimeout)
+	defer cancel()
 	user := "What should I do right now?"
 	if exclude != 0 {
 		user += fmt.Sprintf(" Not #%d, I just passed on that one.", exclude)

@@ -262,3 +262,16 @@ func TestDuration(t *testing.T) {
 		}
 	}
 }
+
+func TestGapsAreInTheUsersZoneWhenEventsAreStoredInUTC(t *testing.T) {
+	// The store hands back UTC times. A gap after a meeting must still read as local time.
+	standup := event("standup", at(5, 10, 0).UTC(), 15*time.Minute)
+	f := facts.Compute(facts.Input{Now: at(5, 9, 0), Loc: loc, EndOfDay: "17:30", Events: []domain.Event{standup}})
+	var got []string
+	for _, g := range f.Gaps {
+		got = append(got, g.Start.Format("15:04")+"-"+g.End.Format("15:04"))
+	}
+	if diff := cmp.Diff([]string{"09:00-10:00", "10:15-17:30"}, got); diff != "" {
+		t.Errorf("gaps (-want +got):\n%s", diff)
+	}
+}

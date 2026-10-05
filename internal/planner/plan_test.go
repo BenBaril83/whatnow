@@ -5,10 +5,12 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
 )
@@ -197,5 +199,48 @@ func TestAnEmptyDayStillGetsAPlan(t *testing.T) {
 	}
 	if m := <-msgs; m.Type != "plan.updated" {
 		t.Errorf("published %+v", m)
+	}
+}
+
+// hang is a model that never answers until its context ends.
+type hang struct{}
+
+func (hang) Complete(ctx context.Context, _ llm.Request) (string, error) {
+	<-ctx.Done()
+	return "", ctx.Err()
+}
+
+func TestAHungModelTimesOutIntoAFallbackPlan(t *testing.T) {
+	defer planner.SetModelTimeout(50 * time.Millisecond)()
+	f := newFixture(t)
+	f.slow = hang{}
+	f.task(t, service.TaskFields{Title: "a"})
+	f.start(t, 3, "")
+
+	plan, err := f.planner.Replan(context.Background(), domain.TriggerMorning, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Fallback || len(plan.Entries) != 1 {
+		t.Errorf("plan = %+v", plan)
+	}
+}
+
+func TestStartingAgainMakesTheMissingFirstPlan(t *testing.T) {
+	f := newFixture(t)
+	f.configured = false
+	ctx := context.Background()
+	// The day started, but its first plan was never saved (say the request was cancelled).
+	f.start(t, 2, "tired")
+
+	day, plan, err := f.planner.StartDay(ctx, 4, "ignored")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if day.Pace != 2 || plan.Version != 1 || plan.Trigger != domain.TriggerMorning {
+		t.Errorf("day %+v, plan %+v", day, plan)
+	}
+	if _, _, err := f.planner.StartDay(ctx, 3, ""); !errors.Is(err, service.ErrConflict) {
+		t.Errorf("starting a planned day: err = %v, want ErrConflict", err)
 	}
 }

@@ -57,6 +57,8 @@ type fixture struct {
 	model   *script
 	// configured false means no provider is set up.
 	configured bool
+	// slow, when set, answers instead of the script.
+	slow llm.Client
 }
 
 func newFixture(t *testing.T, replies ...any) *fixture {
@@ -74,6 +76,9 @@ func newFixture(t *testing.T, replies ...any) *fixture {
 	client := func(context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
 		if !f.configured {
 			return nil, settings.ProviderConfig{}, settings.Defaults(), settings.ErrNotConfigured
+		}
+		if f.slow != nil {
+			return f.slow, s.Config(), s, nil
 		}
 		return f.model, s.Config(), s, nil
 	}
