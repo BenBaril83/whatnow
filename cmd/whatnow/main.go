@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -10,7 +11,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jameynakama/whatnow/internal/cleanup"
 	"github.com/jameynakama/whatnow/internal/httpapi"
+	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
@@ -51,13 +54,17 @@ func serve(addr, dbPath string) error {
 
 	svc := service.New(db, time.Now)
 	hub := stream.NewHub()
+	runner := cleanup.New(svc, hub, func(ctx context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
+		return settings.Active(ctx, db)
+	}, time.Local, time.Now)
+	go runner.Run(context.Background())
 
 	handler := httpapi.New(httpapi.Deps{
 		Service:   svc,
 		Hub:       hub,
 		DB:        db,
 		Loc:       time.Local,
-		OnCapture: func(int64) {}, // cleanup is wired in once it exists
+		OnCapture: runner.Enqueue,
 		NewClient: settings.NewClient,
 	})
 	// No WriteTimeout: it would cut off the long-lived SSE stream.
