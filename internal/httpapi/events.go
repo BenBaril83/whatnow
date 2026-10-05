@@ -10,12 +10,12 @@ import (
 
 // listEvents returns the events that start on ?date= in the user's time zone.
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
-	day, err := time.ParseInLocation(time.DateOnly, r.URL.Query().Get("date"), s.loc)
+	day, err := time.ParseInLocation(time.DateOnly, r.URL.Query().Get("date"), s.Loc)
 	if err != nil {
 		writeError(w, fmt.Errorf("%w: date must be YYYY-MM-DD", service.ErrInvalid))
 		return
 	}
-	events, err := s.svc.ListEvents(r.Context(), day, day.AddDate(0, 0, 1))
+	events, err := s.Service.ListEvents(r.Context(), day, day.AddDate(0, 0, 1))
 	if err != nil {
 		writeError(w, err)
 		return
@@ -30,7 +30,7 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusCreated, func(batch int64) (any, error) {
-		return s.svc.CreateEvent(r.Context(), batch, f)
+		return s.Service.CreateEvent(r.Context(), batch, f)
 	})
 }
 
@@ -46,7 +46,7 @@ func (s *Server) updateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusOK, func(batch int64) (any, error) {
-		return s.svc.UpdateEvent(r.Context(), batch, id, f)
+		return s.Service.UpdateEvent(r.Context(), batch, id, f)
 	})
 }
 
@@ -57,6 +57,6 @@ func (s *Server) deleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusOK, func(batch int64) (any, error) {
-		return nil, s.svc.DeleteEvent(r.Context(), batch, id)
+		return nil, s.Service.DeleteEvent(r.Context(), batch, id)
 	})
 }

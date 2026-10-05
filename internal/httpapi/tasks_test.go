@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/jameynakama/whatnow/internal/domain"
-	"github.com/jameynakama/whatnow/internal/httpapi"
+	"github.com/jameynakama/whatnow/internal/stream"
 )
 
 type taskMutation struct {
@@ -31,7 +31,7 @@ func TestCaptureCreatesTaskAndPublishes(t *testing.T) {
 
 	select {
 	case m := <-msgs:
-		applied, ok := m.Data.(httpapi.BatchApplied)
+		applied, ok := m.Data.(stream.BatchApplied)
 		if m.Type != "batch.applied" || !ok || applied.BatchID != got.BatchID || len(applied.Activity) != 1 {
 			t.Errorf("unexpected message: %+v", m)
 		}

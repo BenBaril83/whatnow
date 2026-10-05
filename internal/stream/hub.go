@@ -1,7 +1,11 @@
 // Package stream fans out messages to every connected SSE client.
 package stream
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/jameynakama/whatnow/internal/domain"
+)
 
 type Message struct {
 	Type string `json:"type"`
@@ -48,4 +52,15 @@ func (h *Hub) Publish(m Message) {
 		default:
 		}
 	}
+}
+
+// BatchApplied is the batch.applied payload, sent after every write.
+type BatchApplied struct {
+	BatchID  int64             `json:"batch_id"`
+	Activity []domain.Activity `json:"activity"`
+}
+
+// PublishBatch announces a batch's changes to every client.
+func (h *Hub) PublishBatch(batch int64, activity []domain.Activity) {
+	h.Publish(Message{Type: "batch.applied", Data: BatchApplied{BatchID: batch, Activity: activity}})
 }

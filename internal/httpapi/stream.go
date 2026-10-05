@@ -11,7 +11,7 @@ import (
 func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
-	msgs, unsubscribe := s.hub.Subscribe()
+	msgs, unsubscribe := s.Hub.Subscribe()
 	defer unsubscribe()
 
 	rc := http.NewResponseController(w)

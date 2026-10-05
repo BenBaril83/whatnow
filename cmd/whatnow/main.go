@@ -12,6 +12,7 @@ import (
 
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/service"
+	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
@@ -48,7 +49,17 @@ func serve(addr, dbPath string) error {
 	}
 	defer db.Close()
 
-	handler := httpapi.New(service.New(db, time.Now), stream.NewHub(), time.Local)
+	svc := service.New(db, time.Now)
+	hub := stream.NewHub()
+
+	handler := httpapi.New(httpapi.Deps{
+		Service:   svc,
+		Hub:       hub,
+		DB:        db,
+		Loc:       time.Local,
+		OnCapture: func(int64) {}, // cleanup is wired in once it exists
+		NewClient: settings.NewClient,
+	})
 	// No WriteTimeout: it would cut off the long-lived SSE stream.
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	log.Printf("whatnow listening on http://%s (db %s)", addr, dbPath)

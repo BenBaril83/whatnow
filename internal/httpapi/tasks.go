@@ -9,7 +9,7 @@ import (
 )
 
 func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
-	tasks, err := s.svc.ListTasks(r.Context())
+	tasks, err := s.Service.ListTasks(r.Context())
 	if err != nil {
 		writeError(w, err)
 		return
@@ -24,7 +24,11 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusCreated, func(batch int64) (any, error) {
-		return s.svc.CreateTask(r.Context(), batch, f)
+		task, err := s.Service.CreateTask(r.Context(), batch, f)
+		if err == nil && task.RawText != "" {
+			s.OnCapture(task.ID)
+		}
+		return task, err
 	})
 }
 
@@ -40,7 +44,7 @@ func (s *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusOK, func(batch int64) (any, error) {
-		return s.svc.UpdateTask(r.Context(), batch, id, f)
+		return s.Service.UpdateTask(r.Context(), batch, id, f)
 	})
 }
 
@@ -58,7 +62,7 @@ func (s *Server) setTaskStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusOK, func(batch int64) (any, error) {
-		return s.svc.SetTaskStatus(r.Context(), batch, id, body.Status)
+		return s.Service.SetTaskStatus(r.Context(), batch, id, body.Status)
 	})
 }
 
@@ -69,12 +73,12 @@ func (s *Server) deleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusOK, func(batch int64) (any, error) {
-		return nil, s.svc.DeleteTask(r.Context(), batch, id)
+		return nil, s.Service.DeleteTask(r.Context(), batch, id)
 	})
 }
 
 func (s *Server) listBlockers(w http.ResponseWriter, r *http.Request) {
-	blockers, err := s.svc.ListBlockers(r.Context())
+	blockers, err := s.Service.ListBlockers(r.Context())
 	if err != nil {
 		writeError(w, err)
 		return
@@ -96,7 +100,7 @@ func (s *Server) addBlocker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusOK, func(batch int64) (any, error) {
-		return nil, s.svc.AddBlocker(r.Context(), batch, domain.Blocker{TaskID: id, BlockedByID: body.BlockedByID})
+		return nil, s.Service.AddBlocker(r.Context(), batch, domain.Blocker{TaskID: id, BlockedByID: body.BlockedByID})
 	})
 }
 
@@ -112,7 +116,7 @@ func (s *Server) removeBlocker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, r, http.StatusOK, func(batch int64) (any, error) {
-		return nil, s.svc.RemoveBlocker(r.Context(), batch, domain.Blocker{TaskID: id, BlockedByID: blockedBy})
+		return nil, s.Service.RemoveBlocker(r.Context(), batch, domain.Blocker{TaskID: id, BlockedByID: blockedBy})
 	})
 }
 
@@ -122,10 +126,10 @@ func (s *Server) undo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	if err := s.svc.Undo(r.Context(), batch); err != nil {
+	if err := s.Service.Undo(r.Context(), batch); err != nil {
 		writeError(w, err)
 		return
 	}
-	s.hub.Publish(stream.Message{Type: "batch.undone", Data: map[string]int64{"batch_id": batch}})
+	s.Hub.Publish(stream.Message{Type: "batch.undone", Data: map[string]int64{"batch_id": batch}})
 	w.WriteHeader(http.StatusNoContent)
 }

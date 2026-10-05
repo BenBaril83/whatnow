@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/jameynakama/whatnow/internal/httpapi"
+	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/service"
+	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
@@ -19,9 +21,12 @@ import (
 var testLoc = time.FixedZone("UTC-5", -5*3600)
 
 type testAPI struct {
-	t       *testing.T
-	handler http.Handler
-	hub     *stream.Hub
+	t        *testing.T
+	handler  http.Handler
+	hub      *stream.Hub
+	captured []int64
+	// model answers the connection test. Nil means no provider is set up.
+	model llm.Client
 }
 
 func newAPI(t *testing.T) *testAPI {
@@ -33,8 +38,21 @@ func newAPI(t *testing.T) *testAPI {
 	t.Cleanup(func() { db.Close() })
 	now := time.Date(2026, 10, 5, 14, 0, 0, 0, time.UTC)
 	svc := service.New(db, func() time.Time { return now })
-	hub := stream.NewHub()
-	return &testAPI{t: t, handler: httpapi.New(svc, hub, testLoc), hub: hub}
+	api := &testAPI{t: t, hub: stream.NewHub()}
+	api.handler = httpapi.New(httpapi.Deps{
+		Service:   svc,
+		Hub:       api.hub,
+		DB:        db,
+		Loc:       testLoc,
+		OnCapture: func(id int64) { api.captured = append(api.captured, id) },
+		NewClient: func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
+			if api.model == nil {
+				return nil, settings.ProviderConfig{}, settings.ErrNotConfigured
+			}
+			return api.model, settings.ProviderConfig{MainModel: "main"}, nil
+		},
+	})
+	return api
 }
 
 // do sends a request the way the web client will: from a loopback host, with a JSON body type on

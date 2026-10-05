@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
 
@@ -56,5 +57,19 @@ func TestSlowSubscriberDoesNotBlockPublish(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("Publish blocked on a subscriber that isn't reading")
+	}
+}
+
+func TestPublishBatchSendsTypedPayload(t *testing.T) {
+	hub := stream.NewHub()
+	ch, unsub := hub.Subscribe()
+	defer unsub()
+
+	hub.PublishBatch(7, []domain.Activity{{ID: 1, BatchID: 7}})
+
+	m := <-ch
+	applied, ok := m.Data.(stream.BatchApplied)
+	if m.Type != "batch.applied" || !ok || applied.BatchID != 7 || len(applied.Activity) != 1 {
+		t.Errorf("message = %+v", m)
 	}
 }

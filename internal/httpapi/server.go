@@ -3,6 +3,7 @@ package httpapi
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,14 +16,28 @@ import (
 	"time"
 
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/service"
+	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
 
+// Deps is what the API needs from the rest of the app.
+type Deps struct {
+	Service *service.Service
+	Hub     *stream.Hub
+	// DB holds the settings document.
+	DB *sql.DB
+	// Loc is the user's time zone, which turns a date into a day of events.
+	Loc *time.Location
+	// OnCapture is called with the ID of each task created from raw text.
+	OnCapture func(taskID int64)
+	// NewClient builds an LLM client from settings, for the connection test.
+	NewClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)
+}
+
 type Server struct {
-	svc *service.Service
-	hub *stream.Hub
-	loc *time.Location
+	Deps
 }
 
 // Mutation is the response to every write. It carries the batch ID so the UI can offer undo.
@@ -31,15 +46,8 @@ type Mutation struct {
 	Data    any   `json:"data,omitempty"`
 }
 
-// BatchApplied is the batch.applied SSE payload, sent after every write.
-type BatchApplied struct {
-	BatchID  int64             `json:"batch_id"`
-	Activity []domain.Activity `json:"activity"`
-}
-
-// New returns the API handler. loc is the user's time zone, which turns a date into a day of events.
-func New(svc *service.Service, hub *stream.Hub, loc *time.Location) http.Handler {
-	s := &Server{svc: svc, hub: hub, loc: loc}
+func New(d Deps) http.Handler {
+	s := &Server{Deps: d}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/tasks", s.listTasks)
 	mux.HandleFunc("POST /api/v1/tasks", s.createTask)
@@ -94,7 +102,7 @@ func isLoopback(hostport string) bool {
 // write runs op in a new user batch, publishes the batch, and responds with its ID.
 func (s *Server) write(w http.ResponseWriter, r *http.Request, status int, op func(batch int64) (any, error)) {
 	ctx := r.Context()
-	batch, err := s.svc.NewBatch(ctx, domain.ActorUser)
+	batch, err := s.Service.NewBatch(ctx, domain.ActorUser)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -109,12 +117,12 @@ func (s *Server) write(w http.ResponseWriter, r *http.Request, status int, op fu
 }
 
 func (s *Server) publishBatch(ctx context.Context, batch int64) {
-	acts, err := s.svc.BatchActivity(ctx, batch)
+	acts, err := s.Service.BatchActivity(ctx, batch)
 	if err != nil {
 		log.Printf("publish batch %d: %v", batch, err)
 		return
 	}
-	s.hub.Publish(stream.Message{Type: "batch.applied", Data: BatchApplied{BatchID: batch, Activity: acts}})
+	s.Hub.PublishBatch(batch, acts)
 }
 
 type errorBody struct {
@@ -131,7 +139,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, service.ErrInvalid):
+	case errors.Is(err, service.ErrInvalid), errors.Is(err, settings.ErrInvalid):
 		writeJSON(w, http.StatusBadRequest, errorBody{err.Error()})
 	case errors.Is(err, service.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, errorBody{err.Error()})
