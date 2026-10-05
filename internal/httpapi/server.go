@@ -54,6 +54,7 @@ func New(svc *service.Service, hub *stream.Hub, loc *time.Location) http.Handler
 	mux.HandleFunc("POST /api/v1/events", s.createEvent)
 	mux.HandleFunc("PUT /api/v1/events/{id}", s.updateEvent)
 	mux.HandleFunc("DELETE /api/v1/events/{id}", s.deleteEvent)
+	mux.HandleFunc("GET /api/v1/stream", s.stream)
 	return localOnly(mux)
 }
 
