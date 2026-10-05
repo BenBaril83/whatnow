@@ -156,6 +156,12 @@ Style can change how the assistant sounds. It cannot change what the assistant d
 annotations such as "too big for this gap," "blocking a must," and "pushed 4 times." The main model
 assigns tiers and writes a rationale for each entry.
 
+- Free time runs from now to the end-of-day setting. An event without an end counts as 30 minutes.
+- "Too big" means an M task with no free gap of an hour, or an L task with none of three hours. It
+  is never added once no free time is left.
+- A push sets `not_before`. Push counts count pushes only; an ordinary edit to `not_before` isn't one.
+- A plan may leave eligible tasks out. They wait in the unplanned tray along with new ones.
+
 Blocked tasks can appear in tiers, shown with a blocker marker. A blocked must is still a must, and
 it raises the urgency of whatever blocks it.
 
@@ -163,7 +169,8 @@ A task is **eligible** if it is open, not soft-deleted, and has no `not_before` 
 Validation rejects a plan that references any ineligible or unknown task. Plans have tiers, not
 times, so there is nothing for them to collide with.
 
-On rejection, the planner retries once with the errors attached. If the retry also fails, it builds
+On rejection, the planner retries once with the errors attached. Only a rejected reply is retried:
+a provider error, or a model call that runs past a minute, goes straight to the fallback. If the retry also fails, it builds
 a **fallback plan** in code. This is the one deliberate exception to "the LLM makes every judgment,"
 and it exists so a bad model day still produces a valid plan:
 - due today or overdue: must
@@ -177,7 +184,8 @@ and it exists so a bad model day still produces a valid plan:
 - adding or removing a blocker that involves a must, or
 - the agent calling `replan(reason)`.
 
-Completing a must just marks it done. Every other new task waits in the unplanned tray until the
+Starting a day can't be undone, since its plans would be orphaned. A pace change can, and undoing
+it replans. Completing a must just marks it done. Every other new task waits in the unplanned tray until the
 next replan. The agent can suggest slotting one in.
 
 ### What now?
