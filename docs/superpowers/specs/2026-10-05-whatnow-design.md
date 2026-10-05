@@ -206,6 +206,19 @@ for this answer only. Its optional reason is appended to the task's `feeling` no
 
 If wrap-up is skipped, the next good morning reconciles and writes the summary instead.
 
+- Unfinished means in the day's latest plan, open, not deleted, and not pushed past today.
+  Unplanned tasks aren't reviewed; they stay in the tray.
+- The main model prefills roll over / push / drop. Anything it leaves out rolls over.
+- The user's choices apply as one batch, so one undo takes them all back. A push without a date
+  goes to tomorrow. A choice for a task that's no longer unfinished (finished in another tab, say)
+  rejects the whole wrap-up before anything is written.
+- Wrapping, like starting, isn't undoable.
+- The summary is plain text from the light model. It's written even if the user leaves mid-call. If
+  it fails, the day still wraps, with an empty summary.
+- A wrapped day is never replanned.
+- The next plan's context carries the last day's summary and note. A start that's retried after
+  the last day was already closed ignores the triage it carries.
+
 ### Nudges
 
 These run client-side, once the user grants notification permission. The tab receives event changes
