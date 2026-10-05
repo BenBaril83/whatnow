@@ -83,10 +83,14 @@ func foldPoint(msgs []domain.Message) int {
 }
 
 // toLLM converts stored messages, merging neighbors from the same sender: a failed reply leaves
-// two user messages in a row.
+// two user messages in a row. A reply with no text is left out, since both providers reject an
+// empty message.
 func toLLM(msgs []domain.Message) []llm.Message {
 	var out []llm.Message
 	for _, m := range msgs {
+		if m.Text == "" {
+			continue
+		}
 		role := llm.RoleUser
 		if m.Role == domain.RoleAssistant {
 			role = llm.RoleAssistant

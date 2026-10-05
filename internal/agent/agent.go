@@ -92,13 +92,17 @@ func (a *Agent) Send(ctx context.Context, text string) (domain.Message, error) {
 			log.Printf("chat: %v", err)
 		}
 	}
-	reply.Tools, reply.BatchID = t.uses, t.batchID
+	reply.Tools = t.uses
 	if t.batchID != 0 {
 		acts, err := a.svc.BatchActivity(ctx, t.batchID)
 		if err != nil {
 			return domain.Message{}, err
 		}
-		a.hub.PublishBatch(t.batchID, acts)
+		// The batch starts before its first write runs, so writes that all failed leave it empty.
+		if len(acts) > 0 {
+			reply.BatchID = t.batchID
+			a.hub.PublishBatch(t.batchID, acts)
+		}
 	}
 	reply, err = a.svc.AddMessage(ctx, reply)
 	if err != nil {

@@ -217,3 +217,31 @@ func TestMessagesAreChecked(t *testing.T) {
 		t.Errorf("stored %d messages", len(history))
 	}
 }
+
+func TestAReplyWithNoTextIsNotReplayed(t *testing.T) {
+	f := newFixture(t, calls(call("c1", "list_tasks", map[string]any{"status": "open"})), text(""), text("Hi again."))
+	f.send(t, "look around")
+
+	f.send(t, "hello?")
+
+	for i, m := range f.model.chats[2].Messages {
+		if m.Text == "" && len(m.ToolCalls) == 0 && len(m.ToolResults) == 0 {
+			t.Errorf("message %d is empty: %+v", i, m)
+		}
+	}
+}
+
+func TestAReplyWhoseWritesAllFailedHasNoBatch(t *testing.T) {
+	f := newFixture(t, calls(call("c1", "complete_task", map[string]any{"task_id": 99})), text("Couldn't find it."))
+	msgs, unsub := f.hub.Subscribe("batch.applied")
+	defer unsub()
+
+	reply := f.send(t, "finish #99")
+
+	if reply.BatchID != 0 {
+		t.Errorf("batch = %d, want 0", reply.BatchID)
+	}
+	if got := drain(msgs); len(got) != 0 {
+		t.Errorf("published %d empty batches", len(got))
+	}
+}
