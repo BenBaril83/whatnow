@@ -5,7 +5,6 @@ import (
 
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/service"
-	"github.com/jameynakama/whatnow/internal/stream"
 )
 
 func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +129,6 @@ func (s *Server) undo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	s.Hub.Publish(stream.Message{Type: "batch.undone", Data: map[string]int64{"batch_id": batch}})
+	s.Hub.PublishUndone(batch)
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -64,3 +64,13 @@ type BatchApplied struct {
 func (h *Hub) PublishBatch(batch int64, activity []domain.Activity) {
 	h.Publish(Message{Type: "batch.applied", Data: BatchApplied{BatchID: batch, Activity: activity}})
 }
+
+// BatchUndone is the batch.undone payload.
+type BatchUndone struct {
+	BatchID int64 `json:"batch_id"`
+}
+
+// PublishUndone announces that a batch was undone.
+func (h *Hub) PublishUndone(batch int64) {
+	h.Publish(Message{Type: "batch.undone", Data: BatchUndone{BatchID: batch}})
+}

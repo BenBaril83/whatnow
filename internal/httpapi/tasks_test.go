@@ -87,8 +87,8 @@ func TestEditStatusDeleteAndUndo(t *testing.T) {
 	defer unsub()
 	rec := api.do(http.MethodPost, fmt.Sprintf("/api/v1/batches/%d/undo", done.BatchID), nil)
 	wantStatus(t, rec, http.StatusNoContent)
-	if m := <-msgs; m.Type != "batch.undone" {
-		t.Errorf("published %q, want batch.undone", m.Type)
+	if m := <-msgs; m.Type != "batch.undone" || m.Data != (stream.BatchUndone{BatchID: done.BatchID}) {
+		t.Errorf("published %+v, want batch.undone for batch %d", m, done.BatchID)
 	}
 
 	// The later status batch is undone, so nothing blocks undoing the edit now.
