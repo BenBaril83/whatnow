@@ -55,6 +55,7 @@ func TestValidate(t *testing.T) {
 		"base URL without scheme":       func(s *settings.Settings) { s.OpenAI.BaseURL = "localhost:11434" },
 		"style over 500 characters":     func(s *settings.Settings) { s.Style = strings.Repeat("é", 501) },
 		"about me over 1000 characters": func(s *settings.Settings) { s.AboutMe = strings.Repeat("🧠", 1001) },
+		"end of day not HH:MM":          func(s *settings.Settings) { s.EndOfDay = "5pm" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -134,5 +135,25 @@ func TestKeychainFailureFallsBackToEnv(t *testing.T) {
 	key, source, err := settings.Key(settings.Anthropic)
 	if err != nil || key != "from-env" || source != settings.KeyFromEnv {
 		t.Errorf("got %q %q %v, want the env key", key, source, err)
+	}
+}
+
+func TestSettingsSavedBeforeEndOfDayExistedGetTheDefault(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.Open(filepath.Join(t.TempDir(), "s.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`INSERT INTO settings (id, body) VALUES (1, '{"provider":"anthropic","style":"terse"}')`); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := settings.Load(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.EndOfDay != "17:30" || got.Style != "terse" {
+		t.Errorf("loaded %+v", got)
 	}
 }

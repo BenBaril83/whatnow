@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 	"unicode/utf8"
 )
 
@@ -38,6 +39,8 @@ type Settings struct {
 	OpenAI    ProviderConfig `json:"openai"`
 	Style     string         `json:"style"`
 	AboutMe   string         `json:"about_me"`
+	// EndOfDay is when the working day ends, as local HH:MM. Free time is counted up to it.
+	EndOfDay string `json:"end_of_day"`
 }
 
 const (
@@ -48,7 +51,10 @@ const (
 // Defaults has Claude models filled in. OpenAI-compatible models are left for the user, since
 // they depend on the server.
 func Defaults() Settings {
-	return Settings{Anthropic: ProviderConfig{MainModel: "claude-sonnet-5-5", LightModel: "claude-haiku-4-5"}}
+	return Settings{
+		Anthropic: ProviderConfig{MainModel: "claude-sonnet-5-5", LightModel: "claude-haiku-4-5"},
+		EndOfDay:  "17:30",
+	}
 }
 
 // Config returns the active provider's model settings.
@@ -83,8 +89,14 @@ func (s Settings) Validate() error {
 	if n := utf8.RuneCountInString(s.AboutMe); n > MaxAboutMeRunes {
 		return fmt.Errorf("%w: about me is %d characters, the limit is %d", ErrInvalid, n, MaxAboutMeRunes)
 	}
+	if _, err := time.Parse(ClockLayout, s.EndOfDay); err != nil {
+		return fmt.Errorf("%w: end of day %q must be HH:MM", ErrInvalid, s.EndOfDay)
+	}
 	return nil
 }
+
+// ClockLayout is the form of a local time of day, such as EndOfDay.
+const ClockLayout = "15:04"
 
 // Load returns the saved settings, or the defaults if nothing has been saved.
 func Load(ctx context.Context, db *sql.DB) (Settings, error) {
