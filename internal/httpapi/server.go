@@ -63,6 +63,11 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("PUT /api/v1/events/{id}", s.updateEvent)
 	mux.HandleFunc("DELETE /api/v1/events/{id}", s.deleteEvent)
 	mux.HandleFunc("GET /api/v1/stream", s.stream)
+	mux.HandleFunc("GET /api/v1/settings", s.getSettings)
+	mux.HandleFunc("PUT /api/v1/settings", s.putSettings)
+	mux.HandleFunc("PUT /api/v1/settings/keys/{provider}", s.putKey)
+	mux.HandleFunc("DELETE /api/v1/settings/keys/{provider}", s.deleteKey)
+	mux.HandleFunc("POST /api/v1/settings/test", s.testConnection)
 	return localOnly(mux)
 }
 
