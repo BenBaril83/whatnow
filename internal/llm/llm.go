@@ -34,4 +34,7 @@ type Request struct {
 	Schema     map[string]any
 	SchemaName string
 	MaxTokens  int64
+	// Fallback asks the provider to re-serve a refused request on another model. Only the Claude
+	// API supports it, on its main-tier models; other providers ignore it.
+	Fallback bool
 }

@@ -18,6 +18,7 @@ type fakeAPI struct {
 	status int
 	reply  string
 	path   string
+	header http.Header
 	body   map[string]any
 }
 
@@ -25,6 +26,7 @@ func (f *fakeAPI) start(t *testing.T) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.path = r.URL.Path
+		f.header = r.Header
 		raw, _ := io.ReadAll(r.Body)
 		if err := json.Unmarshal(raw, &f.body); err != nil {
 			t.Errorf("request body is not JSON: %s", raw)
@@ -93,6 +95,28 @@ func TestAnthropicRequestAndReply(t *testing.T) {
 	format := api.body["output_config"].(map[string]any)["format"].(map[string]any)
 	if format["type"] != "json_schema" || format["schema"] == nil {
 		t.Errorf("output_config.format = %v", format)
+	}
+}
+
+func TestAnthropicFallbackOptIn(t *testing.T) {
+	cases := []struct {
+		name     string
+		fallback bool
+	}{{"off", false}, {"on", true}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			api := &fakeAPI{status: 200, reply: anthropicReply("end_turn", `{"ok":true}`)}
+			req := request()
+			req.Fallback = c.fallback
+			if _, err := llm.NewAnthropic("sk-test", api.start(t)).Complete(context.Background(), req); err != nil {
+				t.Fatal(err)
+			}
+			beta := strings.Contains(api.header.Get("anthropic-beta"), "server-side-fallback-2026-07-01")
+			fallbacks, sent := api.body["fallbacks"]
+			if beta != c.fallback || sent != c.fallback || (sent && fallbacks != "default") {
+				t.Errorf("beta header %v, fallbacks %v (sent %v); want both only when opted in", beta, fallbacks, sent)
+			}
+		})
 	}
 }
 
