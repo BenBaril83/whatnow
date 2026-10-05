@@ -122,7 +122,8 @@ Style can change how the assistant sounds. It cannot change what the assistant d
 
 ### Capture and cleanup
 
-1. Text from the capture box is saved at once as a raw task. SSE sends `task.created`.
+1. Text from the capture box is saved at once as a raw task. Like every write, it lands in a batch,
+   and SSE sends `batch.applied` with that batch's activity.
 2. Cleanup runs in the background with the light model. From the text, it extracts tasks, events,
    blockers, refs, size, energy, and feeling, and it splits one input into several items when it
    should. For example, "do FLEX1-666 today, it feels difficult and needs pubsub research first;
