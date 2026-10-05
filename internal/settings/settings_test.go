@@ -126,3 +126,13 @@ func TestNewClientNeedsProviderAndKey(t *testing.T) {
 		t.Errorf("configured: client %v, cfg %+v, err %v", client, cfg, err)
 	}
 }
+
+func TestKeychainFailureFallsBackToEnv(t *testing.T) {
+	keyring.MockInitWithError(errors.New("no secret service"))
+	t.Setenv("ANTHROPIC_API_KEY", "from-env")
+
+	key, source, err := settings.Key(settings.Anthropic)
+	if err != nil || key != "from-env" || source != settings.KeyFromEnv {
+		t.Errorf("got %q %q %v, want the env key", key, source, err)
+	}
+}

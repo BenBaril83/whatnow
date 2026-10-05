@@ -39,7 +39,7 @@ type Runner struct {
 	client ClientFunc
 	loc    *time.Location
 	now    func() time.Time
-	queue  chan int64
+	queue  chan domain.Task
 }
 
 const (
@@ -50,16 +50,16 @@ const (
 )
 
 func New(svc *service.Service, hub *stream.Hub, client ClientFunc, loc *time.Location, now func() time.Time) *Runner {
-	return &Runner{svc: svc, hub: hub, client: client, loc: loc, now: now, queue: make(chan int64, queueSize)}
+	return &Runner{svc: svc, hub: hub, client: client, loc: loc, now: now, queue: make(chan domain.Task, queueSize)}
 }
 
-// Enqueue schedules cleanup for a captured task. It never blocks: when the queue is full the card
-// stays raw, which is always a valid state.
-func (r *Runner) Enqueue(taskID int64) {
+// Enqueue schedules cleanup for a task as it was captured. It never blocks: when the queue is full
+// the card stays raw, which is always a valid state.
+func (r *Runner) Enqueue(captured domain.Task) {
 	select {
-	case r.queue <- taskID:
+	case r.queue <- captured:
 	default:
-		log.Printf("cleanup queue full, task %d stays raw", taskID)
+		log.Printf("cleanup queue full, task %d stays raw", captured.ID)
 	}
 }
 
@@ -70,29 +70,29 @@ func (r *Runner) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case id := <-r.queue:
-			_, err := r.Clean(ctx, id)
+		case captured := <-r.queue:
+			_, err := r.Clean(ctx, captured)
 			if err == nil || errors.Is(err, settings.ErrNotConfigured) || errors.Is(err, ErrStale) {
 				continue
 			}
-			log.Printf("cleanup task %d: %v", id, err)
-			r.hub.Publish(stream.Message{Type: "cleanup.failed", Data: Failed{TaskID: id, Error: err.Error()}})
+			log.Printf("cleanup task %d: %v", captured.ID, err)
+			r.hub.Publish(stream.Message{Type: "cleanup.failed", Data: Failed{TaskID: captured.ID, Error: err.Error()}})
 		}
 	}
 }
 
-// Clean runs cleanup on one task and returns the batch it applied. If any write fails, the batch
-// is undone and the card is left exactly as it was.
-func (r *Runner) Clean(ctx context.Context, taskID int64) (int64, error) {
-	task, err := r.svc.GetTask(ctx, taskID)
-	if err != nil {
+// Clean runs cleanup on a task as it was captured and returns the batch it applied. If the card
+// has changed since capture, it returns ErrStale and leaves the card alone. If any write fails,
+// the batch is undone and the card is left exactly as it was.
+func (r *Runner) Clean(ctx context.Context, captured domain.Task) (int64, error) {
+	if err := r.unchanged(ctx, captured); err != nil {
 		return 0, err
 	}
 	client, cfg, s, err := r.client(ctx)
 	if err != nil {
 		return 0, err
 	}
-	situation, err := r.situation(ctx, taskID)
+	situation, err := r.situation(ctx, captured.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -100,7 +100,7 @@ func (r *Runner) Clean(ctx context.Context, taskID int64) (int64, error) {
 	reply, err := client.Complete(ctx, llm.Request{
 		Model:      cfg.LightModel,
 		System:     prompt.System(instructions, "", s.AboutMe, situation),
-		User:       task.RawText,
+		User:       captured.RawText,
 		Schema:     schema,
 		SchemaName: "cleanup",
 		MaxTokens:  maxTokens,
@@ -113,15 +113,20 @@ func (r *Runner) Clean(ctx context.Context, taskID int64) (int64, error) {
 		return 0, fmt.Errorf("parse reply: %w", err)
 	}
 
-	// Compare the whole card, not updated_at: two writes can land on the same clock tick.
-	current, err := r.svc.GetTask(ctx, taskID)
-	if errors.Is(err, service.ErrNotFound) || (err == nil && !reflect.DeepEqual(current, task)) {
-		return 0, ErrStale
-	}
-	if err != nil {
+	if err := r.unchanged(ctx, captured); err != nil {
 		return 0, err
 	}
-	return r.apply(ctx, task, res)
+	return r.apply(ctx, captured, res)
+}
+
+// unchanged returns ErrStale if the card was edited or deleted since capture. It compares the
+// whole card, not updated_at, because two writes can land on the same clock tick.
+func (r *Runner) unchanged(ctx context.Context, captured domain.Task) error {
+	current, err := r.svc.GetTask(ctx, captured.ID)
+	if errors.Is(err, service.ErrNotFound) || (err == nil && !reflect.DeepEqual(current, captured)) {
+		return ErrStale
+	}
+	return err
 }
 
 // situation tells the model the date and time and which open tasks already exist.
@@ -167,6 +172,9 @@ func (r *Runner) apply(ctx context.Context, task domain.Task, res result) (int64
 }
 
 func (r *Runner) write(ctx context.Context, batch int64, task domain.Task, res result) error {
+	if !res.Original.Keep && len(res.Events) == 0 {
+		return errors.New("reply would delete the note without turning it into events")
+	}
 	ids := map[string]int64{}
 	if res.Original.Keep {
 		if _, err := r.svc.UpdateTask(ctx, batch, task.ID, res.Original.fields()); err != nil {

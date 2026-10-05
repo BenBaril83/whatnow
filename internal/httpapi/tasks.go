@@ -26,7 +26,7 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	s.write(w, r, http.StatusCreated, func(batch int64) (any, error) {
 		task, err := s.Service.CreateTask(r.Context(), batch, f)
 		if err == nil && task.RawText != "" {
-			s.OnCapture(task.ID)
+			s.OnCapture(task)
 		}
 		return task, err
 	})

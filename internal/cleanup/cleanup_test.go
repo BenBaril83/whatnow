@@ -111,7 +111,7 @@ func TestSplitsANoteIntoTasksWithABlocker(t *testing.T) {
 	defer unsub()
 	ctx := context.Background()
 
-	batch, err := f.runner.Clean(ctx, captured.ID)
+	batch, err := f.runner.Clean(ctx, captured)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestEventsOnlyNoteBecomesEventsInLocalTime(t *testing.T) {
 	captured := f.capture(t, "standup at 10, 1:1 at 2")
 	ctx := context.Background()
 
-	if _, err := f.runner.Clean(ctx, captured.ID); err != nil {
+	if _, err := f.runner.Clean(ctx, captured); err != nil {
 		t.Fatal(err)
 	}
 
@@ -238,7 +238,7 @@ func TestABadReplyChangesNothing(t *testing.T) {
 			captured := f.capture(t, "do it, prep first")
 			ctx := context.Background()
 
-			if _, err := f.runner.Clean(ctx, captured.ID); err == nil {
+			if _, err := f.runner.Clean(ctx, captured); err == nil {
 				t.Fatal("expected an error")
 			}
 
@@ -267,7 +267,7 @@ func TestLeavesACardTheUserEditedMeanwhile(t *testing.T) {
 	})
 	captured = f.capture(t, flexNote)
 
-	_, err := f.runner.Clean(context.Background(), captured.ID)
+	_, err := f.runner.Clean(context.Background(), captured)
 	if !errors.Is(err, cleanup.ErrStale) {
 		t.Fatalf("err = %v, want ErrStale", err)
 	}
@@ -296,7 +296,7 @@ func TestRunReportsFailuresButNotMissingSetup(t *testing.T) {
 			defer cancel()
 			go f.runner.Run(ctx)
 
-			f.runner.Enqueue(captured.ID)
+			f.runner.Enqueue(captured)
 
 			select {
 			case m := <-msgs:
@@ -314,5 +314,41 @@ func TestRunReportsFailuresButNotMissingSetup(t *testing.T) {
 				t.Errorf("the raw card should be untouched: %+v", tasks)
 			}
 		})
+	}
+}
+
+func TestLeavesACardEditedWhileQueued(t *testing.T) {
+	f := newFixture(t, reply(t, flexReply))
+	captured := f.capture(t, flexNote)
+	ctx := context.Background()
+	// The user retitles the card before cleanup gets to it.
+	batch, _ := f.svc.NewBatch(ctx, domain.ActorUser)
+	if _, err := f.svc.UpdateTask(ctx, batch, captured.ID, service.TaskFields{Title: "my own title"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := f.runner.Clean(ctx, captured); !errors.Is(err, cleanup.ErrStale) {
+		t.Fatalf("err = %v, want ErrStale", err)
+	}
+	tasks, _ := f.svc.ListTasks(ctx)
+	if len(tasks) != 1 || tasks[0].Title != "my own title" {
+		t.Errorf("cleanup overwrote an edit made while queued: %+v", tasks)
+	}
+}
+
+func TestRefusesToDeleteANoteThatHasNoEvents(t *testing.T) {
+	f := newFixture(t, reply(t, map[string]any{
+		"original":  task(map[string]any{"keep": false}),
+		"new_tasks": []any{},
+		"events":    []any{},
+		"blockers":  []any{},
+	}))
+	captured := f.capture(t, "water the plants")
+
+	if _, err := f.runner.Clean(context.Background(), captured); err == nil {
+		t.Fatal("expected an error")
+	}
+	if tasks, _ := f.svc.ListTasks(context.Background()); len(tasks) != 1 {
+		t.Errorf("the note vanished: %+v", tasks)
 	}
 }

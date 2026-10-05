@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -36,7 +37,8 @@ func Key(p Provider) (string, KeySource, error) {
 		return key, KeyFromKeychain, nil
 	}
 	if !errors.Is(err, keyring.ErrNotFound) {
-		return "", "", fmt.Errorf("read %s key from keychain: %w", p, err)
+		// An unavailable keychain (no Secret Service, a denied prompt) shouldn't hide an env key.
+		log.Printf("read %s key from keychain: %v", p, err)
 	}
 	if key := os.Getenv(envVars[p]); key != "" {
 		return key, KeyFromEnv, nil

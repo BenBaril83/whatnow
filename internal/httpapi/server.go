@@ -30,8 +30,8 @@ type Deps struct {
 	DB *sql.DB
 	// Loc is the user's time zone, which turns a date into a day of events.
 	Loc *time.Location
-	// OnCapture is called with the ID of each task created from raw text.
-	OnCapture func(taskID int64)
+	// OnCapture is called with each task created from raw text, as it was captured.
+	OnCapture func(task domain.Task)
 	// NewClient builds an LLM client from settings, for the connection test.
 	NewClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)
 }

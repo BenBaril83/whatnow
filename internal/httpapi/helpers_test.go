@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/service"
@@ -44,7 +45,7 @@ func newAPI(t *testing.T) *testAPI {
 		Hub:       api.hub,
 		DB:        db,
 		Loc:       testLoc,
-		OnCapture: func(id int64) { api.captured = append(api.captured, id) },
+		OnCapture: func(task domain.Task) { api.captured = append(api.captured, task.ID) },
 		NewClient: func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 			if api.model == nil {
 				return nil, settings.ProviderConfig{}, settings.ErrNotConfigured
