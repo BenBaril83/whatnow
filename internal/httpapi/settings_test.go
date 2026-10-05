@@ -18,6 +18,10 @@ type modelFunc func(llm.Request) (string, error)
 
 func (f modelFunc) Complete(_ context.Context, req llm.Request) (string, error) { return f(req) }
 
+func (modelFunc) Chat(context.Context, llm.ChatRequest, func(string)) (llm.Reply, error) {
+	panic("modelFunc doesn't chat; use chatModel")
+}
+
 func TestSettingsRoundTripWithoutExposingKeys(t *testing.T) {
 	keyring.MockInit()
 	t.Setenv("ANTHROPIC_API_KEY", "")

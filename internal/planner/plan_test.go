@@ -203,7 +203,7 @@ func TestAnEmptyDayStillGetsAPlan(t *testing.T) {
 }
 
 // hang is a model that never answers until its context ends.
-type hang struct{}
+type hang struct{ noChat }
 
 func (hang) Complete(ctx context.Context, _ llm.Request) (string, error) {
 	<-ctx.Done()

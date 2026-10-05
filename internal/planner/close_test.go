@@ -249,7 +249,10 @@ func TestStaleTriageIsRejected(t *testing.T) {
 
 // leaving is a model that sees the user leave mid-call: it cancels the request's context, then
 // answers only if its own context outlived that.
-type leaving struct{ cancel context.CancelFunc }
+type leaving struct {
+	noChat
+	cancel context.CancelFunc
+}
 
 func (l leaving) Complete(ctx context.Context, _ llm.Request) (string, error) {
 	l.cancel()

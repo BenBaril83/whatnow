@@ -26,6 +26,10 @@ type replyFunc func(req llm.Request) (string, error)
 
 func (f replyFunc) Complete(_ context.Context, req llm.Request) (string, error) { return f(req) }
 
+func (replyFunc) Chat(context.Context, llm.ChatRequest, func(string)) (llm.Reply, error) {
+	panic("cleanup never chats")
+}
+
 type fixture struct {
 	svc    *service.Service
 	hub    *stream.Hub

@@ -25,9 +25,17 @@ const today = domain.Date("2026-10-05")
 // script is a fake model. It answers each call with the next reply in order and records the
 // requests. A reply that is an error is returned as one.
 type script struct {
+	noChat
 	t       *testing.T
 	replies []any
 	sent    []llm.Request
+}
+
+// noChat completes the llm.Client of a fake that the planner only ever calls with Complete.
+type noChat struct{}
+
+func (noChat) Chat(context.Context, llm.ChatRequest, func(string)) (llm.Reply, error) {
+	panic("the planner never chats")
 }
 
 func (s *script) Complete(_ context.Context, req llm.Request) (string, error) {
