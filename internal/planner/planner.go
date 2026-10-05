@@ -53,6 +53,8 @@ func New(svc *service.Service, hub *stream.Hub, client ClientFunc, loc *time.Loc
 // state is what one call sees. day and plan are nil when today hasn't started or has no plan yet.
 // model is nil when no client could be built, and modelErr says why.
 type state struct {
+	// last is the most recent day before today, if any.
+	last     *domain.Day
 	day      *domain.Day
 	plan     *domain.Plan
 	facts    facts.Facts
@@ -82,6 +84,11 @@ func (p *Planner) gather(ctx context.Context, withModel bool) (state, error) {
 			return st, err
 		}
 	case !errors.Is(err, service.ErrNotFound):
+		return st, err
+	}
+	if last, err := p.svc.LastDayBefore(ctx, today); err == nil {
+		st.last = &last
+	} else if !errors.Is(err, service.ErrNotFound) {
 		return st, err
 	}
 
@@ -126,6 +133,16 @@ func (p *Planner) gather(ctx context.Context, withModel bool) (state, error) {
 // context renders the live context layer: pace and mood, the facts, and the current plan.
 func (st state) context() string {
 	var b strings.Builder
+	if st.last != nil && (st.last.Summary != "" || st.last.TomorrowNote != "") {
+		fmt.Fprintf(&b, "Last day they used this, %s:", st.last.Date)
+		if st.last.Summary != "" {
+			fmt.Fprintf(&b, " %s", st.last.Summary)
+		}
+		if st.last.TomorrowNote != "" {
+			fmt.Fprintf(&b, "\nThe note they left for next time: %q", st.last.TomorrowNote)
+		}
+		b.WriteString("\n\n")
+	}
 	if st.day != nil {
 		fmt.Fprintf(&b, "Pace today: %d of 5, %q.\n", st.day.Pace, st.day.Pace.Label())
 		if st.day.MoodNote != "" {

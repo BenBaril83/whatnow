@@ -51,8 +51,8 @@ func (p *Planner) Run(ctx context.Context, msgs <-chan stream.Message) {
 	}
 }
 
-// reasons says why one hub message calls for a replan. Only a day that already has a plan is
-// replanned; before that, the morning makes the first one.
+// reasons says why one hub message calls for a replan. Only a day that has a plan and isn't
+// wrapped up is replanned; before that, the morning makes the first plan.
 func (p *Planner) reasons(ctx context.Context, m stream.Message) (domain.Trigger, []string) {
 	var acts []domain.Activity
 	undone := false
@@ -71,7 +71,7 @@ func (p *Planner) reasons(ctx context.Context, m stream.Message) (domain.Trigger
 	}
 	today := facts.Today(p.now(), p.loc)
 	day, err := p.svc.GetDay(ctx, today)
-	if err != nil {
+	if err != nil || day.WrappedAt != nil {
 		return "", nil
 	}
 	plan, err := p.svc.LatestPlan(ctx, day.ID)

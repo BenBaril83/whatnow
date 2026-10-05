@@ -31,7 +31,7 @@ func (s *Server) startDay(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	day, plan, err := s.Planner.StartDay(r.Context(), body.Pace, body.MoodNote)
+	day, plan, err := s.Planner.StartDay(r.Context(), body.Pace, body.MoodNote, nil)
 	if err != nil {
 		writeError(w, err)
 		return

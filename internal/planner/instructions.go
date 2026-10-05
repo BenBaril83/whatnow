@@ -24,6 +24,8 @@ They've asked "what now?". Pick the one task they should start right now from th
 - Unplanned tasks can be picked too.
 - reason: one or two sentences, to them, on why this task now. Be concrete and kind.`
 
+const summaryInstructions = `Summarize one day of someone's work, for your own future reference when you help them plan later days. They have ADHD, and you're their planning assistant. Write two to four plain sentences: what got done, what slipped and what happened to it, and how they seemed to be doing. Be factual and kind. No headings, no lists, no advice.`
+
 const reviewInstructions = persona + `
 
 They're wrapping up a day, and some planned tasks didn't get done. For each unfinished task, suggest one action. Reply only with JSON that matches the schema. They decide; you're prefilling the form.

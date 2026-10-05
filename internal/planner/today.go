@@ -42,10 +42,21 @@ func (p *Planner) Today(ctx context.Context) (Today, error) {
 	return t, nil
 }
 
-// StartDay starts today at a pace and makes its first plan. If today started but its first plan
-// was never saved (the request was cancelled, say), starting again makes that plan and keeps the
-// pace already chosen. A day that has a plan can't start again.
-func (p *Planner) StartDay(ctx context.Context, pace domain.Pace, moodNote string) (domain.Day, domain.Plan, error) {
+// StartDay starts today at a pace and makes its first plan. First, if the last day was never
+// wrapped up, it closes that day with the triage from the morning's reconcile; with no such day,
+// the triage is ignored. If today started but its first plan was never saved (the request was
+// cancelled, say), starting again makes that plan and keeps the pace already chosen. A day that
+// has a plan can't start again.
+func (p *Planner) StartDay(ctx context.Context, pace domain.Pace, moodNote string, triage []Triage) (domain.Day, domain.Plan, error) {
+	last, err := p.unwrapped(ctx)
+	if err != nil {
+		return domain.Day{}, domain.Plan{}, err
+	}
+	if last != nil {
+		if _, _, err := p.Close(ctx, *last, triage, ""); err != nil {
+			return domain.Day{}, domain.Plan{}, err
+		}
+	}
 	day, err := p.svc.StartDay(ctx, p.Date(), pace, moodNote)
 	if started := err; errors.Is(started, service.ErrConflict) {
 		if day, err = p.svc.GetDay(ctx, p.Date()); err == nil {

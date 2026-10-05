@@ -233,14 +233,14 @@ func TestStartingAgainMakesTheMissingFirstPlan(t *testing.T) {
 	// The day started, but its first plan was never saved (say the request was cancelled).
 	f.start(t, 2, "tired")
 
-	day, plan, err := f.planner.StartDay(ctx, 4, "ignored")
+	day, plan, err := f.planner.StartDay(ctx, 4, "ignored", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if day.Pace != 2 || plan.Version != 1 || plan.Trigger != domain.TriggerMorning {
 		t.Errorf("day %+v, plan %+v", day, plan)
 	}
-	if _, _, err := f.planner.StartDay(ctx, 3, ""); !errors.Is(err, service.ErrConflict) {
+	if _, _, err := f.planner.StartDay(ctx, 3, "", nil); !errors.Is(err, service.ErrConflict) {
 		t.Errorf("starting a planned day: err = %v, want ErrConflict", err)
 	}
 }
