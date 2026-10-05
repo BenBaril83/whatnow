@@ -13,22 +13,31 @@ type Message struct {
 }
 
 type Hub struct {
-	mu   sync.Mutex
-	subs map[chan Message]struct{}
+	mu sync.Mutex
+	// subs maps each subscriber to the message types it wants, or nil for every type.
+	subs map[chan Message]map[string]bool
 }
 
 func NewHub() *Hub {
-	return &Hub{subs: map[chan Message]struct{}{}}
+	return &Hub{subs: map[chan Message]map[string]bool{}}
 }
 
 const buffer = 64
 
 // Subscribe returns a channel of messages and a function that ends the subscription and closes
-// the channel. The function is safe to call more than once.
-func (h *Hub) Subscribe() (<-chan Message, func()) {
+// the channel. The function is safe to call more than once. Naming types limits the channel to
+// them, so a busy stream of other messages can't crowd them out of its buffer.
+func (h *Hub) Subscribe(types ...string) (<-chan Message, func()) {
 	ch := make(chan Message, buffer)
+	var wanted map[string]bool
+	if len(types) > 0 {
+		wanted = map[string]bool{}
+		for _, t := range types {
+			wanted[t] = true
+		}
+	}
 	h.mu.Lock()
-	h.subs[ch] = struct{}{}
+	h.subs[ch] = wanted
 	h.mu.Unlock()
 	var once sync.Once
 	return ch, func() {
@@ -46,7 +55,10 @@ func (h *Hub) Subscribe() (<-chan Message, func()) {
 func (h *Hub) Publish(m Message) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for ch := range h.subs {
+	for ch, wanted := range h.subs {
+		if wanted != nil && !wanted[m.Type] {
+			continue
+		}
 		select {
 		case ch <- m:
 		default:

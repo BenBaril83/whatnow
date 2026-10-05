@@ -130,7 +130,7 @@ func (p *Planner) gather(ctx context.Context, withModel bool) (state, error) {
 	return st, nil
 }
 
-// context renders the live context layer: pace and mood, the facts, and the current plan.
+// context renders the live context layer: the last day, then the live state.
 func (st state) context() string {
 	var b strings.Builder
 	if st.last != nil && (st.last.Summary != "" || st.last.TomorrowNote != "") {
@@ -143,6 +143,13 @@ func (st state) context() string {
 		}
 		b.WriteString("\n\n")
 	}
+	b.WriteString(st.live())
+	return b.String()
+}
+
+// live renders pace and mood, the facts, and the current plan.
+func (st state) live() string {
+	var b strings.Builder
 	if st.day != nil {
 		fmt.Fprintf(&b, "Pace today: %d of 5, %q.\n", st.day.Pace, st.day.Pace.Label())
 		if st.day.MoodNote != "" {
@@ -227,4 +234,23 @@ func fallbackNote(err error) string {
 	}
 	log.Printf("planner fell back: %v", err)
 	return "I couldn't think this through just now, so this is sorted by due date."
+}
+
+// Situation is what the chat agent needs for one turn: a model and the live context. Model is
+// nil when no client could be built, and ModelErr says why. Context leaves out the last day's
+// summary, since the agent renders a week of them.
+type Situation struct {
+	Model    llm.Client
+	Config   settings.ProviderConfig
+	Settings settings.Settings
+	ModelErr error
+	Context  string
+}
+
+func (p *Planner) Situation(ctx context.Context) (Situation, error) {
+	st, err := p.gather(ctx, true)
+	if err != nil {
+		return Situation{}, err
+	}
+	return Situation{Model: st.model, Config: st.cfg, Settings: st.settings, ModelErr: st.modelErr, Context: st.live()}, nil
 }

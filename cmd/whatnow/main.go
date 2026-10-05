@@ -61,7 +61,7 @@ func serve(addr, dbPath string) error {
 	runner := cleanup.New(svc, hub, active, time.Local, time.Now)
 	go runner.Run(context.Background())
 	plans := planner.New(svc, hub, active, time.Local, time.Now)
-	watched, _ := hub.Subscribe() // for the life of the process
+	watched, _ := hub.Subscribe("batch.applied", "batch.undone") // for the life of the process
 	go plans.Run(context.Background(), watched)
 
 	handler := httpapi.New(httpapi.Deps{

@@ -73,3 +73,23 @@ func TestPublishBatchSendsTypedPayload(t *testing.T) {
 		t.Errorf("message = %+v", m)
 	}
 }
+
+func TestSubscribeToSomeTypes(t *testing.T) {
+	hub := stream.NewHub()
+	batches, unsub := hub.Subscribe("batch.applied", "batch.undone")
+	defer unsub()
+
+	for range 100 { // more than the buffer holds
+		hub.Publish(stream.Message{Type: "chat.delta", Data: "hi"})
+	}
+	hub.PublishUndone(7)
+
+	select {
+	case m := <-batches:
+		if m.Type != "batch.undone" {
+			t.Errorf("got %q, want batch.undone", m.Type)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("the undo was crowded out")
+	}
+}
