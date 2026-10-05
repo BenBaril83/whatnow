@@ -187,3 +187,51 @@ func TestLastUndoableBatch(t *testing.T) {
 		t.Errorf("got batch %d, want %d", got, older)
 	}
 }
+
+func TestUndoRefusesToRecreateABlockerCycle(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	a, b := createTask(t, svc, "a"), createTask(t, svc, "b")
+	aWaitsOnB := domain.Blocker{TaskID: a.ID, BlockedByID: b.ID}
+	if err := svc.AddBlocker(ctx, newBatch(t, svc, domain.ActorUser), aWaitsOnB); err != nil {
+		t.Fatal(err)
+	}
+	removal := newBatch(t, svc, domain.ActorAgent)
+	if err := svc.RemoveBlocker(ctx, removal, aWaitsOnB); err != nil {
+		t.Fatal(err)
+	}
+	reversed := domain.Blocker{TaskID: b.ID, BlockedByID: a.ID}
+	if err := svc.AddBlocker(ctx, newBatch(t, svc, domain.ActorUser), reversed); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.Undo(ctx, removal); !errors.Is(err, service.ErrConflict) {
+		t.Fatalf("err = %v, want ErrConflict", err)
+	}
+	got, _ := svc.ListBlockers(ctx)
+	if diff := cmp.Diff([]domain.Blocker{reversed}, got); diff != "" {
+		t.Errorf("blockers (-want +got):\n%s", diff)
+	}
+}
+
+func TestUndoRefusesWhenAnOlderBatchWroteLater(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	task := createTask(t, svc, "orig")
+	// Two overlapping requests: batch IDs are handed out before either one writes.
+	first, second := newBatch(t, svc, domain.ActorUser), newBatch(t, svc, domain.ActorAgent)
+	if _, err := svc.UpdateTask(ctx, second, task.ID, service.TaskFields{Title: "from second"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.UpdateTask(ctx, first, task.ID, service.TaskFields{Title: "from first"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.Undo(ctx, second); !errors.Is(err, service.ErrConflict) {
+		t.Fatalf("err = %v, want ErrConflict", err)
+	}
+	got, _ := svc.GetTask(ctx, task.ID)
+	if got.Title != "from first" {
+		t.Errorf("title = %q, want the newer edit kept", got.Title)
+	}
+}
