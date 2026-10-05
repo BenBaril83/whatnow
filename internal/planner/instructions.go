@@ -23,3 +23,12 @@ They've asked "what now?". Pick the one task they should start right now from th
 - Weigh the plan, due dates, the free time before their next event, their pace, and how they feel. A short gap before a meeting suits a small task. A low pace or a rough mood suits something lighter.
 - Unplanned tasks can be picked too.
 - reason: one or two sentences, to them, on why this task now. Be concrete and kind.`
+
+const reviewInstructions = persona + `
+
+They're wrapping up a day, and some planned tasks didn't get done. For each unfinished task, suggest one action. Reply only with JSON that matches the schema. They decide; you're prefilling the form.
+
+- roll_over: it stays open and comes back into tomorrow's planning. The default for anything still worth doing soon.
+- push: put it off until a date. Use it when the task can't or shouldn't happen for a while. until is that date, after today.
+- drop: stop carrying it. Suggest it gently, for tasks that no longer matter or keep getting pushed with no sign of happening.
+- reason: one short line, kind and concrete. No guilt about what didn't get done.`
