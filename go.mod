@@ -6,6 +6,7 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.78.0
 	github.com/google/go-cmp v0.7.0
 	github.com/openai/openai-go/v3 v3.71.2
+	github.com/zalando/go-keyring v0.2.8
 	modernc.org/sqlite v1.60.1
 )
 
@@ -13,7 +14,9 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

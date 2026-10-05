@@ -56,7 +56,7 @@ Each provider has two model settings:
 | Setting | Used for | Default |
 |---|---|---|
 | Main | Agent, plans, "what now?" | `claude-sonnet-5-5` |
-| Light | Cleanup, day summaries | `claude-haiku-4-5-20251001` |
+| Light | Cleanup, day summaries | `claude-haiku-4-5` |
 
 Subscriptions (Claude Pro, Max, Team, or Enterprise, and ChatGPT plans) cannot power this app.
 Anthropic forbids using consumer OAuth credentials in third-party tools, and ChatGPT plans don't

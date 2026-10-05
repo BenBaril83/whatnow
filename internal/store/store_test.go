@@ -15,7 +15,7 @@ func TestOpenCreatesSchema(t *testing.T) {
 	}
 	defer db.Close()
 
-	for _, table := range []string{"tasks", "blockers", "events", "batches", "activity"} {
+	for _, table := range []string{"tasks", "blockers", "events", "batches", "activity", "settings"} {
 		var n int
 		err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&n)
 		if err != nil {
