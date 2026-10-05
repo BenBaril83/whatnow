@@ -1421,6 +1421,7 @@ Expected: every package `ok`.
 ```bash
 git add internal/stream internal/planner cmd/whatnow/main.go
 git commit -m "Let subscribers pick message types and expose the planner's situation"
+```
 
 ---
 
