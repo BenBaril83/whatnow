@@ -91,7 +91,7 @@ would violate those terms once the app is distributed to others.
   persona's voice.
 - **Activity:** `actor`, `action`, `entity`, before and after snapshots, and `batch_id`. Writes made
   in one agent turn or one cleanup run share a batch.
-- **Message:** chat history, tied to a day.
+- **Message:** chat history, keyed by date rather than day, so chat works before the day is started.
 - **DaySummary:** a short summary of each day, written by the light model.
 - **Settings:** provider, models, base URL, assistant style (500 characters at most), about me
   (1000 characters at most), nudge toggles, end-of-day time, and alert lead time. API keys go in
@@ -237,23 +237,42 @@ Both limits are acceptable for the MVP.
 ## Agent
 
 **Tools:**
-- Tasks: `list_tasks`, `create_task`, `update_task`, `complete_task`, `drop_task`
+- Tasks: `list_tasks`, `create_task`, `update_task`, `complete_task`, `drop_task`, `push_task`.
+  Putting a task off goes through `push_task`, never an edit to `not_before`, so push counts see it.
 - Blockers: `add_blocker`, `remove_blocker`
 - Events: `create_event`, `update_event`, `delete_event`
 - Planning: `replan(reason)`, `what_now`
 - Pace: `set_pace(level, note)`
-- Undo: `undo_last`, which reverts the most recent agent or cleanup batch. Undo buttons in the UI
-  carry their own batch ID.
+- Undo: `undo_last`, which reverts the most recent agent or cleanup batch, leaving out the current
+  reply's own batch: "undo that" means the last reply. Undo buttons in the UI carry their own batch
+  ID.
+
+Tool schemas are strict on both providers, with no nullable fields: an empty string means unset.
+The update tools take a list of `{field, value}` changes, and an empty value clears a field.
 
 **Context:** the prompt layers, day summaries from the last 7 days, today's full chat, and current
 facts. Facts are re-rendered every turn and never kept in the history. When today's chat outgrows
-its budget, the oldest turns are folded into a running summary.
+its budget, the oldest whole turns are folded into a running summary by the light model. If the
+fold fails, the whole chat is sent. The context also lists the coming week's events with their IDs,
+so the agent can change one.
+
+History is text only. Tool calls and their results live only inside the turn that made them; the
+facts show what they changed. Failed replies and replies with no text are never replayed: both
+providers reject an empty message.
 
 **Each turn:**
 - Text streams to the UI over SSE, and tool calls appear as inline chips.
 - All successful writes in the turn share one batch, so one turn gets one undo. If a later tool
   call fails, the earlier writes stay applied and stay in that batch.
 - The loop stops after 10 tool rounds.
+- One turn runs at a time; a second message meanwhile gets `409`. The turn finishes even if the
+  client leaves.
+- SSE carries `chat.delta` (text pieces), `chat.tool` (chips), and `chat.message` (each stored
+  message). Deltas are best-effort, since the hub drops messages for a slow client; `chat.message`
+  is authoritative.
+- The turn's batch is published once, at the end. A reply whose writes all failed has no batch.
+- The replan watcher subscribes to batch messages only, so chat traffic can't crowd one out of
+  its buffer.
 
 **Errors:**
 - Tool and validation errors go back to the model as tool results.
