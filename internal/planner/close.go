@@ -36,6 +36,9 @@ func (p *Planner) Close(ctx context.Context, day domain.Day, triage []Triage, no
 	if err != nil {
 		return 0, day, err
 	}
+	if err := checkStale(triage, unfinished); err != nil {
+		return 0, day, err
+	}
 	batch, err := p.applyTriage(ctx, triage)
 	if err != nil {
 		return 0, day, err
@@ -56,6 +59,9 @@ func (p *Planner) Close(ctx context.Context, day domain.Day, triage []Triage, no
 		p.hub.PublishBatch(batch, acts)
 	}
 
+	// The day is wrapped now, so the summary is written even if the user has already left.
+	// modelTimeout still bounds it.
+	ctx = context.WithoutCancel(ctx)
 	if summary, err := p.summarize(ctx, wrapped, done, unfinished, triage); err != nil {
 		fallbackNote(err)
 	} else if err := p.svc.SetDaySummary(ctx, wrapped.ID, summary); err != nil {
@@ -90,6 +96,25 @@ func (p *Planner) checkTriage(triage []Triage) error {
 			return fmt.Errorf("%w: task %d has until %q", service.ErrInvalid, t.TaskID, *t.Until)
 		}
 		seen[t.TaskID] = true
+	}
+	return nil
+}
+
+// checkStale rejects triage for a task that isn't unfinished, such as one finished in another
+// tab since the review loaded. Applying it would turn a completion into a drop.
+func checkStale(triage []Triage, unfinished []domain.Task) error {
+	open := map[int64]bool{}
+	for _, t := range unfinished {
+		open[t.ID] = true
+	}
+	var stale []string
+	for _, t := range triage {
+		if !open[t.TaskID] {
+			stale = append(stale, fmt.Sprintf("#%d", t.TaskID))
+		}
+	}
+	if len(stale) > 0 {
+		return fmt.Errorf("%w: no longer unfinished: %s; reload the review", service.ErrConflict, strings.Join(stale, ", "))
 	}
 	return nil
 }

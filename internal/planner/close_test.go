@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/stream"
@@ -97,11 +98,11 @@ func TestBadTriageChangesNothing(t *testing.T) {
 			t.Errorf("%s: err = %v, want ErrInvalid", name, err)
 		}
 	}
-	// A write that fails part way undoes the ones before it.
+	// A task that isn't unfinished rejects the whole triage before anything is written.
 	_, _, err := f.planner.Close(ctx, day, []planner.Triage{{TaskID: a.ID, Action: planner.ActionDrop},
 		{TaskID: 99, Action: planner.ActionDrop}}, "")
-	if !errors.Is(err, service.ErrNotFound) {
-		t.Errorf("missing task: err = %v, want ErrNotFound", err)
+	if !errors.Is(err, service.ErrConflict) {
+		t.Errorf("missing task: err = %v, want ErrConflict", err)
 	}
 	if got, _ := f.svc.GetTask(ctx, a.ID); got.Status != domain.StatusOpen {
 		t.Errorf("task left %s", got.Status)
@@ -214,5 +215,61 @@ func TestNoReplanAfterTheDayIsWrapped(t *testing.T) {
 		case <-timeout:
 			return
 		}
+	}
+}
+
+func TestStaleTriageIsRejected(t *testing.T) {
+	f := newFixture(t)
+	f.configured = false
+	ctx := context.Background()
+	finished := f.task(t, service.TaskFields{Title: "finished on the phone"})
+	unplanned := f.task(t, service.TaskFields{Title: "never planned"})
+	day := f.start(t, 3, "")
+	f.planDay(t, day, finished)
+	f.finish(t, finished)
+
+	for name, triage := range map[string][]planner.Triage{
+		"drop a task done since the review": {{TaskID: finished.ID, Action: planner.ActionDrop}},
+		"push a task that wasn't planned":   {{TaskID: unplanned.ID, Action: planner.ActionPush}},
+	} {
+		if _, _, err := f.planner.Close(ctx, day, triage, ""); !errors.Is(err, service.ErrConflict) {
+			t.Errorf("%s: err = %v, want ErrConflict", name, err)
+		}
+	}
+	if got, _ := f.svc.GetTask(ctx, finished.ID); got.Status != domain.StatusDone {
+		t.Errorf("finished task is now %s", got.Status)
+	}
+	if got, _ := f.svc.GetTask(ctx, unplanned.ID); got.NotBefore != nil {
+		t.Errorf("unplanned task pushed to %s", *got.NotBefore)
+	}
+	if got, _ := f.svc.GetDay(ctx, today); got.WrappedAt != nil {
+		t.Error("day was wrapped despite the stale triage")
+	}
+}
+
+// leaving is a model that sees the user leave mid-call: it cancels the request's context, then
+// answers only if its own context outlived that.
+type leaving struct{ cancel context.CancelFunc }
+
+func (l leaving) Complete(ctx context.Context, _ llm.Request) (string, error) {
+	l.cancel()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	return "Wrapped up early and went for a walk.", nil
+}
+
+func TestTheSummarySurvivesTheClientLeaving(t *testing.T) {
+	f := newFixture(t)
+	day := f.start(t, 3, "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	f.slow = leaving{cancel: cancel}
+
+	if _, _, err := f.planner.Close(ctx, day, nil, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.svc.GetDay(context.Background(), today); got.Summary != "Wrapped up early and went for a walk." {
+		t.Errorf("summary = %q", got.Summary)
 	}
 }
