@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/planner"
 )
 
 func (s *Server) today(w http.ResponseWriter, r *http.Request) {
@@ -21,17 +22,62 @@ type Started struct {
 	Plan domain.Plan `json:"plan"`
 }
 
-// startDay starts today and waits for its first plan, so the morning flow can reveal it.
-func (s *Server) startDay(w http.ResponseWriter, r *http.Request) {
+// Morning is what the good-morning flow reconciles. Review is nil when the last day was wrapped
+// up, or there is no last day.
+type Morning struct {
+	Review *planner.Review `json:"review"`
+}
+
+func (s *Server) morning(w http.ResponseWriter, r *http.Request) {
+	review, err := s.Planner.MorningReview(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, Morning{Review: review})
+}
+
+func (s *Server) wrapReview(w http.ResponseWriter, r *http.Request) {
+	review, err := s.Planner.WrapReview(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, review)
+}
+
+// wrapUp closes today: the triage as one undoable batch, the note for tomorrow, and the summary.
+// The batch ID is 0 when the triage changed nothing.
+func (s *Server) wrapUp(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Pace     domain.Pace `json:"pace"`
-		MoodNote string      `json:"mood_note"`
+		Triage []planner.Triage `json:"triage"`
+		Note   string           `json:"note"`
 	}
 	if err := decode(r, &body); err != nil {
 		writeError(w, err)
 		return
 	}
-	day, plan, err := s.Planner.StartDay(r.Context(), body.Pace, body.MoodNote, nil)
+	batch, day, err := s.Planner.WrapUp(r.Context(), body.Triage, body.Note)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, Mutation{BatchID: batch, Data: day})
+}
+
+// startDay starts today and waits for its first plan, so the morning flow can reveal it.
+func (s *Server) startDay(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Pace     domain.Pace `json:"pace"`
+		MoodNote string      `json:"mood_note"`
+		// Triage settles the last day's unfinished tasks if it was never wrapped up.
+		Triage []planner.Triage `json:"triage"`
+	}
+	if err := decode(r, &body); err != nil {
+		writeError(w, err)
+		return
+	}
+	day, plan, err := s.Planner.StartDay(r.Context(), body.Pace, body.MoodNote, body.Triage)
 	if err != nil {
 		writeError(w, err)
 		return

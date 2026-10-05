@@ -24,9 +24,11 @@ import (
 var testLoc = time.FixedZone("UTC-5", -5*3600)
 
 type testAPI struct {
-	t        *testing.T
-	handler  http.Handler
-	hub      *stream.Hub
+	t       *testing.T
+	handler http.Handler
+	hub     *stream.Hub
+	// svc sets up state the API can't, such as days before today.
+	svc      *service.Service
 	captured []int64
 	// model answers the connection test and the planner. Nil means no provider is set up.
 	model llm.Client
@@ -41,7 +43,7 @@ func newAPI(t *testing.T) *testAPI {
 	t.Cleanup(func() { db.Close() })
 	now := func() time.Time { return time.Date(2026, 10, 5, 14, 0, 0, 0, time.UTC) } // 09:00 local
 	svc := service.New(db, now)
-	api := &testAPI{t: t, hub: stream.NewHub()}
+	api := &testAPI{t: t, hub: stream.NewHub(), svc: svc}
 	active := func(context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
 		if api.model == nil {
 			return nil, settings.ProviderConfig{}, settings.Defaults(), settings.ErrNotConfigured

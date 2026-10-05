@@ -66,6 +66,18 @@ func (p *Planner) Close(ctx context.Context, day domain.Day, triage []Triage, no
 	return batch, wrapped, nil
 }
 
+// WrapUp closes today. It returns ErrNoDay if today hasn't started.
+func (p *Planner) WrapUp(ctx context.Context, triage []Triage, note string) (int64, domain.Day, error) {
+	day, err := p.svc.GetDay(ctx, p.Date())
+	if errors.Is(err, service.ErrNotFound) {
+		return 0, domain.Day{}, ErrNoDay
+	}
+	if err != nil {
+		return 0, domain.Day{}, err
+	}
+	return p.Close(ctx, day, triage, note)
+}
+
 func (p *Planner) checkTriage(triage []Triage) error {
 	seen := map[int64]bool{}
 	for _, t := range triage {
