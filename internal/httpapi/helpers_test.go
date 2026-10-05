@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/llm"
+	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
@@ -26,7 +28,7 @@ type testAPI struct {
 	handler  http.Handler
 	hub      *stream.Hub
 	captured []int64
-	// model answers the connection test. Nil means no provider is set up.
+	// model answers the connection test and the planner. Nil means no provider is set up.
 	model llm.Client
 }
 
@@ -37,9 +39,15 @@ func newAPI(t *testing.T) *testAPI {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	now := time.Date(2026, 10, 5, 14, 0, 0, 0, time.UTC)
-	svc := service.New(db, func() time.Time { return now })
+	now := func() time.Time { return time.Date(2026, 10, 5, 14, 0, 0, 0, time.UTC) } // 09:00 local
+	svc := service.New(db, now)
 	api := &testAPI{t: t, hub: stream.NewHub()}
+	active := func(context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
+		if api.model == nil {
+			return nil, settings.ProviderConfig{}, settings.Defaults(), settings.ErrNotConfigured
+		}
+		return api.model, settings.ProviderConfig{MainModel: "main"}, settings.Defaults(), nil
+	}
 	api.handler = httpapi.New(httpapi.Deps{
 		Service:   svc,
 		Hub:       api.hub,
@@ -52,6 +60,7 @@ func newAPI(t *testing.T) *testAPI {
 			}
 			return api.model, settings.ProviderConfig{MainModel: "main"}, nil
 		},
+		Planner: planner.New(svc, api.hub, active, testLoc, now),
 	})
 	return api
 }

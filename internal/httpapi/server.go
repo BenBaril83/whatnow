@@ -17,6 +17,7 @@ import (
 
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/llm"
+	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/stream"
@@ -34,6 +35,7 @@ type Deps struct {
 	OnCapture func(task domain.Task)
 	// NewClient builds an LLM client from settings, for the connection test.
 	NewClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)
+	Planner   *planner.Planner
 }
 
 type Server struct {
@@ -54,6 +56,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("PUT /api/v1/tasks/{id}", s.updateTask)
 	mux.HandleFunc("POST /api/v1/tasks/{id}/status", s.setTaskStatus)
 	mux.HandleFunc("DELETE /api/v1/tasks/{id}", s.deleteTask)
+	mux.HandleFunc("POST /api/v1/tasks/{id}/push", s.pushTask)
 	mux.HandleFunc("GET /api/v1/blockers", s.listBlockers)
 	mux.HandleFunc("POST /api/v1/tasks/{id}/blockers", s.addBlocker)
 	mux.HandleFunc("DELETE /api/v1/tasks/{id}/blockers/{blockedBy}", s.removeBlocker)
@@ -62,6 +65,10 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("POST /api/v1/events", s.createEvent)
 	mux.HandleFunc("PUT /api/v1/events/{id}", s.updateEvent)
 	mux.HandleFunc("DELETE /api/v1/events/{id}", s.deleteEvent)
+	mux.HandleFunc("GET /api/v1/today", s.today)
+	mux.HandleFunc("POST /api/v1/today/start", s.startDay)
+	mux.HandleFunc("PUT /api/v1/today/pace", s.setPace)
+	mux.HandleFunc("POST /api/v1/whatnow", s.whatNow)
 	mux.HandleFunc("GET /api/v1/stream", s.stream)
 	mux.HandleFunc("GET /api/v1/settings", s.getSettings)
 	mux.HandleFunc("PUT /api/v1/settings", s.putSettings)
@@ -146,9 +153,9 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, settings.ErrInvalid):
 		writeJSON(w, http.StatusBadRequest, errorBody{err.Error()})
-	case errors.Is(err, service.ErrNotFound):
+	case errors.Is(err, service.ErrNotFound), errors.Is(err, planner.ErrNothingToDo):
 		writeJSON(w, http.StatusNotFound, errorBody{err.Error()})
-	case errors.Is(err, service.ErrConflict):
+	case errors.Is(err, service.ErrConflict), errors.Is(err, planner.ErrNoDay):
 		writeJSON(w, http.StatusConflict, errorBody{err.Error()})
 	default:
 		log.Printf("internal error: %v", err)

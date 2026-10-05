@@ -14,6 +14,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/cleanup"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/llm"
+	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
@@ -54,10 +55,14 @@ func serve(addr, dbPath string) error {
 
 	svc := service.New(db, time.Now)
 	hub := stream.NewHub()
-	runner := cleanup.New(svc, hub, func(ctx context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
+	active := func(ctx context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
 		return settings.Active(ctx, db)
-	}, time.Local, time.Now)
+	}
+	runner := cleanup.New(svc, hub, active, time.Local, time.Now)
 	go runner.Run(context.Background())
+	plans := planner.New(svc, hub, active, time.Local, time.Now)
+	watched, _ := hub.Subscribe() // for the life of the process
+	go plans.Run(context.Background(), watched)
 
 	handler := httpapi.New(httpapi.Deps{
 		Service:   svc,
@@ -66,6 +71,7 @@ func serve(addr, dbPath string) error {
 		Loc:       time.Local,
 		OnCapture: runner.Enqueue,
 		NewClient: settings.NewClient,
+		Planner:   plans,
 	})
 	// No WriteTimeout: it would cut off the long-lived SSE stream.
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
