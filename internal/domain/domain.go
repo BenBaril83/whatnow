@@ -107,3 +107,71 @@ type Activity struct {
 	After     json.RawMessage `json:"after"`
 	CreatedAt time.Time       `json:"created_at"`
 }
+
+// Pace is how hard the user wants to push today, from 1 to 5. The labels can change; there are
+// always five levels.
+type Pace int
+
+func (p Pace) Valid() bool { return p >= 1 && p <= 5 }
+
+var paceLabels = [...]string{"running on fumes", "gentle", "steady", "full steam", "go hard"}
+
+func (p Pace) Label() string {
+	if !p.Valid() {
+		return ""
+	}
+	return paceLabels[p-1]
+}
+
+type Day struct {
+	ID        int64      `json:"id"`
+	Date      Date       `json:"date"`
+	Pace      Pace       `json:"pace"`
+	MoodNote  string     `json:"mood_note"`
+	StartedAt time.Time  `json:"started_at"`
+	WrappedAt *time.Time `json:"wrapped_at"`
+}
+
+type Tier string
+
+const (
+	TierMust   Tier = "must"
+	TierShould Tier = "should"
+	TierCould  Tier = "could"
+)
+
+func (t Tier) Valid() bool { return t == TierMust || t == TierShould || t == TierCould }
+
+// Trigger is what caused a plan to be made.
+type Trigger string
+
+const (
+	TriggerMorning Trigger = "morning"
+	TriggerPace    Trigger = "pace"
+	TriggerEdit    Trigger = "edit"
+	TriggerAgent   Trigger = "agent"
+)
+
+func (t Trigger) Valid() bool {
+	return t == TriggerMorning || t == TriggerPace || t == TriggerEdit || t == TriggerAgent
+}
+
+type PlanEntry struct {
+	TaskID    int64  `json:"task_id"`
+	Tier      Tier   `json:"tier"`
+	Rationale string `json:"rationale"`
+}
+
+// Plan is one version of a day's plan. Entries are in order within each tier. Fallback means
+// code built the plan because the model couldn't.
+type Plan struct {
+	ID        int64       `json:"id"`
+	DayID     int64       `json:"day_id"`
+	Version   int         `json:"version"`
+	Trigger   Trigger     `json:"trigger"`
+	Reason    string      `json:"reason"`
+	Opening   string      `json:"opening"`
+	Entries   []PlanEntry `json:"entries"`
+	Fallback  bool        `json:"fallback"`
+	CreatedAt time.Time   `json:"created_at"`
+}

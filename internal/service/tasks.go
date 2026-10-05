@@ -111,6 +111,51 @@ func (s *Service) SetTaskStatus(ctx context.Context, batch, id int64, status dom
 	return s.changeTask(ctx, batch, id, actionStatus, func(t *domain.Task) { t.Status = status })
 }
 
+// PushTask puts a task off until a date by setting its not_before. Pushes are counted apart from
+// other edits, because a task pushed again and again says something about it.
+func (s *Service) PushTask(ctx context.Context, batch, id int64, until domain.Date) (domain.Task, error) {
+	if !until.Valid() {
+		return domain.Task{}, fmt.Errorf("%w: until %q", ErrInvalid, until)
+	}
+	return s.changeTask(ctx, batch, id, actionPush, func(t *domain.Task) { t.NotBefore = &until })
+}
+
+// PushCounts returns how many times each task has been pushed, leaving out undone pushes.
+func (s *Service) PushCounts(ctx context.Context) (map[int64]int, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT a.entity_id, COUNT(*) FROM activity a JOIN batches b ON b.id = a.batch_id
+		 WHERE a.entity = ? AND a.action = ? AND b.undone_at IS NULL GROUP BY a.entity_id`, entityTask, actionPush)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	counts := map[int64]int{}
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		counts[id] = n
+	}
+	return counts, rows.Err()
+}
+
+// AppendFeeling adds a note to the end of a task's feeling.
+func (s *Service) AppendFeeling(ctx context.Context, batch, id int64, note string) (domain.Task, error) {
+	note = strings.TrimSpace(note)
+	if note == "" {
+		return domain.Task{}, fmt.Errorf("%w: note is empty", ErrInvalid)
+	}
+	return s.changeTask(ctx, batch, id, actionUpdate, func(t *domain.Task) {
+		if t.Feeling == "" {
+			t.Feeling = note
+		} else {
+			t.Feeling += "; " + note
+		}
+	})
+}
+
 // DeleteTask soft-deletes a task. Dropping (a status) means "not doing it"; deleting means
 // "this shouldn't exist", and deleted tasks are hidden everywhere.
 func (s *Service) DeleteTask(ctx context.Context, batch, id int64) error {

@@ -70,6 +70,12 @@ func revert(ctx context.Context, tx *sql.Tx, a domain.Activity, now time.Time) e
 			return err
 		}
 		return writeEvent(ctx, tx, e)
+	case entityDay:
+		var d domain.Day
+		if err := json.Unmarshal(a.Before, &d); err != nil {
+			return err
+		}
+		return writeDay(ctx, tx, d)
 	case entityBlocker:
 		if a.Before == nil {
 			var b domain.Blocker
