@@ -3,3 +3,4 @@ coverage.out
 .superpowers/
 internal/web/dist/*
 !internal/web/dist/.gitkeep
+/whatnow-e2e

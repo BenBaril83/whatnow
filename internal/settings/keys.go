@@ -1,8 +1,6 @@
 package settings
 
 import (
-	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -85,14 +83,4 @@ func NewClient(s Settings) (llm.Client, ProviderConfig, error) {
 		return llm.NewOpenAI(key, cfg.BaseURL), cfg, nil
 	}
 	return llm.NewAnthropic(key, cfg.BaseURL), cfg, nil
-}
-
-// Active loads the saved settings and returns a client for them.
-func Active(ctx context.Context, db *sql.DB) (llm.Client, ProviderConfig, Settings, error) {
-	s, err := Load(ctx, db)
-	if err != nil {
-		return nil, ProviderConfig{}, Settings{}, err
-	}
-	client, cfg, err := NewClient(s)
-	return client, cfg, s, err
 }

@@ -23,6 +23,9 @@ import (
 	"github.com/jameynakama/whatnow/internal/web"
 )
 
+// newClient makes the model client. The e2e build swaps in the fake.
+var newClient = settings.NewClient
+
 func main() {
 	if len(os.Args) < 2 || os.Args[1] != "serve" {
 		fmt.Fprintln(os.Stderr, "usage: whatnow serve [-addr 127.0.0.1:7777] [-db PATH]")
@@ -58,7 +61,12 @@ func serve(addr, dbPath string) error {
 	svc := service.New(db, time.Now)
 	hub := stream.NewHub()
 	active := func(ctx context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
-		return settings.Active(ctx, db)
+		s, err := settings.Load(ctx, db)
+		if err != nil {
+			return nil, settings.ProviderConfig{}, settings.Settings{}, err
+		}
+		client, cfg, err := newClient(s)
+		return client, cfg, s, err
 	}
 	runner := cleanup.New(svc, hub, active, time.Local, time.Now)
 	go runner.Run(context.Background())
@@ -73,7 +81,7 @@ func serve(addr, dbPath string) error {
 		Loc:       time.Local,
 		OnCapture: runner.Enqueue,
 		Clean:     runner.Clean,
-		NewClient: settings.NewClient,
+		NewClient: newClient,
 		Planner:   plans,
 		Agent:     agent.New(svc, hub, plans, time.Local, time.Now),
 		Static:    web.Handler(),
