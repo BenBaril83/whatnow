@@ -1,3 +1,5 @@
 coverage.out
 /whatnow
 .superpowers/
+internal/web/dist/*
+!internal/web/dist/.gitkeep

@@ -66,6 +66,7 @@ func newAPI(t *testing.T) *testAPI {
 		},
 		Planner: plans,
 		Agent:   agent.New(svc, api.hub, plans, testLoc, now),
+		Static:  http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, "static") }),
 	})
 	return api
 }

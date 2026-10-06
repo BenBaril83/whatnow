@@ -1,4 +1,4 @@
-// Package httpapi serves the REST API under /api/v1/ and the SSE stream.
+// Package httpapi serves the REST API under /api/v1/, the SSE stream, and the web client.
 package httpapi
 
 import (
@@ -38,6 +38,8 @@ type Deps struct {
 	NewClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)
 	Planner   *planner.Planner
 	Agent     *agent.Agent
+	// Static serves the web client for every GET outside the API.
+	Static http.Handler
 }
 
 type Server struct {
@@ -82,6 +84,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("PUT /api/v1/settings/keys/{provider}", s.putKey)
 	mux.HandleFunc("DELETE /api/v1/settings/keys/{provider}", s.deleteKey)
 	mux.HandleFunc("POST /api/v1/settings/test", s.testConnection)
+	mux.Handle("GET /", d.Static)
 	return localOnly(mux)
 }
 

@@ -20,6 +20,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
 	"github.com/jameynakama/whatnow/internal/stream"
+	"github.com/jameynakama/whatnow/internal/web"
 )
 
 func main() {
@@ -74,6 +75,7 @@ func serve(addr, dbPath string) error {
 		NewClient: settings.NewClient,
 		Planner:   plans,
 		Agent:     agent.New(svc, hub, plans, time.Local, time.Now),
+		Static:    web.Handler(),
 	})
 	// No WriteTimeout: it would cut off the long-lived SSE stream.
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
