@@ -46,8 +46,8 @@ fields existed pick up the defaults.
   | `granted` | "On" |
   | `denied` | "Blocked in your browser. Nudges show in the page instead." |
 
-Save writes the key first when one was typed, then `PUT /settings`, then refetches the settings
-view. The refetch keeps the key-status note accurate even when the second write fails.
+Save writes the key first when one was typed, then `PUT /settings`. If the second write fails, the
+page refetches the key sources, so the key-status note stays accurate and typed edits survive.
 
 ### Delete everything
 
@@ -117,11 +117,11 @@ building resume-where-you-left-off.
 ### What's due
 
 `nudges.ts` is pure. From the day's events and tasks, the settings, and the date, it returns
-`{key, at, kind, text, eventId}` for each nudge:
+`{key, at, kind, text}` for each nudge:
 
 | Kind | At | Text | Skipped when |
 |---|---|---|---|
-| Before an event | `starts_at` minus the lead time | "Standup in 10, find a stopping point." | that time is before the event was created |
+| Before an event | `starts_at` minus the lead time | "Standup in 10 min, find a stopping point." | that time is before the event was created |
 | When an event ends | `ends_at` | "Standup's done. What now?" | the event has no end |
 | Late in the day | end of day minus 2 hours | names the first such must | no open must due today has `updated_at` before today |
 
@@ -156,13 +156,13 @@ A window anchored at now pins the now line to the left edge. So the window stays
 line moves across it:
 
 - **Window:** from the earliest of the day's `started_at`, the first event, and now, rounded down
-  to the hour, to the end of day. It stretches past the end of day to keep now and every event on
-  it.
+  to the hour, to the hour after the end of day, so the end-of-day mark sits inside the strip. It
+  stretches further to keep now and every event on it.
 - **Hour ticks:** faint marks labeled like "9a", "12p", and "3p" at every clock hour divisible by
   three, or at every hour when the window spans 6 hours or less.
 - **End of day:** a dashed mark labeled with its time, such as "5:30".
-- **Event blocks:** show their start time beside the title when the block is wide enough. Hover
-  still shows it on every block.
+- **Event blocks:** show their start time before the title. A block already grows to fit its
+  title, so neither gets cut off. Hover still shows both.
 
 `strip()` returns the ticks and the end-of-day position along with the events and the now line.
 
