@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api, type Tier } from '#lib/api.ts';
+	import { editor } from '#lib/editor.svelte.ts';
 	import type { Card } from '#lib/plan.ts';
 	import { addDays } from '#lib/time.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
@@ -10,8 +11,10 @@
 		tier?: Tier;
 		/** Today's date, for push to tomorrow. */
 		date: string;
+		/** All tasks shows dates, and opens the editor on a click instead of the rationale. */
+		listed?: boolean;
 	}
-	let { card, tier, date }: Props = $props();
+	let { card, tier, date, listed = false }: Props = $props();
 
 	let menuOpen = $state(false);
 	let why = $state(false);
@@ -32,11 +35,28 @@
 		menuOpen = false;
 		toasts.track(`Dropped: ${task.title}`, () => api.setStatus(task.id, 'dropped'));
 	}
+	function edit() {
+		menuOpen = false;
+		editor.open(task.id);
+	}
+	function restore() {
+		toasts.track(`Restored: ${task.title}`, () => api.setStatus(task.id, 'open'));
+	}
+	const short = (date: string) =>
+		new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 </script>
 
-<article class="sticker card {tier ?? 'unplanned'}">
-	<input type="checkbox" aria-label="Mark done" onchange={complete} />
-	<button class="body" onclick={() => (why = !why)} disabled={!card.rationale}>
+<article class="sticker card {tier ?? (listed ? 'listed' : 'unplanned')}" class:closed={task.status !== 'open'}>
+	{#if task.status === 'open'}
+		<input type="checkbox" aria-label="Mark done" onchange={complete} />
+	{:else}
+		<span class="mark" aria-label={task.status}>{task.status === 'done' ? '✓' : '✕'}</span>
+	{/if}
+	<button
+		class="body"
+		onclick={() => (listed ? editor.open(task.id) : (why = !why))}
+		disabled={!listed && !card.rationale}
+	>
 		<span class="title">
 			{#if card.blocked}<span title="Blocked by another task">⛓</span>{/if}
 			{task.title}
@@ -44,17 +64,24 @@
 		<span class="badges">
 			{#if task.size}<span class="badge">{task.size}</span>{/if}
 			{#if task.energy}<span class="badge">{task.energy} energy</span>{/if}
+			{#if listed && task.due_on}<span class="badge">due {short(task.due_on)}</span>{/if}
+			{#if listed && task.not_before}<span class="badge">from {short(task.not_before)}</span>{/if}
 		</span>
 		{#if task.feeling}<span class="feeling">"{task.feeling}"</span>{/if}
 		{#if card.rationale}<span class="why" class:shown={why}>{card.rationale}</span>{/if}
 	</button>
-	<details class="more" bind:open={menuOpen}>
-		<summary aria-label="More actions">⋯</summary>
-		<div class="sticker menu">
-			<button onclick={push}>Push to tomorrow</button>
-			<button onclick={drop}>Drop</button>
-		</div>
-	</details>
+	{#if task.status === 'dropped'}
+		<button class="btn" onclick={restore}>Restore</button>
+	{:else if task.status === 'open'}
+		<details class="more" bind:open={menuOpen}>
+			<summary aria-label="More actions">⋯</summary>
+			<div class="sticker menu">
+				<button onclick={edit}>Edit</button>
+				<button onclick={push}>Push to tomorrow</button>
+				<button onclick={drop}>Drop</button>
+			</div>
+		</details>
+	{/if}
 </article>
 
 <style>
@@ -77,6 +104,14 @@
 	.unplanned {
 		border-style: dashed;
 		box-shadow: none;
+	}
+	.closed {
+		opacity: 0.7;
+	}
+	.mark {
+		width: 20px;
+		text-align: center;
+		font-weight: var(--heavy);
 	}
 	input[type='checkbox'] {
 		width: 20px;

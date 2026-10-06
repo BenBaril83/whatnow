@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChatDock from '#lib/components/ChatDock.svelte';
+	import EditSheet from '#lib/components/EditSheet.svelte';
 	import { today } from '#lib/today.svelte.ts';
 	import type { LayoutProps } from './$types';
 
@@ -12,6 +13,7 @@
 	</main>
 	<ChatDock opening={today.today?.plan?.opening ?? ''} />
 </div>
+<EditSheet />
 
 <style>
 	.page {
