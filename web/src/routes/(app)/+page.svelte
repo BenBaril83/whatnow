@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { api, ApiError, type Pick, type Tier } from '#lib/api.ts';
 	import { live } from '#lib/live.svelte.ts';
 	import { doneOn, tiers, unplanned } from '#lib/plan.ts';
@@ -29,6 +30,14 @@
 	// A day with no plan starts with the morning check-in.
 	$effect(() => {
 		if (t && !t.plan) goto('/morning', { replaceState: true });
+	});
+
+	// A nudge's What now? arrives as ?whatnow, from any page.
+	$effect(() => {
+		if (t?.plan && page.url.searchParams.has('whatnow')) {
+			goto('/', { replaceState: true });
+			if (!t.day?.wrapped_at) whatNow();
+		}
 	});
 
 	async function whatNow(exclude = 0, reason = '') {

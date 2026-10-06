@@ -2,17 +2,20 @@ import { goto } from '$app/navigation';
 import { api, type SettingsView } from './api';
 import { chat } from './chat.svelte';
 import { Stream } from './stream.svelte';
+import { due, nudges, type Nudge } from './nudges';
 import { morningDue } from './time';
 import { toasts } from './toasts.svelte';
 import { today } from './today.svelte';
 
 /**
  * The page's live connection to the server, shared by every screen: the event stream, the
- * settings, and a clock that ticks each minute.
+ * settings, and a clock that ticks each minute and fires the nudges due.
  */
 class Live {
 	view = $state<SettingsView | null>(null);
 	now = $state(new Date());
+	/** Nudges fire for the span since this, so each fires once and none fire for before the page loaded. */
+	#lastTick = Date.now();
 
 	#stream = new Stream(
 		{
@@ -54,7 +57,7 @@ class Live {
 			(err) => toasts.error(err)
 		);
 		this.#stream.open();
-		const clock = setInterval(() => (this.now = new Date()), 60_000);
+		const clock = setInterval(() => this.#tick(), 60_000);
 		const focus = () => this.#caughtUp();
 		window.addEventListener('focus', focus);
 		return () => {
@@ -67,7 +70,7 @@ class Live {
 	// A tab left open overnight still shows yesterday. Coming back to it catches up, and starts the
 	// morning when the new day has no plan yet.
 	async #caughtUp(): Promise<void> {
-		this.now = new Date();
+		this.#tick();
 		const seen = today.today?.date;
 		try {
 			await today.refresh();
@@ -77,6 +80,35 @@ class Live {
 		}
 		const t = today.today;
 		if (seen && t && morningDue(seen, t.date, t.plan !== null)) goto('/morning');
+	}
+
+	#tick(): void {
+		this.now = new Date();
+		const to = this.now.getTime();
+		const t = today.today;
+		if (this.view && t) {
+			const list = nudges(today.events, t.plan, today.tasks, this.view.settings, t.date, this.endOfDay);
+			for (const n of due(list, this.#lastTick, to)) deliver(n);
+		}
+		this.#lastTick = to;
+	}
+}
+
+/**
+ * Shows a nudge as a notification when the browser allows it, else in the page. The tag makes
+ * two open tabs share one notification. An event-end nudge opens What now when clicked.
+ */
+function deliver(n: Nudge): void {
+	const open = n.kind === 'event_end' ? () => goto('/?whatnow') : undefined;
+	if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+		const note = new Notification('whatnow', { body: n.text, tag: n.key });
+		note.onclick = () => {
+			window.focus();
+			open?.();
+			note.close();
+		};
+	} else {
+		toasts.nudge(n.text, open && { label: 'What now?', run: open });
 	}
 }
 
