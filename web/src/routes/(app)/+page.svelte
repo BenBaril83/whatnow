@@ -6,6 +6,7 @@
 	import { doneOn, tiers, unplanned } from '#lib/plan.ts';
 	import { survived } from '#lib/time.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
+	import { editor } from '#lib/editor.svelte.ts';
 	import { today } from '#lib/today.svelte.ts';
 	import { welcomeDue } from '#lib/welcome.ts';
 	import Capture from '#lib/components/Capture.svelte';
@@ -73,7 +74,10 @@
 {#if t?.plan}
 	<Header today={t} {asking} onwhatnow={() => whatNow()} />
 	<DayStrip events={today.events} now={live.now} endOfDay={live.endOfDay} startedAt={t.day?.started_at ?? null} />
-	<Capture />
+	<div class="add">
+		<Capture />
+		<button class="btn" onclick={() => editor.openNew()}>+ Task</button>
+	</div>
 
 	{#if pick}
 		<WhatNow
@@ -146,6 +150,14 @@
 		align-self: flex-start;
 		margin: 0;
 	}
+	.add {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+	}
+	.add > :global(:first-child) {
+		flex: 1;
+	}
 	.tray-head {
 		display: flex;
 		align-items: center;
@@ -160,7 +172,15 @@
 	}
 
 	@media (max-width: 800px) {
-		.tray-head {
+		.add {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+	}
+	.add > :global(:first-child) {
+		flex: 1;
+	}
+	.tray-head {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;

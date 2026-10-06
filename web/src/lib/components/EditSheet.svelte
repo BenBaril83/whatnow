@@ -8,11 +8,11 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && editor.close()} />
 
-{#if task}
+{#if task || editor.creating}
 	<div class="scrim" role="presentation" onclick={() => editor.close()}></div>
-	<div class="sticker sheet" role="dialog" aria-modal="true" aria-label="Edit task">
-		{#key task.id}
-			<TaskEditor {task} />
+	<div class="sticker sheet" role="dialog" aria-modal="true" aria-label={task ? 'Edit task' : 'New task'}>
+		{#key task?.id ?? 'new'}
+			<TaskEditor task={task ?? null} />
 		{/key}
 	</div>
 {/if}

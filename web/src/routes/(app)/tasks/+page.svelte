@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Header from '#lib/components/Header.svelte';
 	import TaskCard from '#lib/components/TaskCard.svelte';
+	import { editor } from '#lib/editor.svelte.ts';
 	import { filters, listTasks, type Filter } from '#lib/tasks.ts';
 	import { today } from '#lib/today.svelte.ts';
 
@@ -24,6 +25,7 @@
 				{f.label}
 			</button>
 		{/each}
+		<button class="btn add" onclick={() => editor.openNew()}>+ Task</button>
 	</div>
 	<section>
 		{#each shown as task (task.id)}
@@ -37,6 +39,9 @@
 {/if}
 
 <style>
+	.add {
+		margin-left: auto;
+	}
 	.chips {
 		display: flex;
 		flex-wrap: wrap;

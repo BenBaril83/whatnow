@@ -1,26 +1,31 @@
 <script lang="ts">
 	import { api, type Task } from '#lib/api.ts';
 	import { editor } from '#lib/editor.svelte.ts';
-	import { fieldsFrom, formFor } from '#lib/taskForm.ts';
+	import { blankForm, fieldsFrom, formFor } from '#lib/taskForm.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import { today } from '#lib/today.svelte.ts';
 
 	interface Props {
-		task: Task;
+		/** Null makes a new task. */
+		task: Task | null;
 	}
 	let { task }: Props = $props();
 
 	// Seeded once: the sheet is keyed by task, so a refetch mid-edit doesn't wipe what's typed.
 	// svelte-ignore state_referenced_locally
-	let form = $state(formFor(task));
+	let form = $state(task ? formFor(task) : blankForm());
 	let problem = $state('');
 	let saving = $state(false);
 	let adding = $state('');
+	/** A new task's blockers, added once it exists. */
+	let pending = $state<number[]>([]);
 
 	const titleOf = (id: number) => today.tasks.find((t) => t.id === id)?.title ?? `#${id}`;
-	const blockedBy = $derived(today.blockers.filter((b) => b.task_id === task.id).map((b) => b.blocked_by_id));
+	const blockedBy = $derived(
+		task ? today.blockers.filter((b) => b.task_id === task.id).map((b) => b.blocked_by_id) : pending
+	);
 	const candidates = $derived(
-		today.tasks.filter((t) => t.status === 'open' && t.id !== task.id && !blockedBy.includes(t.id))
+		today.tasks.filter((t) => t.status === 'open' && t.id !== task?.id && !blockedBy.includes(t.id))
 	);
 
 	async function save(e: SubmitEvent) {
@@ -31,26 +36,35 @@
 			return;
 		}
 		saving = true;
-		if (await toasts.track(`Saved: ${result.fields.title}`, () => api.updateTask(task.id, result.fields))) {
-			editor.close();
-		}
+		const { fields } = result;
+		const write = task
+			? toasts.track(`Saved: ${fields.title}`, () => api.updateTask(task.id, fields))
+			: toasts.track(`Added: ${fields.title}`, async () => {
+					const created = await api.createTask(fields);
+					for (const id of pending) await api.addBlocker(created.data.id, id);
+					return created;
+				});
+		if (await write) editor.close();
 		saving = false;
 	}
 
 	function addBlocker() {
 		const id = Number(adding);
 		adding = '';
-		if (id) toasts.track(`Now waits on: ${titleOf(id)}`, () => api.addBlocker(task.id, id));
+		if (!id) return;
+		if (task) toasts.track(`Now waits on: ${titleOf(id)}`, () => api.addBlocker(task.id, id));
+		else pending.push(id);
 	}
 
 	function removeBlocker(id: number) {
-		toasts.track(`No longer waits on: ${titleOf(id)}`, () => api.removeBlocker(task.id, id));
+		if (task) toasts.track(`No longer waits on: ${titleOf(id)}`, () => api.removeBlocker(task.id, id));
+		else pending = pending.filter((p) => p !== id);
 	}
 </script>
 
 <form onsubmit={save}>
 	<header>
-		<h2>Edit task</h2>
+		<h2>{task ? 'Edit task' : 'New task'}</h2>
 		<button type="button" class="close" aria-label="Close" onclick={() => editor.close()}>✕</button>
 	</header>
 	<label>
@@ -119,7 +133,7 @@
 		{/if}
 	</section>
 
-	{#if task.raw_text}
+	{#if task?.raw_text}
 		<section>
 			<span class="label">As captured</span>
 			<p class="raw">{task.raw_text}</p>
