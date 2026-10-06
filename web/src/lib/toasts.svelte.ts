@@ -107,7 +107,7 @@ export class Toasts {
 	 * flows.
 	 */
 	applied(b: BatchApplied): void {
-		if (b.source === 'cleanup') this.show("Here's what I did", b.batch_id);
+		if (b.source === 'cleanup') this.show(cleanupText(b.activity), b.batch_id);
 	}
 
 	undone(batch: number): void {
@@ -122,6 +122,19 @@ export class Toasts {
 			this.error(err);
 		}
 	}
+}
+
+const count = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
+
+/** What a cleanup batch did to a captured note, in a few words. Blockers show on the cards instead. */
+export function cleanupText(activity: BatchApplied['activity']): string {
+	const n = (action: string, entity: string) =>
+		activity.filter((a) => a.action === action && a.entity === entity).length;
+	const tasks = n('create', 'task') + n('update', 'task');
+	const events = n('create', 'event');
+	if (tasks === 0 && events > 0) return `Turned your note into ${count(events, 'event')}`;
+	if (tasks <= 1 && events === 0) return 'Tidied up your note';
+	return `Split your note into ${count(tasks, 'task')}${events ? ` and ${count(events, 'event')}` : ''}`;
 }
 
 export const toasts = new Toasts();

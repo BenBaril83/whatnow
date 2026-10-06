@@ -147,6 +147,7 @@ export interface Mutation {
 export interface BatchApplied {
 	batch_id: number;
 	source: Source;
+	activity: { action: string; entity: string }[];
 }
 
 export interface ProviderConfig {
@@ -213,6 +214,8 @@ export const api = {
 	tasks: () => request<Task[]>('GET', '/tasks'),
 	chat: () => request<Message[]>('GET', '/chat'),
 	capture: (raw_text: string) => request<Mutation>('POST', '/tasks', { raw_text }),
+	/** A task from the form. With no raw text, cleanup never runs on it. */
+	createTask: (fields: TaskFields) => request<Mutation>('POST', '/tasks', fields),
 	setStatus: (id: number, status: Status) =>
 		request<Mutation>('POST', `/tasks/${id}/status`, { status }),
 	push: (id: number, until: string) => request<Mutation>('POST', `/tasks/${id}/push`, { until }),

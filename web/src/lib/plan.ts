@@ -1,4 +1,4 @@
-import type { Task, Tier, Today } from './api';
+import type { Blocker, Task, Tier, Today } from './api';
 import { localDate } from './time';
 
 export interface Card {
@@ -34,6 +34,24 @@ export function unplanned(today: Today, tasks: Task[]): Card[] {
 		const task = byId.get(id);
 		return task ? [{ task, rationale: '', blocked: blocked.has(id) }] : [];
 	});
+}
+
+export interface Links {
+	waitingOn: Task[];
+	unblocks: Task[];
+}
+
+/**
+ * What a task waits on and what waits on it. Only open tasks count: a finished blocker no longer
+ * blocks, and a finished task no longer waits.
+ */
+export function links(id: number, blockers: Blocker[], tasks: Task[]): Links {
+	const open = new Map(tasks.filter((t) => t.status === 'open').map((t) => [t.id, t]));
+	const pick = (ids: number[]) => ids.flatMap((i) => open.get(i) ?? []);
+	return {
+		waitingOn: pick(blockers.filter((b) => b.task_id === id).map((b) => b.blocked_by_id)),
+		unblocks: pick(blockers.filter((b) => b.blocked_by_id === id).map((b) => b.task_id))
+	};
 }
 
 /** Tasks marked done on the given local date. */

@@ -11,6 +11,10 @@ export interface TaskForm {
 	not_before: string;
 }
 
+export function blankForm(): TaskForm {
+	return { title: '', notes: '', size: '', energy: '', feeling: '', due_on: '', not_before: '' };
+}
+
 export function formFor(task: Task): TaskForm {
 	return {
 		title: task.title,
@@ -24,10 +28,11 @@ export function formFor(task: Task): TaskForm {
 }
 
 /**
- * The write for a form. The server replaces every field, so the task's refs go back unchanged. A
- * blank title is refused here, since the server's message for it would mention raw text.
+ * The write for a form, editing `task` or making a new one when it's null. The server replaces
+ * every field, so an edited task's refs go back unchanged. A blank title is refused here, since
+ * the server's message for it would mention raw text.
  */
-export function fieldsFrom(form: TaskForm, task: Task): { fields: TaskFields } | { error: string } {
+export function fieldsFrom(form: TaskForm, task: Task | null): { fields: TaskFields } | { error: string } {
 	const title = form.title.trim();
 	if (!title) return { error: 'A title is required.' };
 	return {
@@ -39,7 +44,7 @@ export function fieldsFrom(form: TaskForm, task: Task): { fields: TaskFields } |
 			feeling: form.feeling,
 			due_on: form.due_on || null,
 			not_before: form.not_before || null,
-			refs: task.refs ?? []
+			refs: task?.refs ?? []
 		}
 	};
 }

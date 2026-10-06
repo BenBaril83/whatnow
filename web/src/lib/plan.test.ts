@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Status, Task, Today } from './api';
-import { doneOn, tiers, unplanned, winLine } from './plan';
+import { doneOn, links, tiers, unplanned, winLine } from './plan';
 
 const task = (id: number, status: Status = 'open', updated_at = '2026-10-05T15:00:00Z'): Task => ({
 	id,
@@ -98,5 +98,27 @@ describe('winLine', () => {
 		[0, 1, '✓ 1 meeting survived']
 	])('Should read well for %i done and %i meetings', (done, meetings, want) => {
 		expect(winLine(done, meetings)).toBe(want);
+	});
+});
+
+describe('links', () => {
+	const blockers = [
+		{ task_id: 1, blocked_by_id: 2 },
+		{ task_id: 1, blocked_by_id: 3 },
+		{ task_id: 4, blocked_by_id: 1 }
+	];
+	const tasks = [task(1), task(2), task(3, 'done'), task(4)];
+	const ids = (l: ReturnType<typeof links>) => [l.waitingOn.map((t) => t.id), l.unblocks.map((t) => t.id)];
+
+	it('Should show what a task waits on and what waits on it', () => {
+		expect(ids(links(1, blockers, tasks))).toEqual([[2], [4]]);
+	});
+
+	it('Should leave out a finished blocker, since it no longer blocks', () => {
+		expect(links(1, blockers, tasks).waitingOn.map((t) => t.title)).not.toContain('task 3');
+	});
+
+	it('Should give a task with no blockers nothing either way', () => {
+		expect(ids(links(2, [], tasks))).toEqual([[], []]);
 	});
 });

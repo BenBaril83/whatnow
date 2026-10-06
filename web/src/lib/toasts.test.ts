@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type Source } from './api';
-import { Toasts } from './toasts.svelte';
+import { cleanupText, Toasts } from './toasts.svelte';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -13,7 +13,7 @@ describe('Toasts', () => {
 		['triage', 0]
 	] as [Source, number][])('Should toast a %s batch from the stream %i times', (source, want) => {
 		const t = new Toasts();
-		t.applied({ batch_id: 5, source });
+		t.applied({ batch_id: 5, source, activity: [] });
 		expect(t.items.length).toBe(want);
 	});
 
@@ -96,5 +96,24 @@ describe('Toasts', () => {
 		t.hidden(false);
 		vi.advanceTimersByTime(25_000);
 		expect(t.items.length).toBe(0);
+	});
+});
+
+describe('cleanupText', () => {
+	const act = (action: string, entity: string) => ({ action, entity });
+	it.each([
+		['tidied one task', [act('update', 'task')], 'Tidied up your note'],
+		['split into tasks', [act('update', 'task'), act('create', 'task'), act('create', 'task')], 'Split your note into 3 tasks'],
+		['split into tasks and an event', [act('update', 'task'), act('create', 'task'), act('create', 'event')], 'Split your note into 2 tasks and 1 event'],
+		['turned the note into events', [act('delete', 'task'), act('create', 'event'), act('create', 'event')], 'Turned your note into 2 events'],
+		['blockers alone add nothing to say', [act('update', 'task'), act('add', 'blocker')], 'Tidied up your note']
+	])('Should say what cleanup did when it %s', (_, activity, want) => {
+		expect(cleanupText(activity)).toBe(want);
+	});
+
+	it('Should toast a cleanup batch with what it did', () => {
+		const t = new Toasts();
+		t.applied({ batch_id: 5, source: 'cleanup', activity: [act('update', 'task'), act('create', 'task')] });
+		expect(t.items).toMatchObject([{ text: 'Split your note into 2 tasks', batch: 5 }]);
 	});
 });

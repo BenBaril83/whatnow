@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from './api';
-import { formFor, fieldsFrom } from './taskForm';
+import { blankForm, formFor, fieldsFrom } from './taskForm';
 
 const task: Task = {
 	id: 7,
@@ -45,5 +45,26 @@ describe('task form', () => {
 
 	it('Should refuse a blank title before any request', () => {
 		expect(fieldsFrom({ ...formFor(task), title: '   ' }, task)).toEqual({ error: 'A title is required.' });
+	});
+});
+
+describe('new task form', () => {
+	it('Should make a plain task from just a title, with nothing else set', () => {
+		expect(fieldsFrom({ ...blankForm(), title: 'Call the bank' }, null)).toEqual({
+			fields: {
+				title: 'Call the bank',
+				notes: '',
+				size: null,
+				energy: null,
+				feeling: '',
+				due_on: null,
+				not_before: null,
+				refs: []
+			}
+		});
+	});
+
+	it('Should refuse a new task with no title', () => {
+		expect(fieldsFrom(blankForm(), null)).toEqual({ error: 'A title is required.' });
 	});
 });
