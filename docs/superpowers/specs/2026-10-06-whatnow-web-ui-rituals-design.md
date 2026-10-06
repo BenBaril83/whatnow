@@ -29,8 +29,8 @@ SvelteKit route groups give two shells:
 - **Header ⋯ menu:** All tasks, Wrap up early, and Settings. Settings moves into the menu.
 - **Wrap up button:** shows in the header from an hour before the end-of-day setting until the day
   is wrapped.
-- **Into the morning:** Today with no plan redirects to `/morning`. The Start my day card is
-  deleted.
+- **Into the morning:** Today with no plan redirects to `/morning`, once first-run onboarding has
+  had its turn.
 - **Out of the morning:** `/morning` on a day that has already started redirects to Today, so a
   stale tab or a double click can't start the day twice.
 - **Out of wrap-up:** `/wrap` on a wrapped day redirects to Today.

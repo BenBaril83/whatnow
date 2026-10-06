@@ -128,7 +128,7 @@ fails, the text goes back in the box. Capture works with no provider set up.
   rationale shows on hover or tap.
 - A card linked by blockers shows "⛓ waits on N" and/or "unblocks N", counting open tasks only.
   Clicking one shows the linked titles under it and puts a dashed outline on the linked cards.
-  Clicking again hides them.
+  Clicking again hides them. The ⛓ glyph stays as it is, small and odd in the sticker font.
 - Every ⋯ and pace menu closes on a click outside it or on Escape.
 - Each card has a checkbox, which completes it, and a ⋯ menu with **push to tomorrow** and
   **drop**. Every action shows an undo toast. If completing fails, the checkbox unticks.
