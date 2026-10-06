@@ -85,6 +85,16 @@ func (s *Server) startDay(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, Started{Day: day, Plan: plan})
 }
 
+// replan makes a fresh plan on request, so tasks waiting in the unplanned tray get slotted in.
+func (s *Server) replan(w http.ResponseWriter, r *http.Request) {
+	plan, err := s.Planner.Replan(r.Context(), domain.TriggerUser, "")
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, plan)
+}
+
 // setPace changes today's pace. The replan it causes arrives later as plan.updated.
 func (s *Server) setPace(w http.ResponseWriter, r *http.Request) {
 	var body struct {

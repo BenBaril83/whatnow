@@ -75,6 +75,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/v1/today/wrap", s.wrapReview)
 	mux.HandleFunc("POST /api/v1/today/wrap", s.wrapUp)
 	mux.HandleFunc("PUT /api/v1/today/pace", s.setPace)
+	mux.HandleFunc("POST /api/v1/today/replan", s.replan)
 	mux.HandleFunc("POST /api/v1/whatnow", s.whatNow)
 	mux.HandleFunc("GET /api/v1/chat", s.chatHistory)
 	mux.HandleFunc("POST /api/v1/chat", s.chat)

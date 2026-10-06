@@ -8,6 +8,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/facts"
 	js "github.com/jameynakama/whatnow/internal/jsonschema"
+	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
 
@@ -28,7 +29,7 @@ type planReply struct {
 }
 
 // Replan makes a new version of today's plan and publishes it as plan.updated. It returns ErrNoDay
-// if today hasn't started.
+// if today hasn't started, and ErrConflict if it's already wrapped: a wrapped day is never replanned.
 func (p *Planner) Replan(ctx context.Context, trigger domain.Trigger, reason string) (domain.Plan, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -38,6 +39,9 @@ func (p *Planner) Replan(ctx context.Context, trigger domain.Trigger, reason str
 	}
 	if st.day == nil {
 		return domain.Plan{}, ErrNoDay
+	}
+	if st.day.WrappedAt != nil {
+		return domain.Plan{}, fmt.Errorf("%w: %s is already wrapped", service.ErrConflict, st.day.Date)
 	}
 	plan := domain.Plan{DayID: st.day.ID, Trigger: trigger, Reason: reason}
 

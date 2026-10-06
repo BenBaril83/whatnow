@@ -125,3 +125,29 @@ func TestPushTask(t *testing.T) {
 	}
 	wantStatus(t, api.do(http.MethodPost, path, map[string]string{"until": "monday"}), http.StatusBadRequest)
 }
+
+func TestReplanSlotsInTheTray(t *testing.T) {
+	api := newAPI(t)
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/replan", nil), http.StatusConflict)
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/start", map[string]any{"pace": 3}), http.StatusCreated)
+	added := decodeAs[taskMutation](t, api.do(http.MethodPost, "/api/v1/tasks", map[string]any{"title": "new thing"}))
+
+	rec := api.do(http.MethodPost, "/api/v1/today/replan", nil)
+	wantStatus(t, rec, http.StatusOK)
+	plan := decodeAs[domain.Plan](t, rec)
+	if plan.Trigger != domain.TriggerUser {
+		t.Errorf("trigger = %q, want user", plan.Trigger)
+	}
+	today := decodeAs[planner.Today](t, api.do(http.MethodGet, "/api/v1/today", nil))
+	if len(today.Unplanned) != 0 || today.Plan == nil || today.Plan.ID != plan.ID {
+		t.Errorf("after replan, unplanned = %v, plan = %+v; want task %d planned", today.Unplanned, today.Plan, added.Data.ID)
+	}
+}
+
+func TestReplanRefusesAWrappedDay(t *testing.T) {
+	api := newAPI(t)
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/start", map[string]any{"pace": 3}), http.StatusCreated)
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/wrap", map[string]any{"triage": []any{}, "note": ""}), http.StatusOK)
+
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/replan", nil), http.StatusConflict)
+}

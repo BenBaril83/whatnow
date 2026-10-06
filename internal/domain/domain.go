@@ -154,10 +154,12 @@ const (
 	TriggerPace    Trigger = "pace"
 	TriggerEdit    Trigger = "edit"
 	TriggerAgent   Trigger = "agent"
+	// TriggerUser is a replan the user asked for from Today.
+	TriggerUser Trigger = "user"
 )
 
 func (t Trigger) Valid() bool {
-	return t == TriggerMorning || t == TriggerPace || t == TriggerEdit || t == TriggerAgent
+	return t == TriggerMorning || t == TriggerPace || t == TriggerEdit || t == TriggerAgent || t == TriggerUser
 }
 
 type PlanEntry struct {
