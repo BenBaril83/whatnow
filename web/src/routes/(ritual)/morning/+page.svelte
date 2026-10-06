@@ -5,6 +5,7 @@
 	import Dots from '#lib/components/Dots.svelte';
 	import TriageList from '#lib/components/TriageList.svelte';
 	import { tiers } from '#lib/plan.ts';
+	import { ritualOver } from '#lib/rituals.ts';
 	import { addDays } from '#lib/time.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import { choicesFor, triagePayload, type Choices } from '#lib/triage.ts';
@@ -52,8 +53,10 @@
 			await today.refresh();
 			step = 'reveal';
 		} catch (err) {
-			if (err instanceof ApiError && err.status === 409 && review) {
-				// A task on the list changed elsewhere. Show the fresh list, keeping what still applies.
+			if (err instanceof ApiError && err.status === 409) {
+				// Either another tab started the day, or a task on the list changed elsewhere.
+				await today.refresh().catch((e) => toasts.error(e));
+				if (today.today && ritualOver('morning', today.today)) return goto('/', { replaceState: true });
 				await loadReview(choices).catch((e) => toasts.error(e));
 				notice = "Something changed, here's the fresh list.";
 				step = reconciling ? 'reconcile' : 'pace';
@@ -81,6 +84,7 @@
 	<button class="btn primary next" onclick={() => (step = 'pace')}>Next →</button>
 {:else if step === 'pace'}
 	<h1>How's the tank?</h1>
+	{#if notice && !reconciling}<p class="chip notice">{notice}</p>{/if}
 	<div class="paces">
 		{#each paceLabels as label, i (label)}
 			<button class="chip" class:on={pace === i + 1} onclick={() => (pace = i + 1)}>{label}</button>

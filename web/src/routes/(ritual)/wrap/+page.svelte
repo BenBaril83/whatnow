@@ -6,6 +6,7 @@
 	import TriageList from '#lib/components/TriageList.svelte';
 	import { live } from '#lib/live.svelte.ts';
 	import { winLine } from '#lib/plan.ts';
+	import { ritualOver } from '#lib/rituals.ts';
 	import { addDays, survived } from '#lib/time.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import { choicesFor, triagePayload, type Choices } from '#lib/triage.ts';
@@ -53,7 +54,9 @@
 			step = 'goodnight';
 		} catch (err) {
 			if (err instanceof ApiError && err.status === 409) {
-				// A task on the list changed elsewhere. Show the fresh list, keeping what still applies.
+				// Either another tab wrapped the day, or a task on the list changed elsewhere.
+				await today.refresh().catch((e) => toasts.error(e));
+				if (today.today && ritualOver('wrap', today.today)) return goto('/', { replaceState: true });
 				await loadReview(choices).catch((e) => toasts.error(e));
 				notice = "Something changed, here's the fresh list.";
 				step = unfinished ? 'unfinished' : 'note';
