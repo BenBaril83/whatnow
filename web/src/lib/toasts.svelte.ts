@@ -8,10 +8,16 @@ export interface Toast {
 	error?: boolean;
 	/** Set while hovered or focused: the countdown and its fill stand still. */
 	paused?: boolean;
+	/** How long it stays, in ms. Its fill sweeps across in the same time. */
+	life: number;
+	nudge?: boolean;
+	/** A nudge's button, such as What now? for an event that just ended. */
+	action?: { label: string; run: () => void };
 }
 
-/** How long a toast stays, in ms. Its fill sweeps across in the same time. */
-export const lifetime = 8000;
+const lifetime = 8000;
+/** A nudge stays longer: it arrives unasked, often while you're looking elsewhere. */
+const nudgeLifetime = 30_000;
 
 interface Timer {
 	handle: ReturnType<typeof setTimeout>;
@@ -24,10 +30,10 @@ export class Toasts {
 	#next = 1;
 	#timers = new Map<number, Timer>();
 
-	#add(toast: Omit<Toast, 'id'>): void {
+	#add(toast: Omit<Toast, 'id' | 'life'>, life = lifetime): void {
 		const id = this.#next++;
-		this.items.push({ id, ...toast });
-		this.#run(id, lifetime);
+		this.items.push({ id, life, ...toast });
+		this.#run(id, life);
 	}
 
 	#run(id: number, ms: number): void {
@@ -59,6 +65,11 @@ export class Toasts {
 
 	error(err: unknown): void {
 		this.#add({ text: err instanceof Error ? err.message : String(err), error: true });
+	}
+
+	/** A nudge shown in the page, for when the browser won't show notifications. */
+	nudge(text: string, action?: Toast['action']): void {
+		this.#add({ text, nudge: true, action }, nudgeLifetime);
 	}
 
 	dismiss(id: number): void {

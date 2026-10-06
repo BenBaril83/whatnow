@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { lifetime, toasts } from '#lib/toasts.svelte.ts';
+	import { toasts } from '#lib/toasts.svelte.ts';
 </script>
 
 <div class="stack" aria-live="polite">
@@ -7,8 +7,9 @@
 		<div
 			class="sticker toast"
 			class:error={toast.error}
+			class:nudge={toast.nudge}
 			class:paused={toast.paused}
-			style:--lifetime="{lifetime}ms"
+			style:--lifetime="{toast.life}ms"
 			role="status"
 			onpointerenter={() => toasts.pause(toast.id)}
 			onpointerleave={() => toasts.resume(toast.id)}
@@ -17,6 +18,15 @@
 		>
 			<span class="fill" aria-hidden="true"></span>
 			<span class="text">{toast.text}</span>
+			{#if toast.action}
+				<button
+					class="btn primary"
+					onclick={() => {
+						toast.action?.run();
+						toasts.dismiss(toast.id);
+					}}>{toast.action.label}</button
+				>
+			{/if}
 			{#if toast.batch !== undefined}
 				<button class="btn" onclick={() => toasts.undo(toast)}>Undo</button>
 			{/if}
@@ -75,6 +85,9 @@
 	}
 	.error {
 		background: var(--must);
+	}
+	.nudge {
+		background: var(--chip);
 	}
 	.close {
 		background: none;

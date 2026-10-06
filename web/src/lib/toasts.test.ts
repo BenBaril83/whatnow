@@ -63,4 +63,14 @@ describe('Toasts', () => {
 		vi.advanceTimersByTime(1);
 		expect(t.items.length).toBe(0);
 	});
+
+	it('Should keep a nudge for 30 seconds, with its button', () => {
+		const t = new Toasts();
+		const run = vi.fn();
+		t.nudge("Standup's done. What now?", { label: 'What now?', run });
+		vi.advanceTimersByTime(29_999);
+		expect(t.items).toMatchObject([{ nudge: true, action: { label: 'What now?' } }]);
+		vi.advanceTimersByTime(1);
+		expect(t.items.length).toBe(0);
+	});
 });
