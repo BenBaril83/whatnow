@@ -9,17 +9,45 @@ export type Provider = 'anthropic' | 'openai';
 /** Where a provider's key comes from. Empty means there is none. */
 export type KeySource = '' | 'keychain' | 'env';
 
+/** A link or key pulled out of a task's text. */
+export interface Ref {
+	label: string;
+	url?: string;
+}
+
 export interface Task {
 	id: number;
 	title: string;
+	notes: string;
 	raw_text: string;
 	size: Size | null;
 	energy: Energy | null;
 	feeling: string;
+	due_on: string | null;
 	/** A push sets this. The task is put off until then. */
 	not_before: string | null;
 	status: Status;
+	refs: Ref[] | null;
+	created_at: string;
 	updated_at: string;
+}
+
+/** What a task write sends. Every field is sent; null clears one. */
+export interface TaskFields {
+	title: string;
+	notes: string;
+	size: Size | null;
+	energy: Energy | null;
+	feeling: string;
+	due_on: string | null;
+	not_before: string | null;
+	refs: Ref[];
+}
+
+/** TaskID can't start until BlockedByID is finished. */
+export interface Blocker {
+	task_id: number;
+	blocked_by_id: number;
 }
 
 export interface CalendarEvent {
@@ -32,6 +60,35 @@ export interface CalendarEvent {
 export interface Day {
 	date: string;
 	pace: number;
+	wrapped_at: string | null;
+	tomorrow_note: string;
+	summary: string;
+}
+
+export type Action = 'roll_over' | 'push' | 'drop';
+
+/** The model's advice for one unfinished task. Until is set only for a push. */
+export interface Suggestion {
+	task_id: number;
+	reason: string;
+	action: Action;
+	until: string;
+}
+
+/** A day's outcome, for wrap-up and the morning's reconcile. Fallback means code suggested. */
+export interface Review {
+	day: Day;
+	done: Task[];
+	unfinished: Task[];
+	suggestions: Suggestion[];
+	fallback: boolean;
+}
+
+/** What the user decided for one unfinished task. A push with no until goes to tomorrow. */
+export interface Triage {
+	task_id: number;
+	action: Action;
+	until: string | null;
 }
 
 /** The five pace levels, 1 to 5, as the server labels them. */
@@ -150,8 +207,18 @@ export const api = {
 	push: (id: number, until: string) => request<Mutation>('POST', `/tasks/${id}/push`, { until }),
 	undo: (batch: number) => request<void>('POST', `/batches/${batch}/undo`),
 	setPace: (pace: number) => request<Mutation>('PUT', '/today/pace', { pace, note: '' }),
-	start: (pace: number, mood_note: string) =>
-		request<unknown>('POST', '/today/start', { pace, mood_note, triage: [] }),
+	updateTask: (id: number, fields: TaskFields) => request<Mutation>('PUT', `/tasks/${id}`, fields),
+	blockers: () => request<Blocker[]>('GET', '/blockers'),
+	addBlocker: (id: number, blocked_by_id: number) =>
+		request<Mutation>('POST', `/tasks/${id}/blockers`, { blocked_by_id }),
+	removeBlocker: (id: number, blockedBy: number) =>
+		request<Mutation>('DELETE', `/tasks/${id}/blockers/${blockedBy}`),
+	morning: () => request<{ review: Review | null }>('GET', '/morning'),
+	start: (pace: number, mood_note: string, triage: Triage[]) =>
+		request<{ day: Day; plan: Plan }>('POST', '/today/start', { pace, mood_note, triage }),
+	wrapReview: () => request<Review>('GET', '/today/wrap'),
+	wrap: (triage: Triage[], note: string) =>
+		request<{ batch_id: number; data: Day }>('POST', '/today/wrap', { triage, note }),
 	whatNow: (exclude_task_id = 0, reason = '') =>
 		request<Pick>('POST', '/whatnow', { exclude_task_id, reason }),
 	send: (text: string) => request<Message>('POST', '/chat', { text }),

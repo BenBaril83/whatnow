@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarEvent } from './api';
-import { addDays, countdown, strip, survived } from './time';
+import { addDays, countdown, morningDue, strip, survived, wrapDue } from './time';
 
 const at = (hhmm: string) => new Date(`2026-10-05T${hhmm}:00`);
 const ev = (title: string, start: string, end: string | null = null): CalendarEvent => ({
@@ -83,5 +83,25 @@ describe('addDays', () => {
 		['2026-03-07', '2026-03-08'] // the night before a US DST change
 	])('Should give the day after %s', (date, want) => {
 		expect(addDays(date, 1)).toBe(want);
+	});
+});
+
+describe('wrapDue', () => {
+	it.each([
+		['16:29', false],
+		['16:30', true],
+		['20:00', true]
+	])('Should offer wrap-up at %s with a 17:30 end of day: %s', (now, want) => {
+		expect(wrapDue(at(now), at('17:30'))).toBe(want);
+	});
+});
+
+describe('morningDue', () => {
+	it.each([
+		['the date changed and today has no plan', '2026-10-05', '2026-10-06', false, true],
+		['the date changed but today already has a plan', '2026-10-05', '2026-10-06', true, false],
+		['the same date with no plan', '2026-10-06', '2026-10-06', false, false]
+	])('Should know whether to go to the morning when %s', (_, seen, date, planned, want) => {
+		expect(morningDue(seen, date, planned)).toBe(want);
 	});
 });

@@ -5,18 +5,22 @@ import { doneOn, tiers, unplanned, winLine } from './plan';
 const task = (id: number, status: Status = 'open', updated_at = '2026-10-05T15:00:00Z'): Task => ({
 	id,
 	title: `task ${id}`,
+	notes: '',
 	raw_text: '',
 	size: null,
 	energy: null,
 	feeling: '',
+	due_on: null,
 	not_before: null,
 	status,
+	refs: null,
+	created_at: '2026-10-01T15:00:00Z',
 	updated_at
 });
 
 const today = (over: Partial<Today> = {}): Today => ({
 	date: '2026-10-05',
-	day: { date: '2026-10-05', pace: 3 },
+	day: { date: '2026-10-05', pace: 3, wrapped_at: null, tomorrow_note: '', summary: '' },
 	plan: {
 		id: 1,
 		opening: '',

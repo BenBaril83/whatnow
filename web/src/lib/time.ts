@@ -73,3 +73,16 @@ export function strip(events: CalendarEvent[], now: Date, endOfDay: Date): Strip
 export function survived(events: CalendarEvent[], now: Date): number {
 	return events.filter((e) => eventEnd(e) <= now.getTime()).length;
 }
+
+/** Wrap-up is offered from an hour before the end of day. */
+export function wrapDue(now: Date, endOfDay: Date): boolean {
+	return now.getTime() >= endOfDay.getTime() - 60 * minute;
+}
+
+/**
+ * Whether a tab that last saw `seen` should start the morning now: the date has moved on and the
+ * new day has no plan yet. A tab left open overnight otherwise keeps showing yesterday.
+ */
+export function morningDue(seen: string, date: string, planned: boolean): boolean {
+	return date !== seen && !planned;
+}
