@@ -7,6 +7,7 @@
 	import { survived } from '#lib/time.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import { today } from '#lib/today.svelte.ts';
+	import { welcomeDue } from '#lib/welcome.ts';
 	import Capture from '#lib/components/Capture.svelte';
 	import DayStrip from '#lib/components/DayStrip.svelte';
 	import DaysDone from '#lib/components/DaysDone.svelte';
@@ -27,9 +28,9 @@
 	const pickTask = $derived(pick ? today.tasks.find((x) => x.id === pick?.task_id) : undefined);
 	const tierNames: Tier[] = ['must', 'should', 'could'];
 
-	// A day with no plan starts with the morning check-in.
+	// A day with no plan starts with the morning check-in, once first-run setup has had its turn.
 	$effect(() => {
-		if (t && !t.plan) goto('/morning', { replaceState: true });
+		if (t && !t.plan && live.view && !welcomeDue(live.view.settings, '/')) goto('/morning', { replaceState: true });
 	});
 
 	// A nudge's What now? arrives as ?whatnow, from any page.
