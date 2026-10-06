@@ -226,8 +226,8 @@ export const api = {
 	removeBlocker: (id: number, blockedBy: number) =>
 		request<Mutation>('DELETE', `/tasks/${id}/blockers/${blockedBy}`),
 	morning: () => request<{ review: Review | null }>('GET', '/morning'),
-	start: (pace: number, mood_note: string, triage: Triage[]) =>
-		request<{ day: Day; plan: Plan }>('POST', '/today/start', { pace, mood_note, triage }),
+	start: (pace: number, mood_note: string, triage: Triage[], dump: string) =>
+		request<{ day: Day; plan: Plan }>('POST', '/today/start', { pace, mood_note, triage, dump }),
 	wrapReview: () => request<Review>('GET', '/today/wrap'),
 	wrap: (triage: Triage[], note: string) =>
 		request<{ batch_id: number; data: Day }>('POST', '/today/wrap', { triage, note }),

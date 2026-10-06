@@ -11,17 +11,18 @@
 	import { choicesFor, triagePayload, type Choices } from '#lib/triage.ts';
 	import { today } from '#lib/today.svelte.ts';
 
-	type Step = 'greet' | 'reconcile' | 'pace' | 'making' | 'reveal';
+	type Step = 'greet' | 'reconcile' | 'dump' | 'pace' | 'making' | 'reveal';
 
 	let step = $state<Step>('greet');
 	let review = $state<Review | null>(null);
 	let choices = $state<Choices>({});
 	let pace = $state(3);
 	let mood = $state('');
+	let dump = $state('');
 	let notice = $state('');
 
 	const reconciling = $derived((review?.unfinished.length ?? 0) > 0);
-	const steps = $derived<Step[]>(reconciling ? ['reconcile', 'pace', 'reveal'] : ['pace', 'reveal']);
+	const steps = $derived<Step[]>(reconciling ? ['reconcile', 'dump', 'pace', 'reveal'] : ['dump', 'pace', 'reveal']);
 	const at = $derived(Math.max(0, steps.indexOf(step === 'making' ? 'reveal' : step)));
 	const tomorrow = $derived(today.today ? addDays(today.today.date, 1) : '');
 	const revealed = $derived(today.today ? tiers(today.today, today.tasks) : null);
@@ -38,10 +39,10 @@
 			// A day that already started has nothing to check in for.
 			if (today.today?.plan) return goto('/', { replaceState: true });
 			await loadReview();
-			step = reconciling ? 'reconcile' : 'pace';
+			step = reconciling ? 'reconcile' : 'dump';
 		} catch (err) {
 			toasts.error(err);
-			step = 'pace';
+			step = 'dump';
 		}
 	});
 
@@ -49,11 +50,13 @@
 		step = 'making';
 		notice = '';
 		try {
-			await api.start(pace, mood.trim(), review ? triagePayload(choices) : []);
+			await api.start(pace, mood.trim(), review ? triagePayload(choices) : [], dump.trim());
 			await today.refresh();
 			step = 'reveal';
 		} catch (err) {
 			if (err instanceof ApiError && err.status === 409) {
+				// The server captures the dump before it can refuse the start, so it's saved already.
+				dump = '';
 				// Either another tab started the day, or a task on the list changed elsewhere.
 				await today.refresh().catch((e) => toasts.error(e));
 				if (today.today && ritualOver('morning', today.today)) return goto('/', { replaceState: true });
@@ -81,7 +84,16 @@
 	</p>
 	{#if notice}<p class="chip notice">{notice}</p>{/if}
 	<TriageList {review} bind:choices />
-	<button class="btn primary next" onclick={() => (step = 'pace')}>Next →</button>
+	<button class="btn primary next" onclick={() => (step = 'dump')}>Next →</button>
+{:else if step === 'dump'}
+	<h1>What's on your plate?</h1>
+	<p class="muted center">Dump it all here, messy is fine. I'll sort it into tasks before planning.</p>
+	<textarea class="field" rows="8" bind:value={dump} aria-label="What's on your plate"></textarea>
+	<div class="row">
+		{#if reconciling}<button class="btn" onclick={() => (step = 'reconcile')}>← Back</button>{/if}
+		<button class="link" onclick={() => ((dump = ''), (step = 'pace'))}>Skip</button>
+		<button class="btn primary" onclick={() => (step = 'pace')}>Next →</button>
+	</div>
 {:else if step === 'pace'}
 	<h1>How's the tank?</h1>
 	{#if notice && !reconciling}<p class="chip notice">{notice}</p>{/if}
@@ -90,9 +102,9 @@
 			<button class="chip" class:on={pace === i + 1} onclick={() => (pace = i + 1)}>{label}</button>
 		{/each}
 	</div>
-	<textarea class="field" rows="3" bind:value={mood} placeholder="Anything on your mind? (optional)"></textarea>
+	<textarea class="field" rows="3" bind:value={mood} placeholder="How are you feeling? (optional)"></textarea>
 	<div class="row">
-		{#if reconciling}<button class="btn" onclick={() => (step = 'reconcile')}>← Back</button>{/if}
+		<button class="btn" onclick={() => (step = 'dump')}>← Back</button>
 		<button class="btn primary" onclick={start}>Plan my day →</button>
 	</div>
 {:else if step === 'making'}
@@ -149,6 +161,15 @@
 	}
 	.row .primary:only-child {
 		margin-left: auto;
+	}
+	.link {
+		margin-left: auto;
+		margin-right: 12px;
+		background: none;
+		border: none;
+		padding: 0;
+		color: var(--primary);
+		font-weight: var(--heavy);
 	}
 	.next {
 		align-self: flex-end;
