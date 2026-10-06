@@ -141,3 +141,13 @@ func (m Model) whatNow(exclude int64, reason string) tea.Cmd {
 		return pickedMsg{pick}
 	}
 }
+
+// send sends a chat message. Its reply streams in over the hub while the turn runs.
+func (m Model) send(text string) tea.Cmd {
+	return func() tea.Msg {
+		if _, err := m.app.Agent.Send(m.ctx, text); err != nil {
+			return failedMsg{err}
+		}
+		return chatSentMsg{}
+	}
+}

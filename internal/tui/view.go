@@ -98,7 +98,53 @@ func (m Model) header() string {
 }
 
 func (m Model) body(h int) string {
-	return sticker(m.listLines(h-3), m.width, h)
+	switch {
+	case !m.chatOpen:
+		return sticker(m.listLines(h-3), m.width, h)
+	case m.width < wideEnough:
+		return sticker(m.chatLines(m.width-5, h-3), m.width, h)
+	}
+	listW := m.width * 3 / 5
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		sticker(m.listLines(h-3), listW, h),
+		sticker(m.chatLines(m.width-listW-5, h-3), m.width-listW, h))
+}
+
+// chatLines is today's chat, newest at the bottom above the input, wrapped to w columns.
+func (m Model) chatLines(w, rows int) []string {
+	var lines []string
+	say := func(who, text string, style lipgloss.Style) {
+		wrapped := lipgloss.NewStyle().Width(max(w-5, 1)).Render(text)
+		for i, l := range strings.Split(wrapped, "\n") {
+			label := "     "
+			if i == 0 {
+				label = style.Render(fmt.Sprintf("%-5s", who))
+			}
+			lines = append(lines, label+l)
+		}
+	}
+	for _, msg := range m.snap.chat {
+		if msg.Role == domain.RoleUser {
+			say("you", msg.Text, softStyle)
+		} else {
+			say("wn", msg.Text, cursorStyle)
+		}
+	}
+	if m.streaming != "" {
+		say("wn", m.streaming, cursorStyle)
+	}
+	input := softStyle.Render("c to chat")
+	if m.mode == modeChat {
+		input = m.input.View()
+	}
+	room := max(rows-2, 0)
+	if len(lines) > room {
+		lines = lines[len(lines)-room:]
+	}
+	for len(lines) < room {
+		lines = append([]string{""}, lines...)
+	}
+	return append(lines, "", input)
 }
 
 // listLines is the list, scrolled so the cursor and the line below it are in view.
@@ -158,6 +204,9 @@ func (m Model) toastLine() string {
 }
 
 func (m Model) footer() string {
+	if m.mode == modeChat {
+		return softStyle.Render(ansi.Truncate("enter send · esc back to the list", m.width, "…"))
+	}
 	if m.mode == modeAdd || m.mode == modePass {
 		return ansi.Truncate(m.input.View(), m.width, "…")
 	}

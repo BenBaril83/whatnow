@@ -145,7 +145,7 @@ func TestActionsDoNothingOnAnEmptyList(t *testing.T) {
 	if !strings.Contains(m.View(), "All clear") {
 		t.Errorf("view:\n%s", m.View())
 	}
-	for _, k := range []string{" ", "p", "x"} {
+	for _, k := range []string{" ", "p", "x", "j"} {
 		if _, cmd := m.Update(key(k)); cmd != nil {
 			t.Errorf("%q on an empty list made a command", k)
 		}
@@ -188,5 +188,32 @@ func TestAToastLeavesWhenItsTimeIsUp(t *testing.T) {
 	}
 	if send(m, toastExpiredMsg{m.toast.id}).toast.text != "" {
 		t.Error("the toast stayed past its time")
+	}
+}
+
+func TestUndoingSomethingChangedSinceShowsWhy(t *testing.T) {
+	f := newFixture(t)
+	milk := f.task(t, "buy milk")
+	f.start(t)
+	m := f.model(t, 80, 24)
+	done, ok := m.act(" ", milk)().(wroteMsg)
+	if !ok {
+		t.Fatal("marking done failed")
+	}
+	if _, ok := m.act("x", milk)().(wroteMsg); !ok {
+		t.Fatal("dropping failed")
+	}
+	if _, ok := m.undo(done.batch)().(failedMsg); !ok {
+		t.Error("undoing a change that was changed again didn't fail")
+	}
+}
+
+func TestAWriteOnAClosedDatabaseFails(t *testing.T) {
+	f := newFixture(t)
+	f.today(t)
+	m := f.model(t, 80, 24)
+	f.app.DB.Close()
+	if _, ok := m.capture("buy milk")().(failedMsg); !ok {
+		t.Error("a write on a closed database didn't fail")
 	}
 }

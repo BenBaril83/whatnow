@@ -79,3 +79,38 @@ func TestThePickClearsWhenItsTaskLeaves(t *testing.T) {
 		t.Error("the pick outlived its task")
 	}
 }
+
+func TestWWithNothingFreeSaysSo(t *testing.T) {
+	f := newFixture(t)
+	milk := f.task(t, "buy milk")
+	f.start(t)
+	ctx := context.Background()
+	batch, _ := f.app.Service.NewBatch(ctx, domain.ActorUser)
+	if _, err := f.app.Service.SetTaskStatus(ctx, batch, milk.ID, domain.StatusDone); err != nil {
+		t.Fatal(err)
+	}
+	m := f.model(t, 80, 24)
+	if v := send(m, m.whatNow(0, "")()).View(); !strings.Contains(v, "Nothing is free to start right now.") {
+		t.Errorf("view:\n%s", v)
+	}
+}
+
+func TestWWhileAskingDoesNotAskTwice(t *testing.T) {
+	f := newFixture(t)
+	f.task(t, "buy milk")
+	f.start(t)
+	m := f.model(t, 80, 24)
+	m.asking = true
+	if _, cmd := m.Update(key("w")); cmd != nil {
+		t.Error("w asked again while an answer was coming")
+	}
+}
+
+func TestPassingOnATaskThatIsGoneShowsWhy(t *testing.T) {
+	f := newFixture(t)
+	f.task(t, "buy milk")
+	f.start(t)
+	if _, ok := f.model(t, 80, 24).whatNow(9999, "too tired")().(failedMsg); !ok {
+		t.Error("passing on a missing task didn't fail")
+	}
+}

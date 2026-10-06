@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jameynakama/whatnow/internal/agent"
 	"github.com/jameynakama/whatnow/internal/app"
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/planner"
@@ -24,6 +25,7 @@ const (
 	modeList mode = iota
 	modeAdd
 	modePass
+	modeChat
 	modeHelp
 )
 
@@ -49,6 +51,7 @@ type (
 	failedMsg       struct{ err error }
 	toastExpiredMsg struct{ id int }
 	pickedMsg       struct{ pick planner.Pick }
+	chatSentMsg     struct{}
 )
 
 type (
@@ -82,7 +85,8 @@ type Model struct {
 	asking        bool  // what now is thinking
 	sending       bool  // a chat reply is being written
 	pick          *planner.Pick
-	passing       int64 // the pick being passed on while its reason is typed
+	passing       int64  // the pick being passed on while its reason is typed
+	streaming     string // the chat reply so far, while it's written
 }
 
 // New makes the TUI and subscribes it to the hub. webURL is where the user starts and wraps the day.
@@ -148,6 +152,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		p := msg.pick
 		m.pick, m.cursor = &p, p.TaskID
 		return m, m.load()
+	case chatSentMsg:
+		m.sending = false
+		return m, m.load()
 	case spinner.TickMsg:
 		if !m.asking && !m.sending {
 			return m, nil
@@ -183,6 +190,20 @@ func (m *Model) replace(s snapshot) {
 }
 
 func (m Model) onHub(msg stream.Message) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case "chat.delta":
+		m.streaming += msg.Data.(agent.Delta).Text
+		return m, m.listen()
+	case "chat.message":
+		said := msg.Data.(domain.Message)
+		if said.Role == domain.RoleAssistant {
+			m.streaming = ""
+		}
+		if m.snap != nil {
+			m.snap.chat = append(m.snap.chat, said)
+		}
+		return m, m.listen()
+	}
 	return m, tea.Batch(m.listen(), m.load())
 }
 
@@ -194,7 +215,7 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeHelp:
 		m.mode = modeList
 		return m, nil
-	case modeAdd, modePass:
+	case modeAdd, modePass, modeChat:
 		return m.onInput(k)
 	}
 	switch k.String() {
@@ -225,6 +246,9 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.passing = m.pick.TaskID
 		return m.prompt(modePass, "Why not? (optional)")
+	case "c":
+		m.chatOpen = true
+		return m.prompt(modeChat, "Message")
 	case "a":
 		return m.prompt(modeAdd, "What's on your mind?")
 	case "u":
@@ -244,10 +268,22 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) onInput(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc":
+		if m.mode == modeChat && m.width < wideEnough {
+			m.chatOpen = false
+		}
 		m.mode = modeList
 		m.input.Blur()
 		return m, nil
 	case "enter":
+		if m.mode == modeChat {
+			text := strings.TrimSpace(m.input.Value())
+			if text == "" || m.sending {
+				return m, nil
+			}
+			m.input.Reset()
+			m.sending = true
+			return m, tea.Batch(m.send(text), m.spin.Tick)
+		}
 		text := strings.TrimSpace(m.input.Value())
 		md := m.mode
 		m.input.Reset()

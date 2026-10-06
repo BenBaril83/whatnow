@@ -114,3 +114,17 @@ func TestHourLabelCallsNoon12p(t *testing.T) {
 		t.Errorf("hourLabel(0) = %q", got)
 	}
 }
+
+func TestStripStretchesToKeepNowOnItAfterTheEndOfDay(t *testing.T) {
+	l := layoutStrip(nil, at("20:00"), at("17:00"), at("09:00"), 100)
+	if l.now >= 99 || l.now <= l.endOfDay {
+		t.Errorf("now = %d, end of day = %d", l.now, l.endOfDay)
+	}
+}
+
+func TestStripDrawsALongEventAcrossItsWholeSpan(t *testing.T) {
+	rows := strings.Split(layoutStrip([]domain.Event{event("Offsite", "09:00", "12:00")}, at("13:00"), at("17:30"), at("08:40"), 100).render(), "\n")
+	if got := string([]rune(rows[1])[10:40]); got != " Offsite"+strings.Repeat(" ", 22) {
+		t.Errorf("event span = %q", got)
+	}
+}

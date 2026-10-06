@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"os"
@@ -233,4 +234,64 @@ func key(s string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyEsc}
 	}
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
+}
+
+func TestAWaitingTaskShowsHowManyItWaitsOn(t *testing.T) {
+	f := newFixture(t)
+	first, waiting := f.task(t, "buy milk"), f.task(t, "pour cereal")
+	ctx := context.Background()
+	batch, _ := f.app.Service.NewBatch(ctx, domain.ActorUser)
+	if err := f.app.Service.AddBlocker(ctx, batch, domain.Blocker{TaskID: waiting.ID, BlockedByID: first.ID}); err != nil {
+		t.Fatal(err)
+	}
+	f.start(t)
+	if v := f.model(t, 80, 24).View(); !strings.Contains(v, "pour cereal  ⛓ 1") {
+		t.Errorf("view:\n%s", v)
+	}
+}
+
+func TestTheGoodMorningScreenTakesOnlyRefreshAndQuit(t *testing.T) {
+	f := newFixture(t)
+	m := f.model(t, 80, 24)
+	if _, cmd := m.Update(key("j")); cmd != nil {
+		t.Error("j did something before the day started")
+	}
+	if _, cmd := m.Update(key("r")); cmd == nil {
+		t.Error("r didn't reload")
+	}
+	if _, cmd := m.Update(key("q")); cmd == nil || cmd() != tea.Quit() {
+		t.Error("q didn't quit")
+	}
+}
+
+func TestATickReloads(t *testing.T) {
+	f := newFixture(t)
+	f.today(t)
+	m := f.model(t, 80, 24)
+	f.task(t, "added elsewhere") // as another process would, without telling this one
+	_, cmd := m.Update(tickMsg{})
+	reload, ok := cmd().(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("a tick returned %T", cmd())
+	}
+	snap, ok := reload[0]().(snapshotMsg)
+	if !ok {
+		t.Fatal("the tick's first command didn't load")
+	}
+	if v := send(m, snap).View(); !strings.Contains(v, "added elsewhere") {
+		t.Errorf("view after the tick:\n%s", v)
+	}
+}
+
+func TestChatShowsTheNewestMessagesWhenItOverflows(t *testing.T) {
+	f := newFixture(t)
+	f.today(t)
+	s := f.load(t)
+	for i := range 30 {
+		s.chat = append(s.chat, domain.Message{Role: domain.RoleUser, Text: "message " + strconv.Itoa(i)})
+	}
+	v := send(f.model(t, 120, 30), snapshotMsg{s}).View()
+	if !strings.Contains(v, "message 29") || strings.Contains(v, "message 0 ") {
+		t.Errorf("view:\n%s", v)
+	}
 }
