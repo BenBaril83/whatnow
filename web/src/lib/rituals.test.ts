@@ -9,7 +9,6 @@ const today = (over: Partial<Today>): Today => ({
 	day: null,
 	plan: null,
 	unplanned: [],
-	blocked: [],
 	...over
 });
 

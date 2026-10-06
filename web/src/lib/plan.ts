@@ -4,7 +4,6 @@ import { localDate } from './time';
 export interface Card {
 	task: Task;
 	rationale: string;
-	blocked: boolean;
 }
 
 export type Tiers = Record<Tier, Card[]>;
@@ -16,12 +15,11 @@ export type Tiers = Record<Tier, Card[]>;
  */
 export function tiers(today: Today, tasks: Task[]): Tiers {
 	const byId = new Map(tasks.map((t) => [t.id, t]));
-	const blocked = new Set(today.blocked);
 	const out: Tiers = { must: [], should: [], could: [] };
 	for (const e of today.plan?.entries ?? []) {
 		const task = byId.get(e.task_id);
 		if (task?.status !== 'open' || (task.not_before ?? '') > today.date) continue;
-		out[e.tier].push({ task, rationale: e.rationale, blocked: blocked.has(task.id) });
+		out[e.tier].push({ task, rationale: e.rationale });
 	}
 	return out;
 }
@@ -29,10 +27,9 @@ export function tiers(today: Today, tasks: Task[]): Tiers {
 /** Eligible tasks the plan leaves out, in the server's order. */
 export function unplanned(today: Today, tasks: Task[]): Card[] {
 	const byId = new Map(tasks.map((t) => [t.id, t]));
-	const blocked = new Set(today.blocked);
 	return today.unplanned.flatMap((id) => {
 		const task = byId.get(id);
-		return task ? [{ task, rationale: '', blocked: blocked.has(id) }] : [];
+		return task ? [{ task, rationale: '' }] : [];
 	});
 }
 

@@ -7,7 +7,6 @@
 	let filter = $state<Filter>('open');
 
 	const t = $derived(today.today);
-	const blocked = $derived(new Set(t?.blocked ?? []));
 	const shown = $derived(t ? listTasks(today.tasks, today.blockers, filter, t.date) : []);
 </script>
 
@@ -28,7 +27,7 @@
 	</div>
 	<section>
 		{#each shown as task (task.id)}
-			<TaskCard card={{ task, rationale: '', blocked: blocked.has(task.id) }} date={t.date} listed />
+			<TaskCard card={{ task, rationale: '' }} date={t.date} listed />
 		{:else}
 			<p class="muted">Nothing here.</p>
 		{/each}

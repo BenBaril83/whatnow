@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type Today } from './api';
 import { TodayState } from './today.svelte';
 
-const day: Today = { date: '2026-10-05', day: null, plan: null, unplanned: [], blocked: [] };
+const day: Today = { date: '2026-10-05', day: null, plan: null, unplanned: [] };
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {

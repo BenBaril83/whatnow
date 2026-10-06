@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { api, type Tier } from '#lib/api.ts';
+	import { dismiss } from '#lib/dismiss.ts';
 	import { editor } from '#lib/editor.svelte.ts';
-	import type { Card } from '#lib/plan.ts';
+	import { linked } from '#lib/linked.svelte.ts';
+	import { links, type Card } from '#lib/plan.ts';
 	import { addDays } from '#lib/time.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
+	import { today } from '#lib/today.svelte.ts';
 
 	interface Props {
 		card: Card;
@@ -19,6 +22,10 @@
 	let menuOpen = $state(false);
 	let why = $state(false);
 	const task = $derived(card.task);
+	const chain = $derived(links(task.id, today.blockers, today.tasks));
+	const showingLinks = $derived(linked.source === task.id);
+	const titles = (tasks: { title: string }[]) => tasks.map((t) => t.title).join(', ');
+	const toggleLinks = () => linked.toggle(task.id, [...chain.waitingOn, ...chain.unblocks].map((t) => t.id));
 
 	// The card leaves once the refetch lands. If the write failed, untick it again.
 	async function complete(e: Event & { currentTarget: HTMLInputElement }) {
@@ -46,34 +53,65 @@
 		new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 </script>
 
-<article class="sticker card {tier ?? (listed ? 'listed' : 'unplanned')}" class:closed={task.status !== 'open'}>
+<article
+	class="sticker card {tier ?? (listed ? 'listed' : 'unplanned')}"
+	class:closed={task.status !== 'open'}
+	class:linked={linked.ids.includes(task.id)}
+>
 	{#if task.status === 'open'}
 		<input type="checkbox" aria-label="Mark done" onchange={complete} />
 	{:else}
 		<span class="mark" aria-label={task.status}>{task.status === 'done' ? '✓' : '✕'}</span>
 	{/if}
-	<button
-		class="body"
-		onclick={() => (listed ? editor.open(task.id) : (why = !why))}
-		disabled={!listed && !card.rationale}
-	>
-		<span class="title">
-			{#if card.blocked}<span title="Blocked by another task">⛓</span>{/if}
-			{task.title}
-		</span>
-		<span class="badges">
-			{#if task.size}<span class="badge">{task.size}</span>{/if}
-			{#if task.energy}<span class="badge">{task.energy} energy</span>{/if}
-			{#if listed && task.due_on}<span class="badge">due {short(task.due_on)}</span>{/if}
-			{#if listed && task.not_before}<span class="badge">from {short(task.not_before)}</span>{/if}
-		</span>
-		{#if task.feeling}<span class="feeling">"{task.feeling}"</span>{/if}
-		{#if card.rationale}<span class="why" class:shown={why}>{card.rationale}</span>{/if}
-	</button>
+	<div class="main">
+		<button
+			class="body"
+			onclick={() => (listed ? editor.open(task.id) : (why = !why))}
+			disabled={!listed && !card.rationale}
+		>
+			<span class="title">{task.title}</span>
+			<span class="badges">
+				{#if task.size}<span class="badge">{task.size}</span>{/if}
+				{#if task.energy}<span class="badge">{task.energy} energy</span>{/if}
+				{#if listed && task.due_on}<span class="badge">due {short(task.due_on)}</span>{/if}
+				{#if listed && task.not_before}<span class="badge">from {short(task.not_before)}</span>{/if}
+			</span>
+			{#if task.feeling}<span class="feeling">"{task.feeling}"</span>{/if}
+			{#if card.rationale}<span class="why" class:shown={why}>{card.rationale}</span>{/if}
+		</button>
+		{#if task.status === 'open' && (chain.waitingOn.length || chain.unblocks.length)}
+			<div class="chain">
+				{#if chain.waitingOn.length}
+					<button
+						class="badge link"
+						aria-expanded={showingLinks}
+						onclick={toggleLinks}
+					>
+						⛓ waits on {chain.waitingOn.length}
+					</button>
+				{/if}
+				{#if chain.unblocks.length}
+					<button
+						class="badge link"
+						aria-expanded={showingLinks}
+						onclick={toggleLinks}
+					>
+						unblocks {chain.unblocks.length}
+					</button>
+				{/if}
+			</div>
+			{#if showingLinks}
+				<p class="links">
+					{#if chain.waitingOn.length}<span>Waiting on: {titles(chain.waitingOn)}</span>{/if}
+					{#if chain.unblocks.length}<span>Unblocks: {titles(chain.unblocks)}</span>{/if}
+				</p>
+			{/if}
+		{/if}
+	</div>
 	{#if task.status === 'dropped'}
 		<button class="btn" onclick={restore}>Restore</button>
 	{:else if task.status === 'open'}
-		<details class="more" bind:open={menuOpen}>
+		<details class="more" bind:open={menuOpen} {@attach dismiss}>
 			<summary aria-label="More actions">⋯</summary>
 			<div class="sticker menu">
 				<button onclick={edit}>Edit</button>
@@ -119,8 +157,14 @@
 		margin-top: 2px;
 		accent-color: var(--primary);
 	}
-	.body {
+	.main {
 		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		min-width: 0;
+	}
+	.body {
 		display: flex;
 		flex-direction: column;
 		gap: 3px;
@@ -147,6 +191,28 @@
 		border-radius: var(--pill);
 		padding: 0 7px;
 		background: var(--card);
+	}
+	.chain {
+		display: flex;
+		gap: 6px;
+	}
+	.link {
+		cursor: pointer;
+		color: var(--ink);
+	}
+	.link[aria-expanded='true'] {
+		background: var(--chip);
+	}
+	.links {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		font-size: 13px;
+		color: var(--ink-soft);
+	}
+	.linked {
+		outline: 2px dashed var(--primary);
+		outline-offset: 3px;
 	}
 	.feeling {
 		font-style: italic;

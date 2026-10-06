@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api, configured, paceLabels, type Today } from '#lib/api.ts';
+	import { dismiss } from '#lib/dismiss.ts';
 	import { live } from '#lib/live.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import { countdown, wrapDue } from '#lib/time.ts';
@@ -36,7 +37,7 @@
 	<div class="left">
 		<h1>{date}</h1>
 		{#if today.day}
-			<details class="pace" bind:open={paceOpen}>
+			<details class="pace" bind:open={paceOpen} {@attach dismiss}>
 				<summary class="chip">pace: {paceLabels[today.day.pace - 1]}</summary>
 				<div class="sticker menu">
 					{#each paceLabels as label, i (label)}
@@ -63,7 +64,7 @@
 				{asking ? 'Thinking…' : 'What now?'}
 			</button>
 		{/if}
-		<details class="more" bind:open={menuOpen}>
+		<details class="more" bind:open={menuOpen} {@attach dismiss}>
 			<summary class="btn" aria-label="Menu">⋯</summary>
 			<nav class="sticker menu">
 				<a class="item" href="/" onclick={() => (menuOpen = false)}>Today</a>

@@ -114,7 +114,6 @@ export interface Today {
 	day: Day | null;
 	plan: Plan | null;
 	unplanned: number[];
-	blocked: number[];
 }
 
 export interface Pick {
