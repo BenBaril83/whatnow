@@ -1,93 +1,74 @@
-// Command whatnow runs the whatnow server.
+// Command whatnow runs the whatnow server, or the terminal companion.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/jameynakama/whatnow/internal/agent"
-	"github.com/jameynakama/whatnow/internal/cleanup"
+	"github.com/jameynakama/whatnow/internal/app"
 	"github.com/jameynakama/whatnow/internal/httpapi"
-	"github.com/jameynakama/whatnow/internal/llm"
-	"github.com/jameynakama/whatnow/internal/planner"
-	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/settings"
-	"github.com/jameynakama/whatnow/internal/store"
-	"github.com/jameynakama/whatnow/internal/stream"
 	"github.com/jameynakama/whatnow/internal/web"
 )
 
 // newClient makes the model client. The e2e build swaps in the fake.
 var newClient = settings.NewClient
 
+const defaultAddr = "127.0.0.1:7777"
+
+const usage = "usage: whatnow serve [-addr 127.0.0.1:7777] [-db PATH]\n       whatnow tui [-db PATH]"
+
 func main() {
-	if len(os.Args) < 2 || os.Args[1] != "serve" {
-		fmt.Fprintln(os.Stderr, "usage: whatnow serve [-addr 127.0.0.1:7777] [-db PATH]")
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)
 	}
-	flags := flag.NewFlagSet("serve", flag.ExitOnError)
-	addr := flags.String("addr", "127.0.0.1:7777", "listen address; keep it on loopback")
+	flags := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
 	dbPath := flags.String("db", "", "database path (default <user config dir>/whatnow/whatnow.db)")
-	flags.Parse(os.Args[2:])
-
-	if err := serve(*addr, *dbPath); err != nil {
+	var err error
+	switch os.Args[1] {
+	case "serve":
+		addr := flags.String("addr", defaultAddr, "listen address; keep it on loopback")
+		flags.Parse(os.Args[2:])
+		err = serve(*addr, *dbPath)
+	default:
+		fmt.Fprintln(os.Stderr, usage)
+		os.Exit(2)
+	}
+	if err != nil {
 		log.Fatal(err)
 	}
 }
 
+func open(dbPath string) (*app.App, error) {
+	return app.Open(app.Options{DBPath: dbPath, NewClient: newClient, Now: time.Now, Loc: time.Local})
+}
+
 func serve(addr, dbPath string) error {
-	if dbPath == "" {
-		dir, err := os.UserConfigDir()
-		if err != nil {
-			return err
-		}
-		dbPath = filepath.Join(dir, "whatnow", "whatnow.db")
-	}
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
-		return err
-	}
-	db, err := store.Open(dbPath)
+	a, err := open(dbPath)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-
-	svc := service.New(db, time.Now)
-	hub := stream.NewHub()
-	active := func(ctx context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
-		s, err := settings.Load(ctx, db)
-		if err != nil {
-			return nil, settings.ProviderConfig{}, settings.Settings{}, err
-		}
-		client, cfg, err := newClient(s)
-		return client, cfg, s, err
-	}
-	runner := cleanup.New(svc, hub, active, time.Local, time.Now)
-	go runner.Run(context.Background())
-	plans := planner.New(svc, hub, active, time.Local, time.Now)
-	watched, _ := hub.Subscribe("batch.applied", "batch.undone") // for the life of the process
-	go plans.Run(context.Background(), watched)
+	defer a.Close()
 
 	handler := httpapi.New(httpapi.Deps{
-		Service:   svc,
-		Hub:       hub,
-		DB:        db,
-		Loc:       time.Local,
-		OnCapture: runner.Enqueue,
-		Clean:     runner.Clean,
+		Service:   a.Service,
+		Hub:       a.Hub,
+		DB:        a.DB,
+		Loc:       a.Loc,
+		OnCapture: a.Cleanup.Enqueue,
+		Clean:     a.Cleanup.Clean,
 		NewClient: newClient,
-		Planner:   plans,
-		Agent:     agent.New(svc, hub, plans, time.Local, time.Now),
+		Planner:   a.Planner,
+		Agent:     a.Agent,
 		Static:    web.Handler(),
 	})
 	// No WriteTimeout: it would cut off the long-lived SSE stream.
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
-	log.Printf("whatnow listening on http://%s (db %s)", addr, dbPath)
+	log.Printf("whatnow listening on http://%s (db %s)", addr, a.DBPath)
 	return srv.ListenAndServe()
 }
