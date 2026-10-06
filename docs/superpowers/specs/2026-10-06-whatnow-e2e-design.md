@@ -59,13 +59,14 @@ closure and `Deps.NewClient` use it, so `active` loads settings itself. That lea
 ## Playwright (`web/e2e/`)
 
 - `@playwright/test`, Chromium only, one worker, tests run serially.
-- The config's `webServer` starts `whatnow-e2e serve` on a port other than the default, with a
-  `-db` in a temp directory.
+- The config's `webServer` builds `whatnow-e2e` with the tag and starts it on a port other than
+  the default, with a `-db` in a temp directory. Building in the same command means the suite never
+  runs an untagged binary, whose reset would wipe the real keychain's whatnow keys.
 - `beforeEach` calls `DELETE /api/v1/data`, which wipes the database and keys like the real
   "delete everything". Every test except onboarding then saves settings and a dummy key through
   the API, so the app starts already set up.
-- `just e2e` builds the web client, runs `go build -tags e2e -o whatnow-e2e ./cmd/whatnow`, and
-  runs Playwright. `just test` doesn't run it, so it stays fast and needs no browser.
+- `just e2e` builds the web client and runs Playwright. `just test` doesn't run it, so it stays
+  fast and needs no browser.
 - `whatnow-e2e` is gitignored.
 
 ### Tests
