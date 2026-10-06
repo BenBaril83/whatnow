@@ -72,6 +72,7 @@ func serve(addr, dbPath string) error {
 		DB:        db,
 		Loc:       time.Local,
 		OnCapture: runner.Enqueue,
+		Clean:     runner.Clean,
 		NewClient: settings.NewClient,
 		Planner:   plans,
 		Agent:     agent.New(svc, hub, plans, time.Local, time.Now),

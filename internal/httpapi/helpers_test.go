@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jameynakama/whatnow/internal/agent"
+	"github.com/jameynakama/whatnow/internal/cleanup"
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/llm"
@@ -52,12 +53,14 @@ func newAPI(t *testing.T) *testAPI {
 		return api.model, settings.ProviderConfig{MainModel: "main"}, settings.Defaults(), nil
 	}
 	plans := planner.New(svc, api.hub, active, testLoc, now)
+	runner := cleanup.New(svc, api.hub, active, testLoc, now)
 	api.handler = httpapi.New(httpapi.Deps{
 		Service:   svc,
 		Hub:       api.hub,
 		DB:        db,
 		Loc:       testLoc,
 		OnCapture: func(task domain.Task) { api.captured = append(api.captured, task.ID) },
+		Clean:     runner.Clean,
 		NewClient: func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 			if api.model == nil {
 				return nil, settings.ProviderConfig{}, settings.ErrNotConfigured

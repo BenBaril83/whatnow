@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -150,4 +151,44 @@ func TestReplanRefusesAWrappedDay(t *testing.T) {
 	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/wrap", map[string]any{"triage": []any{}, "note": ""}), http.StatusOK)
 
 	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/replan", nil), http.StatusConflict)
+}
+
+const dumpReply = `{"original":{"keep":true,"title":"Call the bank","notes":"","size":"","energy":"","feeling":"","due_on":"","not_before":"","refs":[]},
+"new_tasks":[{"ref":"n1","title":"Renew passport","notes":"","size":"","energy":"","feeling":"","due_on":"","not_before":"","refs":[]}],
+"events":[],"blockers":[]}`
+
+func TestStartWithADumpPlansWhatItSplitInto(t *testing.T) {
+	api := newAPI(t)
+	api.model = modelFunc(func(req llm.Request) (string, error) {
+		if req.SchemaName == "cleanup" {
+			return dumpReply, nil
+		}
+		return "", errors.New("model down") // the plan falls back to code, which plans every open task
+	})
+
+	rec := api.do(http.MethodPost, "/api/v1/today/start", map[string]any{"pace": 3, "dump": "call the bank\nrenew passport"})
+	wantStatus(t, rec, http.StatusCreated)
+	got := decodeAs[started](t, rec)
+	if len(got.Plan.Entries) != 2 {
+		t.Errorf("plan has %d entries, want the 2 tasks the dump split into", len(got.Plan.Entries))
+	}
+	today := decodeAs[planner.Today](t, api.do(http.MethodGet, "/api/v1/today", nil))
+	if len(today.Unplanned) != 0 {
+		t.Errorf("unplanned = %v, want the dump's tasks in the plan", today.Unplanned)
+	}
+	if len(api.captured) != 0 {
+		t.Errorf("a cleaned dump went to the background runner too: %v", api.captured)
+	}
+}
+
+func TestStartWithADumpStillStartsWhenCleanupFails(t *testing.T) {
+	api := newAPI(t)
+	api.model = modelFunc(func(llm.Request) (string, error) { return "", errors.New("model down") })
+
+	rec := api.do(http.MethodPost, "/api/v1/today/start", map[string]any{"pace": 3, "dump": "call the bank"})
+	wantStatus(t, rec, http.StatusCreated)
+	got := decodeAs[started](t, rec)
+	if len(got.Plan.Entries) != 1 || len(api.captured) != 1 || api.captured[0] != got.Plan.Entries[0].TaskID {
+		t.Errorf("want the raw card planned and handed to the background runner; plan %+v, captured %v", got.Plan.Entries, api.captured)
+	}
 }

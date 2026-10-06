@@ -1,10 +1,16 @@
 package httpapi
 
 import (
+	"context"
+	"errors"
+	"log"
 	"net/http"
+	"strings"
 
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/planner"
+	"github.com/jameynakama/whatnow/internal/service"
+	"github.com/jameynakama/whatnow/internal/settings"
 )
 
 func (s *Server) today(w http.ResponseWriter, r *http.Request) {
@@ -72,10 +78,18 @@ func (s *Server) startDay(w http.ResponseWriter, r *http.Request) {
 		MoodNote string      `json:"mood_note"`
 		// Triage settles the last day's unfinished tasks if it was never wrapped up.
 		Triage []planner.Triage `json:"triage"`
+		// Dump is the morning's brain dump, captured and cleaned up before the plan is made.
+		Dump string `json:"dump"`
 	}
 	if err := decode(r, &body); err != nil {
 		writeError(w, err)
 		return
+	}
+	if strings.TrimSpace(body.Dump) != "" {
+		if err := s.captureDump(r.Context(), body.Dump); err != nil {
+			writeError(w, err)
+			return
+		}
 	}
 	day, plan, err := s.Planner.StartDay(r.Context(), body.Pace, body.MoodNote, body.Triage)
 	if err != nil {
@@ -93,6 +107,28 @@ func (s *Server) replan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, plan)
+}
+
+// captureDump saves a brain dump as one captured card and cleans it up right away, so the tasks
+// in it land in the plan rather than the tray. If cleanup fails, the raw card stays and goes to the
+// background runner like any other capture.
+func (s *Server) captureDump(ctx context.Context, text string) error {
+	batch, err := s.Service.NewBatch(ctx, domain.ActorUser)
+	if err != nil {
+		return err
+	}
+	task, err := s.Service.CreateTask(ctx, batch, service.TaskFields{RawText: text})
+	if err != nil {
+		return err
+	}
+	s.publishBatch(ctx, batch)
+	if _, err := s.Clean(ctx, task); err != nil {
+		if !errors.Is(err, settings.ErrNotConfigured) {
+			log.Printf("clean morning dump: %v", err)
+		}
+		s.OnCapture(task)
+	}
+	return nil
 }
 
 // setPace changes today's pace. The replan it causes arrives later as plan.updated.

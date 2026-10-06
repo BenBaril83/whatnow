@@ -34,6 +34,8 @@ type Deps struct {
 	Loc *time.Location
 	// OnCapture is called with each task created from raw text, as it was captured.
 	OnCapture func(task domain.Task)
+	// Clean runs cleanup on a captured task right away, for the morning's brain dump.
+	Clean func(ctx context.Context, captured domain.Task) (int64, error)
 	// NewClient builds an LLM client from settings, for the connection test.
 	NewClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)
 	Planner   *planner.Planner
