@@ -62,3 +62,14 @@ test('wrap-up suggests rolling over what is left, and wraps the day', async ({ p
 	await expect(page.getByRole('heading', { name: 'Goodnight 🌙' })).toBeVisible();
 	await expect(page.getByText(fake.sentence)).toBeVisible();
 });
+
+test('the end-of-day label stays inside the strip on a phone', async ({ page, request }) => {
+	const view = await (await request.get('/api/v1/settings')).json();
+	await request.put('/api/v1/settings', { data: { ...view.settings, end_of_day: '23:59' } });
+	await page.setViewportSize({ width: 375, height: 800 });
+	await page.goto('/');
+
+	const strip = await page.getByLabel("Today's events").boundingBox();
+	const label = await page.getByText('11:59').boundingBox();
+	expect(label!.x + label!.width).toBeLessThanOrEqual(strip!.x + strip!.width);
+});

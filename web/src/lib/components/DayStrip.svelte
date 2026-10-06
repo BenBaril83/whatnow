@@ -20,7 +20,12 @@
 	{#each layout.ticks as tick (tick.label)}
 		<div class="tick" style:left="{tick.left}%"><span>{tick.label}</span></div>
 	{/each}
-	<div class="eod" style:left="{layout.endOfDay}%"><span>{time(endOfDay)}</span></div>
+	<div class="eod" style:left="{layout.endOfDay}%"></div>
+	<!-- The spacer shrinks before the label overflows, so a late end of day slides its label left. -->
+	<div class="eod-row">
+		<span class="spacer" style:flex-basis="{layout.endOfDay}%"></span>
+		<span>{time(endOfDay)}</span>
+	</div>
 	{#each layout.items as item (item.event.id)}
 		<div
 			class="event"
@@ -54,11 +59,29 @@
 	.eod {
 		border-left: 2px dashed var(--ink-soft);
 	}
-	.tick span,
-	.eod span {
+	.eod-row {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 2px;
+		display: flex;
+	}
+	.spacer {
+		min-width: 0;
+		margin-right: 3px;
+	}
+	.eod-row span:last-child {
+		/* Covers the dashed line when the label has slid left across it. */
+		background: var(--card);
+		padding-right: 2px;
+	}
+	.tick span {
 		position: absolute;
 		bottom: 2px;
 		left: 3px;
+	}
+	.tick span,
+	.eod-row span {
 		font-size: 10px;
 		font-weight: var(--heavy);
 		color: var(--ink-soft);

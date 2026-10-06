@@ -90,4 +90,4 @@ tag, the binary behaves as before.
   Wrap-up exercises the same `suggestions` path on the same day.
 - **Chat tool calls.** The canned chat reply covers streaming and the bubble, but not tool chips
   or chat Undo.
-- **Visual and mobile checks.** Those come with the mobile layout pass.
+- **Visual checks.**
