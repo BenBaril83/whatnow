@@ -34,3 +34,8 @@ dev *args:
     trap 'kill 0' EXIT
     go run ./cmd/whatnow serve "$@" &
     cd web && npm run dev
+
+# Runs the Playwright suite against a server built with the fake model, so no model is ever called.
+e2e: web
+    go build -tags e2e -o whatnow-e2e ./cmd/whatnow
+    cd web && npx playwright install chromium && npx playwright test
