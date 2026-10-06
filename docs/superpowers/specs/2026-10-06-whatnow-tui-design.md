@@ -11,11 +11,11 @@ It runs in-process and calls the Go services directly, without HTTP.
 `serve` builds its parts inline in `main.go`. That wiring moves to `internal/app`, so `serve` and
 `tui` get identical behavior: captures are cleaned up, changes trigger replans, and chat streams.
 
-`app.Open(ctx, app.Options{DBPath, NewClient})` resolves the default database path, opens the store, and builds the
-service, hub, cleanup runner, planner, and agent. It starts the cleanup runner and the replan
-watcher, and returns an `App` holding those parts with a `Close` that stops the goroutines and
-closes the database. `main` passes its `newClient` as `Options.NewClient`, so the `e2e` build's
-fake model reaches both subcommands.
+`app.Open(app.Options{DBPath, NewClient, Now, Loc})` resolves the default database path, opens
+the store, and builds the service, hub, cleanup runner, planner, and agent. It starts the cleanup
+runner and the replan watcher, and returns an `App` holding those parts with a `Close` that stops
+the goroutines and closes the database. `main` passes its `newClient` as `Options.NewClient`, so
+the `e2e` build's fake model reaches both subcommands. `Now` and `Loc` let tests fix the clock.
 
 `serve` becomes `app.Open` plus the HTTP server. `tui` becomes `app.Open` plus the Bubble Tea
 program. Both take the same `-db` flag.
@@ -64,7 +64,8 @@ reloads every 5 seconds and switches to Today once the day has a plan.
 - **Task list:** grouped by plan tier (MUST, SHOULD, COULD), each tier header in its sticker
   color, then a dim "not planned" group for eligible tasks the plan leaves out. ⛓ marks a task
   waiting on an open blocker. A task marked done leaves the list.
-- **Chat pane:** toggled with `c` and shown on the right. Below 90 columns it replaces the list.
+- **Chat pane:** on the right, open from the start on a terminal 90 columns or wider. Below 90
+  columns it is hidden until `c`, and then replaces the list.
 - **Footer:** a one-line key hint; `?` shows the full list.
 - **Wrap-up banner:** when `wrapDue` holds (within an hour of the end of day), a banner says to
   wrap up in the browser.
@@ -82,7 +83,7 @@ reloads every 5 seconds and switches to Today once the day has a plan.
 | `p` | Push to tomorrow |
 | `x` | Drop |
 | `u` | Undo your last change, as the web's toast Undo does |
-| `c` | Toggle chat. `enter` sends, the reply streams in, `esc` returns to the list. |
+| `c` | Open and focus chat. `enter` sends, the reply streams in, `esc` returns to the list (and hides chat below 90 columns). |
 | `r` | Refresh now |
 | `?` | Show all keys |
 | `q` | Quit |
@@ -113,8 +114,8 @@ ink. Lip Gloss adaptive colors keep it readable on light and dark terminals.
 ## Errors
 
 - A failed action shows a red toast with the error.
-- With no model set up (`settings.ErrNotConfigured`), what now and chat say "Set up a model in
-  the browser."
+- With no model set up, the planner and agent already answer: what now falls back to the first
+  free task with a note saying why, and chat replies that no provider is set up.
 - If a reload fails, the last snapshot stays on screen, marked "stale", until a later reload
   succeeds.
 
