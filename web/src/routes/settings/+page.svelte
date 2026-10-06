@@ -46,7 +46,8 @@
 				key = '';
 			}
 			view = await api.saveSettings(view.settings);
-			live.view = view;
+			// A copy, so edits made after this save don't reach the rest of the app unsaved.
+			live.view = $state.snapshot(view);
 		} catch (err) {
 			toasts.error(err);
 			const fresh = await api.settings().catch(() => null);

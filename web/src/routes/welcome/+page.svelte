@@ -42,7 +42,7 @@
 		if (!view) return false;
 		try {
 			view = await api.saveSettings(view.settings);
-			live.view = view;
+			live.view = $state.snapshot(view);
 			return true;
 		} catch (err) {
 			toasts.error(err);
@@ -59,7 +59,7 @@
 			}
 			if (await save()) {
 				at++;
-				test();
+				await test();
 			}
 		} catch (err) {
 			toasts.error(err);
