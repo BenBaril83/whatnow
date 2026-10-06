@@ -1,0 +1,115 @@
+/* The sticker look: chunky ink outlines, flat offset shadows, bright tier fills. Components use
+   these tokens, never raw colors. */
+:root {
+	--paper: #fff8e7;
+	--paper-deep: #f1eadb;
+	--card: #ffffff;
+	--ink: #1f1a3d;
+	--ink-soft: #6b6590;
+	--must: #ffd9d2;
+	--should: #d8ecff;
+	--could: #ffffff;
+	--chip: #ffd84d;
+	--primary: #7b5cff;
+	--on-primary: #ffffff;
+	--now: #ff4d6d;
+	--event: #e3ffd8;
+	--danger: #ff4d6d;
+
+	--line: 2px solid var(--ink);
+	--shadow: 3px 3px 0 var(--ink);
+	--shadow-sm: 2px 2px 0 var(--ink);
+	--radius: 12px;
+	--radius-sm: 8px;
+	--pill: 999px;
+
+	--font: 'Avenir Next', 'Nunito', system-ui, sans-serif;
+	--heavy: 800;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--font);
+	font-size: 15px;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+button {
+	cursor: pointer;
+}
+
+a {
+	color: var(--primary);
+	font-weight: var(--heavy);
+}
+
+.sticker {
+	background: var(--card);
+	border: var(--line);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow);
+}
+
+.btn {
+	background: var(--card);
+	border: var(--line);
+	border-radius: var(--radius-sm);
+	box-shadow: var(--shadow-sm);
+	padding: 6px 12px;
+	font-weight: var(--heavy);
+}
+
+.btn:active {
+	box-shadow: none;
+	transform: translate(2px, 2px);
+}
+
+.btn.primary {
+	background: var(--primary);
+	color: var(--on-primary);
+}
+
+.chip {
+	background: var(--chip);
+	border: var(--line);
+	border-radius: var(--pill);
+	padding: 1px 10px;
+	font-size: 13px;
+	font-weight: var(--heavy);
+}
+
+.label {
+	font-size: 12px;
+	font-weight: var(--heavy);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.muted {
+	color: var(--ink-soft);
+}
+
+input.field,
+textarea.field,
+select.field {
+	background: var(--card);
+	border: var(--line);
+	border-radius: var(--radius-sm);
+	padding: 8px 10px;
+	width: 100%;
+}
