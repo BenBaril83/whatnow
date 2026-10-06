@@ -54,11 +54,12 @@ screen and collapsed on a narrow one. Narrow screens get a bottom sheet instead.
 web/
   src/lib/api.ts             typed fetch wrappers; failures throw ApiError{status, message}
   src/lib/stream.svelte.ts   one EventSource on /api/v1/stream, a typed handler per event name
-  src/lib/today.svelte.ts    state: today (day, plan, unplanned, blocked), events, tasks; refresh()
+  src/lib/today.svelte.ts    state: today (day, plan, unplanned, blocked), events, tasks, blockers; refresh()
+  src/lib/live.svelte.ts     the stream, settings, and minute clock, started once by the root layout
   src/lib/chat.svelte.ts     state: messages, the in-flight reply (text and chips), busy
   src/lib/toasts.svelte.ts   undo toasts keyed by batch ID
   src/lib/tokens.css         the sticker palette and shape tokens
-  src/routes/+page.svelte            Today
+  src/routes/(app)/+page.svelte      Today
   src/routes/settings/+page.svelte   bare settings
 internal/web/web.go          //go:embed all:dist; the static handler with SPA fallback
 ```
@@ -96,7 +97,7 @@ schema doesn't change. Each `PublishBatch` caller passes its own source.
 | `user`, from another tab | None |
 | `cleanup` | A toast reading "here's what I did", from `batch.applied` |
 | `chat` | An Undo button on that chat reply, shown only when its `batch_id` is nonzero |
-| `triage` | None in 5a. The wrap-up and good-morning flows in 5b own it |
+| `triage` | None. The ritual's triage list is its own confirmation (see part 2) |
 
 Undo calls `POST /batches/{id}/undo`. When `batch.undone` arrives, the toast dismisses itself and
 the reply's button reads "undone". Toasts stack at the bottom left and dismiss after about 8
@@ -142,10 +143,7 @@ reason, with these actions:
 When nothing is open and eligible (`404`), a quiet "Nothing to do right now. Enjoy it." note
 shows instead of an error.
 
-**Start my day:** good morning arrives in 5b. Until then, when today has no plan, the plan area
-shows a card with a pace picker and an optional "anything on your mind?" box. It sends
-`POST /today/start` with an empty triage, so an unwrapped yesterday's tasks roll over. 5b replaces
-this card.
+**No plan yet:** Today redirects to `/morning` (part 2).
 
 ## Chat dock
 
@@ -164,7 +162,7 @@ this card.
 
 - A failed API call shows a red toast with the error message. It has no undo.
 - When no provider is set up, the header shows a notice with a link to Settings. Nothing is
-  disabled: capture works, What now and Start my day return the code fallback, and chat returns a
+  disabled: capture works, What now and the morning's plan return the code fallback, and chat returns a
   failed reply that says so.
 
 ## Bare settings
