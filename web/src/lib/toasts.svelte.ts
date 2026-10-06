@@ -29,11 +29,13 @@ export class Toasts {
 	items = $state<Toast[]>([]);
 	#next = 1;
 	#timers = new Map<number, Timer>();
+	#hidden = false;
 
-	#add(toast: Omit<Toast, 'id' | 'life'>, life = lifetime): void {
+	#add(toast: Omit<Toast, 'id' | 'life'>, life = lifetime): number {
 		const id = this.#next++;
 		this.items.push({ id, life, ...toast });
 		this.#run(id, life);
+		return id;
 	}
 
 	#run(id: number, ms: number): void {
@@ -69,7 +71,17 @@ export class Toasts {
 
 	/** A nudge shown in the page, for when the browser won't show notifications. */
 	nudge(text: string, action?: Toast['action']): void {
-		this.#add({ text, nudge: true, action }, nudgeLifetime);
+		const id = this.#add({ text, nudge: true, action }, nudgeLifetime);
+		if (this.#hidden) this.pause(id);
+	}
+
+	/** Nudges wait while the tab is hidden, so one that fires meanwhile is there when you look. */
+	hidden(hidden: boolean): void {
+		this.#hidden = hidden;
+		for (const t of this.items.filter((t) => t.nudge)) {
+			if (hidden) this.pause(t.id);
+			else this.resume(t.id);
+		}
 	}
 
 	dismiss(id: number): void {

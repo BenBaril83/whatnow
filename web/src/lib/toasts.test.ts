@@ -73,4 +73,28 @@ describe('Toasts', () => {
 		vi.advanceTimersByTime(1);
 		expect(t.items.length).toBe(0);
 	});
+
+	it('Should hold a nudge that arrives in a hidden tab until the tab is seen', () => {
+		const t = new Toasts();
+		t.hidden(true);
+		t.nudge('Standup in 10 min, find a stopping point.');
+		vi.advanceTimersByTime(5 * 60_000);
+		expect(t.items.length).toBe(1);
+		t.hidden(false);
+		vi.advanceTimersByTime(30_000);
+		expect(t.items.length).toBe(0);
+	});
+
+	it('Should stop a nudge counting down when the tab is hidden, but not an undo toast', () => {
+		const t = new Toasts();
+		t.nudge('Standup in 10 min, find a stopping point.');
+		t.show('Pushed', 3);
+		vi.advanceTimersByTime(5000);
+		t.hidden(true);
+		vi.advanceTimersByTime(60_000);
+		expect(t.items.map((x) => x.text)).toEqual(['Standup in 10 min, find a stopping point.']);
+		t.hidden(false);
+		vi.advanceTimersByTime(25_000);
+		expect(t.items.length).toBe(0);
+	});
 });

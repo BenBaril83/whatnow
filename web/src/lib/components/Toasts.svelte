@@ -1,6 +1,11 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { toasts } from '#lib/toasts.svelte.ts';
+
+	onMount(() => toasts.hidden(document.visibilityState === 'hidden'));
 </script>
+
+<svelte:document onvisibilitychange={() => toasts.hidden(document.visibilityState === 'hidden')} />
 
 <div class="stack" aria-live="polite">
 	{#each toasts.items as toast (toast.id)}
