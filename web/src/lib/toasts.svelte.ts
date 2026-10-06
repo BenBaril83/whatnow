@@ -6,18 +6,51 @@ export interface Toast {
 	/** The batch Undo reverts. Absent on an error. */
 	batch?: number;
 	error?: boolean;
+	/** Set while hovered or focused: the countdown and its fill stand still. */
+	paused?: boolean;
 }
 
-const lifetime = 8000;
+/** How long a toast stays, in ms. Its fill sweeps across in the same time. */
+export const lifetime = 8000;
+
+interface Timer {
+	handle: ReturnType<typeof setTimeout>;
+	endsAt: number;
+	left: number;
+}
 
 export class Toasts {
 	items = $state<Toast[]>([]);
 	#next = 1;
+	#timers = new Map<number, Timer>();
 
 	#add(toast: Omit<Toast, 'id'>): void {
 		const id = this.#next++;
 		this.items.push({ id, ...toast });
-		setTimeout(() => this.dismiss(id), lifetime);
+		this.#run(id, lifetime);
+	}
+
+	#run(id: number, ms: number): void {
+		this.#timers.set(id, { handle: setTimeout(() => this.dismiss(id), ms), endsAt: Date.now() + ms, left: ms });
+	}
+
+	/** Stops a toast's countdown where it is, so reaching Undo is never a race. */
+	pause(id: number): void {
+		const timer = this.#timers.get(id);
+		const toast = this.items.find((t) => t.id === id);
+		if (!timer || !toast || toast.paused) return;
+		clearTimeout(timer.handle);
+		timer.left = Math.max(0, timer.endsAt - Date.now());
+		toast.paused = true;
+	}
+
+	/** Restarts a paused countdown for only the time it had left. */
+	resume(id: number): void {
+		const timer = this.#timers.get(id);
+		const toast = this.items.find((t) => t.id === id);
+		if (!timer || !toast?.paused) return;
+		toast.paused = false;
+		this.#run(id, timer.left);
 	}
 
 	show(text: string, batch: number): void {
@@ -29,6 +62,8 @@ export class Toasts {
 	}
 
 	dismiss(id: number): void {
+		clearTimeout(this.#timers.get(id)?.handle);
+		this.#timers.delete(id);
 		this.items = this.items.filter((t) => t.id !== id);
 	}
 
@@ -53,7 +88,7 @@ export class Toasts {
 	}
 
 	undone(batch: number): void {
-		this.items = this.items.filter((t) => t.batch !== batch);
+		for (const t of this.items.filter((t) => t.batch === batch)) this.dismiss(t.id);
 	}
 
 	async undo(toast: Toast): Promise<void> {

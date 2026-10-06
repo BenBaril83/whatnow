@@ -49,4 +49,18 @@ describe('Toasts', () => {
 		vi.advanceTimersByTime(1);
 		expect(t.items.length).toBe(0);
 	});
+	it('Should stand still while paused, then finish only the time it had left', () => {
+		const t = new Toasts();
+		t.show('Pushed', 3);
+		vi.advanceTimersByTime(5000);
+		t.pause(t.items[0].id);
+		vi.advanceTimersByTime(60_000);
+		expect(t.items).toMatchObject([{ paused: true }]);
+
+		t.resume(t.items[0].id);
+		vi.advanceTimersByTime(2999);
+		expect(t.items.length).toBe(1);
+		vi.advanceTimersByTime(1);
+		expect(t.items.length).toBe(0);
+	});
 });
