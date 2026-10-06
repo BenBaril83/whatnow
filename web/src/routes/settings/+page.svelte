@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type ConnectionResult, type Provider, type SettingsView } from '#lib/api.ts';
+	import AboutYou from '#lib/components/AboutYou.svelte';
+	import DangerZone from '#lib/components/DangerZone.svelte';
+	import NotifyPermission from '#lib/components/NotifyPermission.svelte';
 	import { live } from '#lib/live.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
@@ -30,7 +33,8 @@
 				: 'not set'
 	);
 
-	// PUT takes the whole settings object, so this sends back everything GET returned.
+	// PUT takes the whole settings object, so this sends back everything GET returned. The key
+	// is saved first, so whatever happens next, the key note is refetched to match.
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
 		if (!view) return;
@@ -45,6 +49,8 @@
 			live.view = view;
 		} catch (err) {
 			toasts.error(err);
+			const fresh = await api.settings().catch(() => null);
+			if (fresh && view) view.keys = fresh.keys;
 		} finally {
 			saving = false;
 		}
@@ -67,6 +73,7 @@
 	<h1>Settings</h1>
 	{#if view}
 		<form class="sticker" onsubmit={save}>
+			<h2 class="label">Connection</h2>
 			<label>
 				<span class="label">Provider</span>
 				<select class="field" bind:value={view.settings.provider}>
@@ -93,7 +100,6 @@
 				</label>
 			{/if}
 			<div class="actions">
-				<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
 				<button type="button" class="btn" disabled={testing} onclick={test}>
 					{testing ? 'Testing…' : 'Test connection'}
 				</button>
@@ -103,7 +109,42 @@
 					</span>
 				{/if}
 			</div>
+
+			<h2 class="label">You</h2>
+			<AboutYou bind:style={view.settings.style} bind:aboutMe={view.settings.about_me} />
+
+			<h2 class="label">Day</h2>
+			<div class="row">
+				<label>
+					<span class="label">End of day</span>
+					<input class="field" type="time" required bind:value={view.settings.end_of_day} />
+				</label>
+				<label>
+					<span class="label">Event alerts, minutes before</span>
+					<input class="field" type="number" min="1" max="60" required bind:value={view.settings.alert_lead_minutes} />
+				</label>
+			</div>
+
+			<h2 class="label">Nudges</h2>
+			<label class="check">
+				<input type="checkbox" bind:checked={view.settings.nudges.before_event} />
+				Before each event
+			</label>
+			<label class="check">
+				<input type="checkbox" bind:checked={view.settings.nudges.event_end} />
+				When an event ends, with a What now?
+			</label>
+			<label class="check">
+				<input type="checkbox" bind:checked={view.settings.nudges.late_day} />
+				Late in the day, if a must due today hasn't moved
+			</label>
+			<div><NotifyPermission /></div>
+
+			<div class="actions">
+				<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+			</div>
 		</form>
+		<DangerZone />
 	{:else}
 		<p class="muted">Loading…</p>
 	{/if}
@@ -114,9 +155,20 @@
 		max-width: 560px;
 		margin: 0 auto;
 		padding: 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
 	}
 	h1 {
+		margin: 0;
 		font-weight: var(--heavy);
+	}
+	h2 {
+		margin: 10px 0 0;
+		font-size: 14px;
+	}
+	h2:first-child {
+		margin-top: 0;
 	}
 	form {
 		display: flex;
@@ -128,6 +180,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
+	}
+	.row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 12px;
+	}
+	.check {
+		flex-direction: row;
+		align-items: center;
+		gap: 8px;
 	}
 	.actions {
 		display: flex;
