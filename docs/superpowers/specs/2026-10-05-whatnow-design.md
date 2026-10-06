@@ -147,8 +147,10 @@ Style can change how the assistant sounds. It cannot change what the assistant d
 1. **Reconcile since the last session.** If the last day has no `wrapped_at`, show everything still
    open since then, with roll over / push / drop actions and the agent's suggestions prefilled. A
    skipped week gets one pass, not seven.
-2. Ask for pace, plus an optional "anything on your mind?"
-3. Generate the plan and reveal it with the persona's opening message.
+2. Take an optional brain dump. It's captured and cleaned up before planning, so its tasks land in
+   the plan rather than the tray.
+3. Ask for pace, plus an optional note on how they're feeling.
+4. Generate the plan and reveal it with the persona's opening message.
 
 ### Planning
 
@@ -186,7 +188,8 @@ and it exists so a bad model day still produces a valid plan:
 
 Starting a day can't be undone, since its plans would be orphaned. A pace change can, and undoing
 it replans. Completing a must just marks it done. Every other new task waits in the unplanned tray until the
-next replan. The agent can suggest slotting one in.
+next replan. The agent can suggest slotting one in, and Today's **Replan** button makes a fresh plan
+on request. A wrapped day is never replanned, by any of these.
 
 ### What now?
 

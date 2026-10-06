@@ -58,9 +58,15 @@ Both rituals use one component for unfinished tasks.
    takes several seconds, so the greeting covers the wait.
 1. **Reconcile:** only when `review` is non-null and has unfinished tasks. It starts with the
    previous day's win, such as "Last time you got 4 things done," then shows the triage list.
-2. **Pace and mood:** the five pace chips, and an optional "Anything on your mind?"
-3. **Plan reveal:** "Making your plan…" while `POST /today/start` runs with the pace, the mood
-   note, and the triage. Then the plan's `opening` line, large, above a compact list of each tier's
+2. **Brain dump:** "What's on your plate?", a big optional textarea, every morning. **Skip** clears
+   it. Without it, a first morning has nothing to plan, and a task list typed into the mood box
+   only reads as a mood.
+3. **Pace and mood:** the five pace chips, and an optional "How are you feeling?"
+4. **Plan reveal:** "Making your plan…" while `POST /today/start` runs with the pace, the mood
+   note, the triage, and the dump. The server saves the dump as one captured card and runs cleanup
+   on it right away, before planning. If cleanup fails, the raw card is planned as it is and goes to
+   the background runner like any capture. A `409` comes after the dump is saved, so the page clears
+   the dump before retrying. Then the plan's `opening` line, large, above a compact list of each tier's
    titles. **Let's go** opens Today.
 
 ## Wrap up (`/wrap`)

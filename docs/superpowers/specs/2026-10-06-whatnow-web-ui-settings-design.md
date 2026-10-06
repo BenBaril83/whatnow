@@ -167,6 +167,13 @@ line moves across it:
 
 `strip()` returns the ticks and the end-of-day position along with the events and the now line.
 
+## Replan
+
+New tasks wait in the unplanned tray until a replan. The tray's header gets a **Replan** button
+while the tray has tasks and the day isn't wrapped. It sends `POST /api/v1/today/replan`, which saves
+a plan with the trigger `user`. The new plan arrives as `plan.updated`. A plan isn't an activity
+batch, so there's no undo; the next replan just makes another version.
+
 ## Testing
 
 **Go:**
