@@ -17,14 +17,18 @@ import (
 	"github.com/jameynakama/whatnow/internal/domain"
 )
 
-var update = flag.Bool("update", false, "rewrite the golden files")
+// updating reports the -update flag, which teatest's golden package defines for the test binary.
+func updating() bool {
+	f := flag.Lookup("update")
+	return f != nil && f.Value.String() == "true"
+}
 
 // golden compares got with testdata/<name>.golden. Run with -update to rewrite it after checking
 // the change by eye.
 func golden(t *testing.T, name, got string) {
 	t.Helper()
 	path := filepath.Join("testdata", name+".golden")
-	if *update {
+	if updating() {
 		if err := os.MkdirAll("testdata", 0o755); err != nil {
 			t.Fatal(err)
 		}

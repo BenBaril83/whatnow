@@ -138,9 +138,19 @@ func (m Model) row(t domain.Task) string {
 }
 
 func (m Model) toastLine() string {
-	return ""
+	if m.toast.text == "" {
+		return ""
+	}
+	style := toastStyle
+	if m.toast.err {
+		style = errorStyle
+	}
+	return ansi.Truncate(style.Render(m.toast.text), m.width, "…")
 }
 
 func (m Model) footer() string {
+	if m.mode == modeAdd {
+		return ansi.Truncate(m.input.View(), m.width, "…")
+	}
 	return softStyle.Render(ansi.Truncate(keyHint, m.width, "…"))
 }

@@ -5,6 +5,7 @@ package tui
 import (
 	"context"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -12,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jameynakama/whatnow/internal/app"
+	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
 
@@ -19,6 +21,7 @@ type mode int
 
 const (
 	modeList mode = iota
+	modeAdd
 	modeHelp
 )
 
@@ -27,6 +30,22 @@ const (
 	wideEnough   = 90
 	refreshEvery = 5 * time.Second
 	toastFor     = 4 * time.Second
+)
+
+type toast struct {
+	text string
+	err  bool
+	id   int
+}
+
+type (
+	wroteMsg struct {
+		batch int64
+		toast string
+	}
+	undoneMsg       struct{}
+	failedMsg       struct{ err error }
+	toastExpiredMsg struct{ id int }
 )
 
 type (
@@ -54,6 +73,11 @@ type Model struct {
 	input         textinput.Model
 	spin          spinner.Model
 	chatOpen      bool
+	toast         toast
+	toastSeq      int
+	lastBatch     int64 // the user's last change from this TUI, for u
+	asking        bool  // what now is thinking
+	sending       bool  // a chat reply is being written
 }
 
 // New makes the TUI and subscribes it to the hub. webURL is where the user starts and wraps the day.
@@ -99,6 +123,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.load(), tick())
 	case hubMsg:
 		return m.onHub(stream.Message(msg))
+	case wroteMsg:
+		m.lastBatch = msg.batch
+		next, cmd := m.show(msg.toast+" · u to undo", false)
+		return next, tea.Batch(cmd, next.load())
+	case undoneMsg:
+		m.lastBatch = 0
+		next, cmd := m.show("Undone", false)
+		return next, tea.Batch(cmd, next.load())
+	case failedMsg:
+		m.asking, m.sending = false, false
+		return m.show(friendly(msg.err), true)
+	case toastExpiredMsg:
+		if msg.id == m.toast.id {
+			m.toast = toast{}
+		}
+	case spinner.TickMsg:
+		if !m.asking && !m.sending {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spin, cmd = m.spin.Update(msg)
+		return m, cmd
 	case tea.KeyMsg:
 		return m.onKey(msg)
 	}
@@ -131,9 +177,12 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if k.String() == "ctrl+c" {
 		return m, tea.Quit
 	}
-	if m.mode == modeHelp {
+	switch m.mode {
+	case modeHelp:
 		m.mode = modeList
 		return m, nil
+	case modeAdd:
+		return m.onInput(k)
 	}
 	switch k.String() {
 	case "q":
@@ -151,8 +200,61 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.move(1)
 	case "?":
 		m.mode = modeHelp
+	case "a":
+		return m.prompt(modeAdd, "What's on your mind?")
+	case "u":
+		if m.lastBatch == 0 {
+			return m.show("Nothing to undo", false)
+		}
+		return m, m.undo(m.lastBatch)
+	case " ", "p", "x":
+		if t, ok := m.current(); ok {
+			return m, m.act(k.String(), t)
+		}
 	}
 	return m, nil
+}
+
+// onInput handles keys while the one-line input is open.
+func (m Model) onInput(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch k.String() {
+	case "esc":
+		m.mode = modeList
+		m.input.Blur()
+		return m, nil
+	case "enter":
+		text := strings.TrimSpace(m.input.Value())
+		m.input.Reset()
+		m.mode = modeList
+		m.input.Blur()
+		if text == "" {
+			return m, nil
+		}
+		return m, m.capture(text)
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(k)
+	return m, cmd
+}
+
+func (m Model) prompt(md mode, placeholder string) (tea.Model, tea.Cmd) {
+	m.mode = md
+	m.input.Reset()
+	m.input.Placeholder = placeholder
+	return m, m.input.Focus()
+}
+
+// current is the task under the cursor, if the list has one.
+func (m Model) current() (domain.Task, bool) {
+	t, ok := m.snap.tasks[m.cursor]
+	return t, ok
+}
+
+func (m Model) show(text string, isErr bool) (Model, tea.Cmd) {
+	m.toastSeq++
+	m.toast = toast{text: text, err: isErr, id: m.toastSeq}
+	id := m.toastSeq
+	return m, tea.Tick(toastFor, func(time.Time) tea.Msg { return toastExpiredMsg{id} })
 }
 
 func (m *Model) move(by int) {
