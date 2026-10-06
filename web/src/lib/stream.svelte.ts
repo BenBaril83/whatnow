@@ -20,7 +20,9 @@ export interface Source {
  * onReconnect runs, since anything sent while it was down is lost.
  */
 export class Stream {
-	connected = $state(false);
+	// Starts true so the page doesn't flash "reconnecting…" before the first open. A connection
+	// that never opens still fires error, which sets it false.
+	connected = $state(true);
 	#source: Source | null = null;
 
 	constructor(

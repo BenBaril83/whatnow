@@ -37,6 +37,10 @@ describe('Stream', () => {
 		expect(h['chat.message']).not.toHaveBeenCalled();
 	});
 
+	it('Should not report a drop before the first connect', () => {
+		expect(new Stream(handlers(), vi.fn(), () => new FakeSource()).connected).toBe(true);
+	});
+
 	it('Should catch up after a reconnect, but not on the first connect', () => {
 		const fake = new FakeSource();
 		const caughtUp = vi.fn();

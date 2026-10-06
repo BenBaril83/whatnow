@@ -18,8 +18,10 @@ export class Chat {
 	/** A reply landed while the dock was collapsed. */
 	unread = $state(false);
 
+	/** Stored history is authoritative, so a draft whose reply was lost to a dropped stream goes. */
 	async load(): Promise<void> {
 		this.messages = await api.chat();
+		this.draft = null;
 	}
 
 	delta(text: string): void {

@@ -47,6 +47,15 @@ describe('Chat', () => {
 		expect(c.messages.map((m) => m.id)).toEqual([1, 2]);
 	});
 
+	it('Should drop a half-written draft when history reloads after a reconnect', async () => {
+		vi.spyOn(api, 'chat').mockResolvedValue([reply(2, 'The whole reply.')]);
+		const c = new Chat();
+		c.delta('The whole'); // the stream dropped before the stored reply arrived
+		await c.load();
+		expect(c.draft).toBeNull();
+		expect(c.messages.map((m) => m.text)).toEqual(['The whole reply.']);
+	});
+
 	it('Should mark a reply unread only while the dock is collapsed', () => {
 		const c = new Chat();
 		c.message(reply(1, 'open dock'));
