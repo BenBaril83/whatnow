@@ -49,7 +49,7 @@
 
 {#if t?.plan}
 	<Header today={t} {asking} onwhatnow={() => whatNow()} />
-	<DayStrip events={today.events} now={live.now} endOfDay={live.endOfDay} />
+	<DayStrip events={today.events} now={live.now} endOfDay={live.endOfDay} startedAt={t.day?.started_at ?? null} />
 	<Capture />
 
 	{#if pick}

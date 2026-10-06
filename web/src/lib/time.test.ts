@@ -41,31 +41,54 @@ describe('countdown', () => {
 
 describe('strip', () => {
 	const eod = at('17:30');
+	const labels = (s: ReturnType<typeof strip>) => s.ticks.map((t) => t.label);
 
-	it('Should run from now to the end of day with no events', () => {
-		const s = strip([], at('09:30'), eod);
-		expect(s.items).toEqual([]);
-		expect(s.now).toBe(0);
+	it('Should start at the day start, so the now line moves across as the day goes on', () => {
+		const early = strip([], at('09:00'), eod, at('08:40').toISOString());
+		const later = strip([], at('13:00'), eod, at('08:40').toISOString());
+		expect(early.now).toBeGreaterThan(0);
+		expect(later.now).toBeGreaterThan(early.now);
 	});
 
-	it('Should start at the first event when it is earlier than now', () => {
-		const s = strip([ev('Standup', '09:00', '09:30')], at('13:00'), at('17:00'));
-		expect(s.items[0].left).toBe(0);
-		expect(s.items[0].width).toBeCloseTo(6.25); // 30 of 480 minutes
-		expect(s.now).toBe(50);
+	it('Should round the window out to whole hours, from 8:00 to 18:00', () => {
+		const s = strip([], at('13:00'), eod, at('08:40').toISOString());
+		expect(s.now).toBe(50); // 13:00 is halfway through 8:00 to 18:00
+		expect(s.endOfDay).toBe(95); // 17:30
+	});
+
+	it('Should start at the first event when it is earlier than the day start', () => {
+		const s = strip([ev('Standup', '07:30', '08:00')], at('13:00'), eod, at('08:40').toISOString());
+		expect(s.items[0].left).toBeCloseTo(4.55, 1); // 30 of 660 minutes, from 7:00
+	});
+
+	it('Should start at now with no start and no earlier event', () => {
+		const s = strip([], at('09:30'), eod, null);
+		expect(s.now).toBeCloseTo(5.56, 1); // 30 of 540 minutes, from 9:00 to 18:00
 	});
 
 	it('Should draw an event with no end as 30 minutes', () => {
-		const s = strip([ev('Focus', '13:00')], at('09:00'), at('17:00'));
-		expect(s.items[0].width).toBeCloseTo(6.25);
+		const s = strip([ev('Focus', '13:00')], at('09:00'), at('17:00'), at('09:00').toISOString());
+		expect(s.items[0].width).toBeCloseTo(5.56, 1); // 30 of 540 minutes
 	});
 
 	it('Should stretch past the end of day to keep now and late events on it', () => {
-		const late = strip([ev('Late call', '18:00', '19:00')], at('09:00'), at('17:00'));
-		expect(late.items[0].left + late.items[0].width).toBeCloseTo(100);
-		const after = strip([], at('20:00'), at('17:00'));
-		expect(after.now).toBe(0);
-		expect(Number.isFinite(after.now)).toBe(true);
+		const late = strip([ev('Late call', '18:00', '19:00')], at('09:00'), at('17:00'), at('09:00').toISOString());
+		expect(late.items[0].left + late.items[0].width).toBeLessThanOrEqual(100);
+		expect(late.endOfDay).toBeLessThan(late.items[0].left);
+		const after = strip([], at('20:00'), at('17:00'), at('09:00').toISOString());
+		expect(after.now).toBeLessThan(100);
+	});
+
+	it('Should tick every third clock hour on a long strip', () => {
+		expect(labels(strip([], at('09:00'), eod, at('08:40').toISOString()))).toEqual(['9a', '12p', '3p']);
+	});
+
+	it('Should tick every hour on a strip of 6 hours or less', () => {
+		expect(labels(strip([], at('13:10'), eod, at('13:05').toISOString()))).toEqual(['2p', '3p', '4p', '5p']);
+	});
+
+	it('Should label noon 12p', () => {
+		expect(labels(strip([], at('11:10'), at('14:00'), at('11:05').toISOString()))).toContain('12p');
 	});
 });
 
