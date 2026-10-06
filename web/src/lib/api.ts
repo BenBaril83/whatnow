@@ -55,11 +55,13 @@ export interface CalendarEvent {
 	title: string;
 	starts_at: string;
 	ends_at: string | null;
+	created_at: string;
 }
 
 export interface Day {
 	date: string;
 	pace: number;
+	started_at: string;
 	wrapped_at: string | null;
 	tomorrow_note: string;
 	summary: string;
@@ -160,6 +162,15 @@ export interface Settings {
 	style: string;
 	about_me: string;
 	end_of_day: string;
+	nudges: NudgeToggles;
+	alert_lead_minutes: number;
+	onboarded: boolean;
+}
+
+export interface NudgeToggles {
+	before_event: boolean;
+	event_end: boolean;
+	late_day: boolean;
 }
 
 export interface SettingsView {
@@ -226,7 +237,8 @@ export const api = {
 	saveSettings: (s: Settings) => request<SettingsView>('PUT', '/settings', s),
 	saveKey: (provider: Provider, key: string) =>
 		request<void>('PUT', `/settings/keys/${provider}`, { key }),
-	testConnection: () => request<ConnectionResult>('POST', '/settings/test')
+	testConnection: () => request<ConnectionResult>('POST', '/settings/test'),
+	deleteData: () => request<void>('DELETE', '/data')
 };
 
 /** Whether a model is set up. Without one, capture still works and plans come from code. */

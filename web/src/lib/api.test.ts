@@ -34,7 +34,10 @@ describe('configured', () => {
 			openai: { main_model: '', light_model: '', base_url: '' },
 			style: '',
 			about_me: '',
-			end_of_day: '17:30'
+			end_of_day: '17:30',
+			nudges: { before_event: true, event_end: true, late_day: true },
+			alert_lead_minutes: 10,
+			onboarded: true
 		},
 		keys: { anthropic: key, openai: '' }
 	});

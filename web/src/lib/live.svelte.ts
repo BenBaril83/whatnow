@@ -28,7 +28,9 @@ class Live {
 			'plan.updated': () => today.changed(),
 			'chat.delta': (d) => chat.delta(d.text),
 			'chat.tool': (d) => chat.tool(d),
-			'chat.message': (d) => chat.message(d)
+			'chat.message': (d) => chat.message(d),
+			// Everything was deleted, maybe from another tab. Start over from first-run setup.
+			'data.reset': () => location.assign('/')
 		},
 		() => {
 			today.changed();

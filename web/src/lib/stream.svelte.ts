@@ -7,6 +7,7 @@ export interface Handlers {
 	'chat.delta': (d: { text: string }) => void;
 	'chat.tool': (d: ToolUse) => void;
 	'chat.message': (d: Message) => void;
+	'data.reset': () => void;
 }
 
 /** The parts of EventSource the stream uses, so tests can drive it. */

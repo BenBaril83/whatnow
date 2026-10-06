@@ -19,7 +19,8 @@ function handlers(): Handlers {
 		'plan.updated': vi.fn(),
 		'chat.delta': vi.fn(),
 		'chat.tool': vi.fn(),
-		'chat.message': vi.fn()
+		'chat.message': vi.fn(),
+		'data.reset': vi.fn()
 	};
 }
 

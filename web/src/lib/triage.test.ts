@@ -19,7 +19,7 @@ const task = (id: number): Task => ({
 });
 
 const review = (ids: number[], over: Partial<Review> = {}): Review => ({
-	day: { date: '2026-10-05', pace: 3, wrapped_at: null, tomorrow_note: '', summary: '' },
+	day: { date: '2026-10-05', pace: 3, started_at: '', wrapped_at: null, tomorrow_note: '', summary: '' },
 	done: [],
 	unfinished: ids.map(task),
 	suggestions: [

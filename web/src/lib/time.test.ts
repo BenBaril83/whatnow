@@ -7,7 +7,8 @@ const ev = (title: string, start: string, end: string | null = null): CalendarEv
 	id: 0,
 	title,
 	starts_at: at(start).toISOString(),
-	ends_at: end ? at(end).toISOString() : null
+	ends_at: end ? at(end).toISOString() : null,
+	created_at: at('08:00').toISOString()
 });
 
 describe('countdown', () => {

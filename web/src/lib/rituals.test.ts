@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Today } from './api';
 import { ritualOver } from './rituals';
 
-const day = { date: '2026-10-06', pace: 3, wrapped_at: null, tomorrow_note: '', summary: '' };
+const day = { date: '2026-10-06', pace: 3, started_at: '', wrapped_at: null, tomorrow_note: '', summary: '' };
 const plan = { id: 1, opening: '', entries: [], fallback: false };
 const today = (over: Partial<Today>): Today => ({
 	date: '2026-10-06',
