@@ -27,6 +27,11 @@ build: web
 serve *args:
     go run ./cmd/whatnow serve "$@"
 
+# The terminal companion. Start and wrap up the day in the web UI.
+[positional-arguments]
+tui *args:
+    go run ./cmd/whatnow tui "$@"
+
 # Runs the API and the Vite dev server, which proxies /api to it. Open http://localhost:5173.
 [positional-arguments]
 dev *args:

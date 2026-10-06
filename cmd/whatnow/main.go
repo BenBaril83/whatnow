@@ -12,6 +12,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/app"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/settings"
+	"github.com/jameynakama/whatnow/internal/tui"
 	"github.com/jameynakama/whatnow/internal/web"
 )
 
@@ -35,6 +36,9 @@ func main() {
 		addr := flags.String("addr", defaultAddr, "listen address; keep it on loopback")
 		flags.Parse(os.Args[2:])
 		err = serve(*addr, *dbPath)
+	case "tui":
+		flags.Parse(os.Args[2:])
+		err = runTUI(*dbPath)
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)
@@ -71,4 +75,13 @@ func serve(addr, dbPath string) error {
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	log.Printf("whatnow listening on http://%s (db %s)", addr, a.DBPath)
 	return srv.ListenAndServe()
+}
+
+func runTUI(dbPath string) error {
+	a, err := open(dbPath)
+	if err != nil {
+		return err
+	}
+	defer a.Close()
+	return tui.Run(a, "http://"+defaultAddr)
 }
