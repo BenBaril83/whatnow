@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/jameynakama/whatnow/internal/llm"
@@ -104,7 +105,8 @@ func (s *Server) testConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 // deleteData wipes every row and both saved keys, then tells every open tab to start over.
-// Environment keys can't be removed and are found again on the next setup.
+// Environment keys can't be removed and are found again on the next setup. An unreachable
+// keychain is logged rather than failed, as in settings.Key: the rows are already gone.
 func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
 	if err := store.Wipe(r.Context(), s.DB); err != nil {
 		writeError(w, err)
@@ -112,8 +114,7 @@ func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, p := range []settings.Provider{settings.Anthropic, settings.OpenAI} {
 		if err := settings.DeleteKey(p); err != nil {
-			writeError(w, err)
-			return
+			log.Printf("delete %s key: %v", p, err)
 		}
 	}
 	s.Hub.Publish(stream.Message{Type: "data.reset"})

@@ -131,3 +131,22 @@ func TestDeleteEverything(t *testing.T) {
 		t.Error("data.reset wasn't published")
 	}
 }
+
+func TestDeleteEverythingWithoutAKeychain(t *testing.T) {
+	keyring.MockInitWithError(errors.New("no Secret Service"))
+	t.Cleanup(keyring.MockInit)
+	api := newAPI(t)
+	msgs, unsub := api.hub.Subscribe()
+	defer unsub()
+
+	// The rows are gone either way, so an unreachable keychain mustn't turn that into a failure.
+	wantStatus(t, api.do(http.MethodDelete, "/api/v1/data", nil), http.StatusNoContent)
+	select {
+	case m := <-msgs:
+		if m.Type != "data.reset" {
+			t.Errorf("published %q, want data.reset", m.Type)
+		}
+	default:
+		t.Error("data.reset wasn't published")
+	}
+}
