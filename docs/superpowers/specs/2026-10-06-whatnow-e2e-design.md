@@ -53,9 +53,8 @@ Only `cmd/whatnow/e2e.go` carries the tag. Its `init`:
   replaces the real client with the fake.
 
 `main.go` gains that `newClient` variable, defaulting to `settings.NewClient`. Both the `active`
-closure and `Deps.NewClient` use it, so `active` loads settings itself instead of calling
-`settings.Active`. `settings.Active` loses its only caller and goes. Without the tag, the binary behaves the same as
-before.
+closure and `Deps.NewClient` use it, so `active` loads settings itself. That leaves
+`settings.Active` with no caller, so it goes. Without the tag, the binary behaves as before.
 
 ## Playwright (`web/e2e/`)
 
