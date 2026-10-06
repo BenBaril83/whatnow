@@ -18,6 +18,7 @@
 
 	let pick = $state<Pick | null>(null);
 	let asking = $state(false);
+	let replanning = $state(false);
 	/** What now found nothing open and eligible. */
 	let nothing = $state(false);
 
@@ -40,6 +41,18 @@
 			if (!t.day?.wrapped_at) whatNow();
 		}
 	});
+
+	// The new plan arrives over the stream as plan.updated, which refreshes the page.
+	async function replan() {
+		replanning = true;
+		try {
+			await api.replan();
+		} catch (err) {
+			toasts.error(err);
+		} finally {
+			replanning = false;
+		}
+	}
 
 	async function whatNow(exclude = 0, reason = '') {
 		asking = true;
@@ -94,7 +107,14 @@
 
 	<div class="lower">
 		<section>
-			<h2 class="label">Unplanned</h2>
+			<div class="tray-head">
+				<h2 class="label">Unplanned</h2>
+				{#if tray.length && !t.day?.wrapped_at}
+					<button class="btn" disabled={replanning} onclick={replan}>
+						{replanning ? 'Replanning…' : 'Replan'}
+					</button>
+				{/if}
+			</div>
 			{#each tray as card (card.task.id)}
 				<TaskCard {card} date={t.date} />
 			{:else}
@@ -126,6 +146,11 @@
 		align-self: flex-start;
 		margin: 0;
 	}
+	.tray-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
 	.lower {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
@@ -134,7 +159,12 @@
 	}
 
 	@media (max-width: 800px) {
-		.lower {
+		.tray-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.lower {
 			grid-template-columns: 1fr;
 		}
 	}

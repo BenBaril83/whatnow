@@ -218,6 +218,7 @@ export const api = {
 	push: (id: number, until: string) => request<Mutation>('POST', `/tasks/${id}/push`, { until }),
 	undo: (batch: number) => request<void>('POST', `/batches/${batch}/undo`),
 	setPace: (pace: number) => request<Mutation>('PUT', '/today/pace', { pace, note: '' }),
+	replan: () => request<Plan>('POST', '/today/replan'),
 	updateTask: (id: number, fields: TaskFields) => request<Mutation>('PUT', `/tasks/${id}`, fields),
 	blockers: () => request<Blocker[]>('GET', '/blockers'),
 	addBlocker: (id: number, blocked_by_id: number) =>
