@@ -208,5 +208,4 @@ shows instead of an error.
   past the end of day.
 - The copy in the Done today header.
 
-Components get no unit tests. Playwright covers them in 5d. Until then, verify 5a by hand against
-`whatnow serve` with a throwaway `-db`.
+Components get no unit tests. The Playwright suite in `web/e2e/` (`just e2e`) covers them.

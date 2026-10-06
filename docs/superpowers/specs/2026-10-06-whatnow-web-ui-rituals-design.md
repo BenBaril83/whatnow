@@ -146,6 +146,6 @@ it resumes from where it paused.
 - The rollover rule: a changed date with no plan means go to `/morning`; the same date, or a day
   that has started, means stay.
 
-Components get no unit tests. Playwright covers them in 5d. Until then, smoke-test by hand
-against `whatnow serve` with a throwaway `-db`, including a skipped wrap-up followed by a morning
-reconcile.
+Components get no unit tests. The Playwright suite in `web/e2e/` (`just e2e`) covers them. It has
+no fake clock, so check a skipped wrap-up followed by a morning reconcile by hand, against
+`whatnow serve` with a throwaway `-db`.

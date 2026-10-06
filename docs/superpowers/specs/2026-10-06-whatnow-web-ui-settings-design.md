@@ -190,6 +190,6 @@ batch, so there's no undo; the next replan just makes another version.
 - The firing window: fires once, never on load, and catches a nudge inside a 60-second gap.
 - `strip()`: each window anchor, both tick steps, and the end-of-day mark.
 
-Components get no unit tests; 5d's Playwright covers them. Until then, smoke-test by hand against
-`whatnow serve` with a throwaway `-db`, including a complete onboarding, a skipped onboarding, and delete
-everything with a second tab open.
+Components get no unit tests. The Playwright suite in `web/e2e/` (`just e2e`) covers them. Check
+a skipped onboarding, and delete everything with a second tab open, by hand against `whatnow serve`
+with a throwaway `-db`.
