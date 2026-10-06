@@ -90,6 +90,9 @@ func (m Model) header() string {
 	if m.stale {
 		line += "  " + nowStyle.Render("stale")
 	}
+	if m.asking || m.sending {
+		line += "  " + m.spin.View()
+	}
 	strip := layoutStrip(s.events, s.now, s.endOfDay, s.today.Day.StartedAt, max(m.width-5, 1)).render()
 	return sticker(append([]string{line}, strings.Split(strip, "\n")...), m.width, 6)
 }
@@ -117,6 +120,9 @@ func (m Model) listLines(rows int) []string {
 				at = len(lines)
 			}
 			lines = append(lines, m.row(m.snap.tasks[id]))
+			if m.pick != nil && m.pick.TaskID == id {
+				lines = append(lines, softStyle.Italic(true).Render("    ↳ "+m.pick.Reason+"  ·  n not this one"))
+			}
 		}
 	}
 	if top := at - rows + 2; top > 0 {
@@ -134,6 +140,9 @@ func (m Model) row(t domain.Task) string {
 	if n := m.snap.waits[t.ID]; n > 0 {
 		line += softStyle.Render(fmt.Sprintf("  ⛓ %d", n))
 	}
+	if m.pick != nil && m.pick.TaskID == t.ID {
+		line += "  " + chip("what now", chipFill)
+	}
 	return line
 }
 
@@ -149,7 +158,7 @@ func (m Model) toastLine() string {
 }
 
 func (m Model) footer() string {
-	if m.mode == modeAdd {
+	if m.mode == modeAdd || m.mode == modePass {
 		return ansi.Truncate(m.input.View(), m.width, "…")
 	}
 	return softStyle.Render(ansi.Truncate(keyHint, m.width, "…"))

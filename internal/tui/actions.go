@@ -121,3 +121,23 @@ func friendly(err error) string {
 	}
 	return err.Error()
 }
+
+// whatNow asks for one task to start now. Passing on a task leaves it out of this answer, and a
+// reason is added to its feeling note first, as the API's "not this one" does.
+func (m Model) whatNow(exclude int64, reason string) tea.Cmd {
+	return func() tea.Msg {
+		if exclude != 0 && reason != "" {
+			if _, err := m.commit(func(ctx context.Context, batch int64) error {
+				_, err := m.app.Service.AppendFeeling(ctx, batch, exclude, reason)
+				return err
+			}); err != nil {
+				return failedMsg{err}
+			}
+		}
+		pick, err := m.app.Planner.WhatNow(m.ctx, exclude)
+		if err != nil {
+			return failedMsg{err}
+		}
+		return pickedMsg{pick}
+	}
+}

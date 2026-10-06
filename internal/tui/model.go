@@ -14,6 +14,7 @@ import (
 
 	"github.com/jameynakama/whatnow/internal/app"
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
 
@@ -22,6 +23,7 @@ type mode int
 const (
 	modeList mode = iota
 	modeAdd
+	modePass
 	modeHelp
 )
 
@@ -46,6 +48,7 @@ type (
 	undoneMsg       struct{}
 	failedMsg       struct{ err error }
 	toastExpiredMsg struct{ id int }
+	pickedMsg       struct{ pick planner.Pick }
 )
 
 type (
@@ -78,6 +81,8 @@ type Model struct {
 	lastBatch     int64 // the user's last change from this TUI, for u
 	asking        bool  // what now is thinking
 	sending       bool  // a chat reply is being written
+	pick          *planner.Pick
+	passing       int64 // the pick being passed on while its reason is typed
 }
 
 // New makes the TUI and subscribes it to the hub. webURL is where the user starts and wraps the day.
@@ -138,6 +143,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.id == m.toast.id {
 			m.toast = toast{}
 		}
+	case pickedMsg:
+		m.asking = false
+		p := msg.pick
+		m.pick, m.cursor = &p, p.TaskID
+		return m, m.load()
 	case spinner.TickMsg:
 		if !m.asking && !m.sending {
 			return m, nil
@@ -157,6 +167,9 @@ func (m *Model) replace(s snapshot) {
 	at := 0
 	if m.snap != nil {
 		at = max(slices.Index(m.snap.order(), m.cursor), 0)
+	}
+	if m.pick != nil && !slices.Contains(s.order(), m.pick.TaskID) {
+		m.pick = nil
 	}
 	m.snap, m.stale, m.loadErr = &s, false, nil
 	ids := s.order()
@@ -181,7 +194,7 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeHelp:
 		m.mode = modeList
 		return m, nil
-	case modeAdd:
+	case modeAdd, modePass:
 		return m.onInput(k)
 	}
 	switch k.String() {
@@ -200,6 +213,18 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.move(1)
 	case "?":
 		m.mode = modeHelp
+	case "w":
+		if m.asking {
+			return m, nil
+		}
+		m.asking = true
+		return m, tea.Batch(m.whatNow(0, ""), m.spin.Tick)
+	case "n":
+		if m.pick == nil || m.asking {
+			return m, nil
+		}
+		m.passing = m.pick.TaskID
+		return m.prompt(modePass, "Why not? (optional)")
 	case "a":
 		return m.prompt(modeAdd, "What's on your mind?")
 	case "u":
@@ -224,9 +249,14 @@ func (m Model) onInput(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		text := strings.TrimSpace(m.input.Value())
+		md := m.mode
 		m.input.Reset()
 		m.mode = modeList
 		m.input.Blur()
+		if md == modePass {
+			m.asking = true
+			return m, tea.Batch(m.whatNow(m.passing, text), m.spin.Tick)
+		}
 		if text == "" {
 			return m, nil
 		}
