@@ -167,7 +167,7 @@ func (r *Runner) apply(ctx context.Context, task domain.Task, res result) (int64
 	if err != nil {
 		return 0, err
 	}
-	r.hub.PublishBatch(batch, acts)
+	r.hub.PublishBatch(batch, stream.SourceCleanup, acts)
 	return batch, nil
 }
 

@@ -141,7 +141,7 @@ func (s *Server) publishBatch(ctx context.Context, batch int64) {
 		log.Printf("publish batch %d: %v", batch, err)
 		return
 	}
-	s.Hub.PublishBatch(batch, acts)
+	s.Hub.PublishBatch(batch, stream.SourceUser, acts)
 }
 
 type errorBody struct {

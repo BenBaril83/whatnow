@@ -162,7 +162,7 @@ func TestSplitsANoteIntoTasksWithABlocker(t *testing.T) {
 	}
 
 	m := <-msgs
-	if applied, ok := m.Data.(stream.BatchApplied); !ok || applied.BatchID != batch || len(applied.Activity) != 4 {
+	if applied, ok := m.Data.(stream.BatchApplied); !ok || applied.BatchID != batch || applied.Source != stream.SourceCleanup || len(applied.Activity) != 4 {
 		t.Errorf("published %+v", m)
 	}
 

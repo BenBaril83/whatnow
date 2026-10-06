@@ -10,6 +10,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/service"
+	"github.com/jameynakama/whatnow/internal/stream"
 )
 
 // Triage is what the user decided for one unfinished task. A push with no Until goes to tomorrow.
@@ -56,7 +57,7 @@ func (p *Planner) Close(ctx context.Context, day domain.Day, triage []Triage, no
 		if err != nil {
 			return 0, wrapped, err
 		}
-		p.hub.PublishBatch(batch, acts)
+		p.hub.PublishBatch(batch, stream.SourceTriage, acts)
 	}
 
 	// The day is wrapped now, so the summary is written even if the user has already left.

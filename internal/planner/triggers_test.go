@@ -36,7 +36,7 @@ func (f *fixture) write(t *testing.T, change func(batch int64) error) int64 {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.hub.PublishBatch(batch, acts)
+	f.hub.PublishBatch(batch, stream.SourceUser, acts)
 	return batch
 }
 

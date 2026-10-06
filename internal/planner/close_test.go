@@ -64,7 +64,7 @@ func TestCloseAppliesTriageWrapsAndSummarizes(t *testing.T) {
 	check(old, domain.StatusDropped, "")
 
 	m := <-msgs
-	if applied, ok := m.Data.(stream.BatchApplied); !ok || applied.BatchID != batch || len(applied.Activity) != 3 {
+	if applied, ok := m.Data.(stream.BatchApplied); !ok || applied.BatchID != batch || applied.Source != stream.SourceTriage || len(applied.Activity) != 3 {
 		t.Errorf("published %+v", m)
 	}
 

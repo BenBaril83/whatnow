@@ -14,6 +14,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/service"
+	"github.com/jameynakama/whatnow/internal/stream"
 )
 
 func TestATurnsWritesShareOneBatchAndStream(t *testing.T) {
@@ -147,8 +148,8 @@ func TestAnErrorAfterWritesKeepsThem(t *testing.T) {
 	if reply.Error == "" || reply.BatchID == 0 || len(reply.Tools) != 1 {
 		t.Errorf("reply = %+v", reply)
 	}
-	if got := drain(msgs); len(got) != 1 {
-		t.Errorf("published %d batches, want the one with the write", len(got))
+	if got := drain(msgs); len(got) != 1 || got[0].Data.(stream.BatchApplied).Source != stream.SourceChat {
+		t.Errorf("published %+v, want the one chat batch with the write", got)
 	}
 }
 

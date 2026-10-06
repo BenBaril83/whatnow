@@ -66,15 +66,26 @@ func (h *Hub) Publish(m Message) {
 	}
 }
 
+// Source is what made a batch. The web client uses it to pick where the batch's undo appears.
+type Source string
+
+const (
+	SourceUser    Source = "user"
+	SourceChat    Source = "chat"
+	SourceCleanup Source = "cleanup"
+	SourceTriage  Source = "triage"
+)
+
 // BatchApplied is the batch.applied payload, sent after every write.
 type BatchApplied struct {
 	BatchID  int64             `json:"batch_id"`
+	Source   Source            `json:"source"`
 	Activity []domain.Activity `json:"activity"`
 }
 
 // PublishBatch announces a batch's changes to every client.
-func (h *Hub) PublishBatch(batch int64, activity []domain.Activity) {
-	h.Publish(Message{Type: "batch.applied", Data: BatchApplied{BatchID: batch, Activity: activity}})
+func (h *Hub) PublishBatch(batch int64, source Source, activity []domain.Activity) {
+	h.Publish(Message{Type: "batch.applied", Data: BatchApplied{BatchID: batch, Source: source, Activity: activity}})
 }
 
 // BatchUndone is the batch.undone payload.

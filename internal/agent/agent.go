@@ -101,7 +101,7 @@ func (a *Agent) Send(ctx context.Context, text string) (domain.Message, error) {
 		// The batch starts before its first write runs, so writes that all failed leave it empty.
 		if len(acts) > 0 {
 			reply.BatchID = t.batchID
-			a.hub.PublishBatch(t.batchID, acts)
+			a.hub.PublishBatch(t.batchID, stream.SourceChat, acts)
 		}
 	}
 	reply, err = a.svc.AddMessage(ctx, reply)

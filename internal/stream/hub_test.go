@@ -65,11 +65,11 @@ func TestPublishBatchSendsTypedPayload(t *testing.T) {
 	ch, unsub := hub.Subscribe()
 	defer unsub()
 
-	hub.PublishBatch(7, []domain.Activity{{ID: 1, BatchID: 7}})
+	hub.PublishBatch(7, stream.SourceCleanup, []domain.Activity{{ID: 1, BatchID: 7}})
 
 	m := <-ch
 	applied, ok := m.Data.(stream.BatchApplied)
-	if m.Type != "batch.applied" || !ok || applied.BatchID != 7 || len(applied.Activity) != 1 {
+	if m.Type != "batch.applied" || !ok || applied.BatchID != 7 || applied.Source != stream.SourceCleanup || len(applied.Activity) != 1 {
 		t.Errorf("message = %+v", m)
 	}
 }
