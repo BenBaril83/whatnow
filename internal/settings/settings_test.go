@@ -46,6 +46,31 @@ func TestLoadDefaultsThenSaveRoundTrip(t *testing.T) {
 	}
 }
 
+func TestLoadFillsFieldsAddedSinceTheSave(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.Open(filepath.Join(t.TempDir(), "s.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	// Saved before nudges, the alert lead time, and onboarding existed.
+	_, err = db.Exec(`INSERT INTO settings (id, body) VALUES (1, '{"provider":"anthropic","end_of_day":"18:00"}')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := settings.Load(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := settings.Defaults()
+	want.Provider = settings.Anthropic
+	want.EndOfDay = "18:00"
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("old settings didn't pick up the new defaults (-want +got):\n%s", diff)
+	}
+}
+
 func TestValidate(t *testing.T) {
 	valid := settings.Defaults()
 	valid.Provider = settings.Anthropic
@@ -56,6 +81,8 @@ func TestValidate(t *testing.T) {
 		"style over 500 characters":     func(s *settings.Settings) { s.Style = strings.Repeat("é", 501) },
 		"about me over 1000 characters": func(s *settings.Settings) { s.AboutMe = strings.Repeat("🧠", 1001) },
 		"end of day not HH:MM":          func(s *settings.Settings) { s.EndOfDay = "5pm" },
+		"no alert lead time":            func(s *settings.Settings) { s.AlertLeadMinutes = 0 },
+		"alert lead over an hour":       func(s *settings.Settings) { s.AlertLeadMinutes = 61 },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -70,6 +97,7 @@ func TestValidate(t *testing.T) {
 	atLimit := valid
 	atLimit.Style = strings.Repeat("é", 500) // 1000 bytes, 500 characters
 	atLimit.OpenAI.BaseURL = "http://localhost:11434/v1"
+	atLimit.AlertLeadMinutes = 60
 	if err := atLimit.Validate(); err != nil {
 		t.Errorf("settings at the limits rejected: %v", err)
 	}

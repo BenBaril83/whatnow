@@ -41,19 +41,35 @@ type Settings struct {
 	AboutMe   string         `json:"about_me"`
 	// EndOfDay is when the working day ends, as local HH:MM. Free time is counted up to it.
 	EndOfDay string `json:"end_of_day"`
+	Nudges   Nudges `json:"nudges"`
+	// AlertLeadMinutes is how long before an event its nudge comes.
+	AlertLeadMinutes int `json:"alert_lead_minutes"`
+	// Onboarded is set once first-run setup is finished or skipped.
+	Onboarded bool `json:"onboarded"`
+}
+
+// Nudges turns each kind of nudge on or off. The web client sends them; the server only keeps
+// the choice.
+type Nudges struct {
+	BeforeEvent bool `json:"before_event"`
+	EventEnd    bool `json:"event_end"`
+	LateDay     bool `json:"late_day"`
 }
 
 const (
 	MaxStyleRunes   = 500
 	MaxAboutMeRunes = 1000
+	MaxAlertLead    = 60
 )
 
 // Defaults has Claude models filled in. OpenAI-compatible models are left for the user, since
 // they depend on the server.
 func Defaults() Settings {
 	return Settings{
-		Anthropic: ProviderConfig{MainModel: "claude-sonnet-5-5", LightModel: "claude-haiku-4-5"},
-		EndOfDay:  "17:30",
+		Anthropic:        ProviderConfig{MainModel: "claude-sonnet-5-5", LightModel: "claude-haiku-4-5"},
+		EndOfDay:         "17:30",
+		Nudges:           Nudges{BeforeEvent: true, EventEnd: true, LateDay: true},
+		AlertLeadMinutes: 10,
 	}
 }
 
@@ -91,6 +107,9 @@ func (s Settings) Validate() error {
 	}
 	if _, err := time.Parse(ClockLayout, s.EndOfDay); err != nil {
 		return fmt.Errorf("%w: end of day %q must be HH:MM", ErrInvalid, s.EndOfDay)
+	}
+	if s.AlertLeadMinutes < 1 || s.AlertLeadMinutes > MaxAlertLead {
+		return fmt.Errorf("%w: alert lead time is %d minutes, it must be 1 to %d", ErrInvalid, s.AlertLeadMinutes, MaxAlertLead)
 	}
 	return nil
 }
