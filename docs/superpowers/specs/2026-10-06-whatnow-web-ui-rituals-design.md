@@ -124,10 +124,6 @@ from left to right over its lifetime, and the toast leaves when the fill reaches
 or focusing a toast pauses both the fill and the timer, so reaching Undo is never a race. Leaving
 it resumes from where it paused.
 
-## Backend
-
-No changes. Every endpoint these screens need already exists.
-
 ## Testing
 
 **Vitest, for logic modules only:**

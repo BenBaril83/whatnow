@@ -61,7 +61,7 @@ web/
   src/lib/toasts.svelte.ts   undo toasts keyed by batch ID
   src/lib/tokens.css         the sticker palette and shape tokens
   src/routes/(app)/+page.svelte      Today
-  src/routes/settings/+page.svelte   bare settings
+  src/routes/settings/+page.svelte   settings
 internal/web/web.go          //go:embed all:dist; the static handler with SPA fallback
 ```
 
@@ -113,9 +113,9 @@ seconds.
 - A countdown to the next event: "Standup in 24m", or "Standup now" while it runs.
 - The **What now?** button.
 
-**Day strip:** today's events placed by time. The strip runs from the earlier of now and the first
-event, to the end-of-day setting. A red now line moves along it, ticking each minute. An event
-with no end is drawn as 30 minutes, the same as `facts`.
+**Day strip:** today's events placed by time, with a red now line that moves along it, ticking each
+minute. Part 3 (`2026-10-06-whatnow-web-ui-settings-design.md`) sets the window, the hour ticks, and
+the end-of-day mark. An event with no end is drawn as 30 minutes, the same as `facts`.
 
 **Capture box:** pressing Enter sends `POST /tasks {raw_text}` and clears the box at once. The raw
 card appears in the tray after the refetch, and the cleanup batch replaces it later. If the save
@@ -172,8 +172,8 @@ shows instead of an error.
 - The key field is write-only. It shows "saved", or "from env" when the key comes from the
   environment.
 - The page writes settings back as the full object it got from GET, because `PUT /settings`
-  rejects a body without `end_of_day`.
-- Style, about me, nudges, end of day, and alert lead time come in 5c.
+  rejects a body without `end_of_day` or `alert_lead_minutes`.
+- Part 3 adds the rest of the page.
 
 ## Build
 

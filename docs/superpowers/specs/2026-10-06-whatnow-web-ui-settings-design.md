@@ -77,7 +77,8 @@ The root layout redirects to `/welcome` after settings load, when all of these h
 - No provider is saved.
 - The path is not `/welcome` or `/settings`.
 
-An install that already has a provider never sees onboarding.
+An install that already has a provider never sees onboarding. "Skipped" lives in settings rather
+than `localStorage`, so a new browser or cleared storage doesn't bring the welcome back.
 
 `/welcome` has its own bare shell: progress dots, no capture bar, and no chat. Chat can't answer
 without a provider.
