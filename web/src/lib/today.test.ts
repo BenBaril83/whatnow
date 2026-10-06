@@ -15,6 +15,7 @@ describe('TodayState', () => {
 		vi.spyOn(api, 'today').mockResolvedValue(day);
 		const events = vi.spyOn(api, 'events').mockResolvedValue([]);
 		vi.spyOn(api, 'tasks').mockResolvedValue([]);
+		vi.spyOn(api, 'blockers').mockResolvedValue([]);
 		await new TodayState().refresh();
 		expect(events).toHaveBeenCalledWith('2026-10-05');
 	});
@@ -23,11 +24,21 @@ describe('TodayState', () => {
 		const fetched = vi.spyOn(api, 'today').mockResolvedValue(day);
 		vi.spyOn(api, 'events').mockResolvedValue([]);
 		vi.spyOn(api, 'tasks').mockResolvedValue([]);
+		vi.spyOn(api, 'blockers').mockResolvedValue([]);
 		const t = new TodayState();
 		t.changed();
 		t.changed();
 		t.changed();
 		await vi.advanceTimersByTimeAsync(100);
 		expect(fetched).toHaveBeenCalledTimes(1);
+	});
+	it('Should refresh the blockers with everything else', async () => {
+		vi.spyOn(api, 'today').mockResolvedValue(day);
+		vi.spyOn(api, 'events').mockResolvedValue([]);
+		vi.spyOn(api, 'tasks').mockResolvedValue([]);
+		vi.spyOn(api, 'blockers').mockResolvedValue([{ task_id: 2, blocked_by_id: 1 }]);
+		const t = new TodayState();
+		await t.refresh();
+		expect(t.blockers).toEqual([{ task_id: 2, blocked_by_id: 1 }]);
 	});
 });

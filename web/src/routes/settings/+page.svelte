@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type ConnectionResult, type Provider, type SettingsView } from '#lib/api.ts';
+	import { live } from '#lib/live.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
 	let view = $state<SettingsView | null>(null);
@@ -41,6 +42,7 @@
 				key = '';
 			}
 			view = await api.saveSettings(view.settings);
+			live.view = view;
 		} catch (err) {
 			toasts.error(err);
 		} finally {

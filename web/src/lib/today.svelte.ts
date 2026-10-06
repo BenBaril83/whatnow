@@ -1,4 +1,4 @@
-import { api, type CalendarEvent, type Task, type Today } from './api';
+import { api, type Blocker, type CalendarEvent, type Task, type Today } from './api';
 import { toasts } from './toasts.svelte';
 
 const debounce = 100;
@@ -8,14 +8,20 @@ export class TodayState {
 	today = $state<Today | null>(null);
 	events = $state<CalendarEvent[]>([]);
 	tasks = $state<Task[]>([]);
+	blockers = $state<Blocker[]>([]);
 	#timer: ReturnType<typeof setTimeout> | undefined;
 
 	async refresh(): Promise<void> {
 		const today = await api.today();
-		const [events, tasks] = await Promise.all([api.events(today.date), api.tasks()]);
+		const [events, tasks, blockers] = await Promise.all([
+			api.events(today.date),
+			api.tasks(),
+			api.blockers()
+		]);
 		this.today = today;
 		this.events = events;
 		this.tasks = tasks;
+		this.blockers = blockers;
 	}
 
 	/** Refreshes once a burst of changes settles. */

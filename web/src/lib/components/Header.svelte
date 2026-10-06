@@ -1,22 +1,23 @@
 <script lang="ts">
-	import { api, paceLabels, type CalendarEvent, type Today } from '#lib/api.ts';
+	import { api, configured, paceLabels, type Today } from '#lib/api.ts';
+	import { live } from '#lib/live.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
-	import { countdown } from '#lib/time.ts';
+	import { countdown, wrapDue } from '#lib/time.ts';
+	import { today as todayState } from '#lib/today.svelte.ts';
 
 	interface Props {
 		today: Today;
-		events: CalendarEvent[];
-		now: Date;
-		connected: boolean;
-		/** False when no model is set up. */
-		configured: boolean;
-		asking: boolean;
-		onwhatnow: () => void;
+		/** Today passes these to offer What now?; other pages leave them out. */
+		asking?: boolean;
+		onwhatnow?: () => void;
 	}
-	let { today, events, now, connected, configured, asking, onwhatnow }: Props = $props();
+	let { today, asking = false, onwhatnow }: Props = $props();
 
 	let paceOpen = $state(false);
-	const next = $derived(countdown(events, now));
+	let menuOpen = $state(false);
+	const next = $derived(countdown(todayState.events, live.now));
+	const wrapped = $derived(today.day?.wrapped_at != null);
+	const canWrap = $derived(today.day !== null && !wrapped);
 	const date = $derived(
 		new Date(`${today.date}T12:00:00`).toLocaleDateString(undefined, {
 			weekday: 'long',
@@ -46,7 +47,7 @@
 				</div>
 			</details>
 		{/if}
-		{#if !connected}
+		{#if !live.connected}
 			<span class="chip offline">reconnecting…</span>
 		{/if}
 	</div>
@@ -54,12 +55,25 @@
 		{#if next}
 			<span class="next">{next}</span>
 		{/if}
-		<a class="muted" href="/settings">Settings</a>
-		<button class="btn primary" disabled={asking || !today.day} onclick={onwhatnow}>
-			{asking ? 'Thinking…' : 'What now?'}
-		</button>
+		{#if canWrap && wrapDue(live.now, live.endOfDay)}
+			<a class="btn" href="/wrap">Wrap up</a>
+		{/if}
+		{#if onwhatnow && !wrapped}
+			<button class="btn primary" disabled={asking || !today.day} onclick={onwhatnow}>
+				{asking ? 'Thinking…' : 'What now?'}
+			</button>
+		{/if}
+		<details class="more" bind:open={menuOpen}>
+			<summary class="btn" aria-label="Menu">⋯</summary>
+			<nav class="sticker menu">
+				<a class="item" href="/" onclick={() => (menuOpen = false)}>Today</a>
+				<a class="item" href="/tasks" onclick={() => (menuOpen = false)}>All tasks</a>
+				{#if canWrap}<a class="item" href="/wrap" onclick={() => (menuOpen = false)}>Wrap up early</a>{/if}
+				<a class="item" href="/settings" onclick={() => (menuOpen = false)}>Settings</a>
+			</nav>
+		</details>
 	</div>
-	{#if !configured}
+	{#if live.view && !configured(live.view)}
 		<p class="notice">
 			No model set up yet. Capture works and plans come out rough. <a href="/settings">Set one up</a>
 		</p>
@@ -116,6 +130,22 @@
 	.item:hover,
 	.item.current {
 		background: var(--chip);
+	}
+	a.btn,
+	a.item {
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.more {
+		position: relative;
+	}
+	.more summary {
+		list-style: none;
+	}
+	.more .menu {
+		left: auto;
+		right: 0;
+		top: 40px;
 	}
 	.offline {
 		background: var(--must);
