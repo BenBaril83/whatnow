@@ -46,13 +46,16 @@ Playwright.
 Only `cmd/whatnow/e2e.go` carries the tag. Its `init`:
 
 - Calls go-keyring's `MockInit`, so keys live in memory for the life of the process.
+- Unsets `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`, so a key in the shell never reaches a client
+  and onboarding always asks for one.
 - Replaces the package-level `newClient` with a wrapper around the real `settings.NewClient`.
   The wrapper keeps its errors, so an unconfigured install still reads as unconfigured, and
   replaces the real client with the fake.
 
 `main.go` gains that `newClient` variable, defaulting to `settings.NewClient`. Both the `active`
 closure and `Deps.NewClient` use it, so `active` loads settings itself instead of calling
-`settings.Active`. Without the tag, the binary behaves the same as before.
+`settings.Active`. `settings.Active` loses its only caller and goes. Without the tag, the binary behaves the same as
+before.
 
 ## Playwright (`web/e2e/`)
 
@@ -73,11 +76,10 @@ closure and `Deps.NewClient` use it, so `active` loads settings itself instead o
 | Capture to split to undo | "buy milk and call mom" becomes two cards. Undo in the cleanup toast puts back the single raw task. |
 | Good morning | Morning dump, pace, start. The plan shows in tiers with the fake's opening. Replan makes a new plan version. |
 | What now | It shows the first free task. Marking that task done shows the done toast. |
-| Onboarding | A fresh install redirects to `/welcome`. Entering a key, passing the connection test, and finishing lands on Today. |
+| Onboarding | A fresh install redirects to `/welcome`. Entering a key, passing the connection test, and finishing lands on the morning check-in. |
 | Settings | An edit survives a reload. Delete everything sends the app back to onboarding. |
 | Menus | A task menu closes on an outside click and on Escape. |
-| Blocker link | A blocked card links to its blocker. |
-| + Task | The form creates a task without a cleanup. |
+| + Task and blocker link | The form creates a task that waits on another, and its card links to the blocker. |
 | Wrap-up | The roll-over suggestions show, and wrapping closes the day. |
 | Chat | A sent message gets the streamed canned reply. |
 
