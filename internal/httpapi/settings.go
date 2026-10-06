@@ -5,6 +5,8 @@ import (
 
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/settings"
+	"github.com/jameynakama/whatnow/internal/store"
+	"github.com/jameynakama/whatnow/internal/stream"
 )
 
 // SettingsView is what the settings screen gets: the settings, and where each provider's key
@@ -99,4 +101,21 @@ func (s *Server) testConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, ConnectionResult{OK: true})
+}
+
+// deleteData wipes every row and both saved keys, then tells every open tab to start over.
+// Environment keys can't be removed and are found again on the next setup.
+func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
+	if err := store.Wipe(r.Context(), s.DB); err != nil {
+		writeError(w, err)
+		return
+	}
+	for _, p := range []settings.Provider{settings.Anthropic, settings.OpenAI} {
+		if err := settings.DeleteKey(p); err != nil {
+			writeError(w, err)
+			return
+		}
+	}
+	s.Hub.Publish(stream.Message{Type: "data.reset"})
+	w.WriteHeader(http.StatusNoContent)
 }

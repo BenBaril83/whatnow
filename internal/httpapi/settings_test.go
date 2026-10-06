@@ -2,11 +2,13 @@ package httpapi_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/zalando/go-keyring"
 
 	"github.com/jameynakama/whatnow/internal/httpapi"
@@ -90,5 +92,42 @@ func TestConnectionTest(t *testing.T) {
 	wantStatus(t, rec, http.StatusOK)
 	if got := decodeAs[httpapi.ConnectionResult](t, rec); got.OK || !strings.Contains(got.Error, "401") {
 		t.Errorf("failing provider: %+v", got)
+	}
+}
+
+func TestDeleteEverything(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "")
+	api := newAPI(t)
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/tasks", map[string]string{"title": "buy oat milk"}), http.StatusCreated)
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/settings/keys/anthropic", map[string]string{"key": "sk-ant"}), http.StatusNoContent)
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/settings/keys/openai", map[string]string{"key": "sk-oai"}), http.StatusNoContent)
+	set := settings.Defaults()
+	set.Provider = settings.Anthropic
+	set.Onboarded = true
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/settings", set), http.StatusOK)
+	msgs, unsub := api.hub.Subscribe()
+	defer unsub()
+
+	wantStatus(t, api.do(http.MethodDelete, "/api/v1/data", nil), http.StatusNoContent)
+
+	if tasks := decodeAs[[]json.RawMessage](t, api.do(http.MethodGet, "/api/v1/tasks", nil)); len(tasks) != 0 {
+		t.Errorf("%d tasks left", len(tasks))
+	}
+	view := decodeAs[httpapi.SettingsView](t, api.do(http.MethodGet, "/api/v1/settings", nil))
+	if diff := cmp.Diff(settings.Defaults(), view.Settings); diff != "" {
+		t.Errorf("settings aren't back to the defaults (-want +got):\n%s", diff)
+	}
+	if view.Keys[settings.Anthropic] != "" || view.Keys[settings.OpenAI] != "" {
+		t.Errorf("keys left: %+v", view.Keys)
+	}
+	select {
+	case m := <-msgs:
+		if m.Type != "data.reset" {
+			t.Errorf("published %q, want data.reset", m.Type)
+		}
+	default:
+		t.Error("data.reset wasn't published")
 	}
 }
