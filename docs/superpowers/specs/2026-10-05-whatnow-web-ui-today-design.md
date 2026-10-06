@@ -26,8 +26,8 @@ tokens and never raw colors.
 
 ## Stack
 
-- SvelteKit with Svelte 5 runes, TypeScript strict, and `adapter-static` with an `index.html`
-  SPA fallback.
+- SvelteKit 3 with Svelte 5 runes, TypeScript strict, and `adapter-static` with a `200.html` SPA
+  fallback. Shared modules are imported through `#lib/...`, with the `.ts` extension.
 - Styling is plain scoped Svelte CSS plus `tokens.css`. No Tailwind and no component library.
 - API types are written by hand in `api.ts`.
 - Vitest tests client logic. npm is the package manager, and `web/.nvmrc` pins the Node version.
@@ -45,7 +45,8 @@ The main column holds, from top to bottom:
 
 The chat dock is a full-height right panel. It collapses to a slim tab on the right edge, and
 expands again from that tab. The tab shows a dot while a reply is streaming or unread. Whether the
-dock is collapsed is kept in `localStorage`. Narrow screens get a bottom sheet instead.
+dock is collapsed is kept in `localStorage`. With no saved choice, it starts open on a wide
+screen and collapsed on a narrow one. Narrow screens get a bottom sheet instead.
 
 ## Structure
 
@@ -59,7 +60,7 @@ web/
   src/lib/tokens.css         the sticker palette and shape tokens
   src/routes/+page.svelte            Today
   src/routes/settings/+page.svelte   bare settings
-internal/web/embed.go        //go:embed all:dist; the static handler with SPA fallback
+internal/web/web.go          //go:embed all:dist; the static handler with SPA fallback
 ```
 
 `whatnow serve` keeps `/api` as it is and sends every other path to the `internal/web` handler.
@@ -115,15 +116,16 @@ event, to the end-of-day setting. A red now line moves along it, ticking each mi
 with no end is drawn as 30 minutes, the same as `facts`.
 
 **Capture box:** pressing Enter sends `POST /tasks {raw_text}` and clears the box at once. The raw
-card appears in the tray after the refetch, and the cleanup batch replaces it later. Capture
-works with no provider set up.
+card appears in the tray after the refetch, and the cleanup batch replaces it later. If the save
+fails, the text goes back in the box. Capture works with no provider set up.
 
 **Plan tiers:**
-- Must, should, and could, in plan order.
+- Must, should, and could, in plan order. A task finished, dropped, deleted, or pushed past
+  today since the plan was made leaves its tier at once, without waiting for a replan.
 - Each card shows the title, size and energy badges, the feeling note in italics, and ⛓ when the
   task is blocked. The rationale shows on hover or tap.
 - Each card has a checkbox, which completes it, and a ⋯ menu with **push to tomorrow** and
-  **drop**. Every action shows an undo toast.
+  **drop**. Every action shows an undo toast. If completing fails, the checkbox unticks.
 - A fallback plan carries a small "rough plan, model was out" tag.
 
 **Unplanned tray:** dashed cards with the same actions as plan cards.
@@ -136,6 +138,9 @@ reason, with these actions:
 - **[done]** completes the task.
 - **[not this one]** opens an optional reason box, then asks again with `exclude_task_id`.
 - **✕** dismisses the card.
+
+When nothing is open and eligible (`404`), a quiet "Nothing to do right now. Enjoy it." note
+shows instead of an error.
 
 **Start my day:** good morning arrives in 5b. Until then, when today has no plan, the plan area
 shows a card with a pace picker and an optional "anything on your mind?" box. It sends
@@ -158,8 +163,9 @@ this card.
 ## Errors and the no-provider state
 
 - A failed API call shows a red toast with the error message. It has no undo.
-- When no provider is set up, What now, Start my day, and chat each show "Set up a model in
-  Settings" with a link. Capture keeps working.
+- When no provider is set up, the header shows a notice with a link to Settings. Nothing is
+  disabled: capture works, What now and Start my day return the code fallback, and chat returns a
+  failed reply that says so.
 
 ## Bare settings
 
@@ -183,7 +189,7 @@ this card.
 ## Testing
 
 **Go:**
-- `internal/web` serves assets, and falls back to `index.html` for an unknown path outside `/api`.
+- `internal/web` serves assets, and falls back to `200.html` for an unknown path outside `/api`.
 - It serves the "not built" page when `dist` is empty.
 - It never shadows `/api/*`.
 - `batch.applied` carries the right `source` from each publisher: user writes, chat, cleanup,
