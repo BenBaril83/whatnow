@@ -96,7 +96,7 @@ schema doesn't change. Each `PublishBatch` caller passes its own source.
 |---|---|
 | `user`, from this tab | A toast, using the `batch_id` in the HTTP response |
 | `user`, from another tab | None |
-| `cleanup` | A toast reading "here's what I did", from `batch.applied` |
+| `cleanup` | A toast saying what cleanup did, such as "Split your note into 3 tasks and 1 event", from `batch.applied` |
 | `chat` | An Undo button on that chat reply, shown only when its `batch_id` is nonzero |
 | `triage` | None. The ritual's triage list is its own confirmation (see part 2) |
 
@@ -124,8 +124,12 @@ fails, the text goes back in the box. Capture works with no provider set up.
 **Plan tiers:**
 - Must, should, and could, in plan order. A task finished, dropped, deleted, or pushed past
   today since the plan was made leaves its tier at once, without waiting for a replan.
-- Each card shows the title, size and energy badges, the feeling note in italics, and ⛓ when the
-  task is blocked. The rationale shows on hover or tap.
+- Each card shows the title, size and energy badges, and the feeling note in italics. The
+  rationale shows on hover or tap.
+- A card linked by blockers shows "⛓ waits on N" and/or "unblocks N", counting open tasks only.
+  Clicking one shows the linked titles under it and puts a dashed outline on the linked cards.
+  Clicking again hides them.
+- Every ⋯ and pace menu closes on a click outside it or on Escape.
 - Each card has a checkbox, which completes it, and a ⋯ menu with **push to tomorrow** and
   **drop**. Every action shows an undo toast. If completing fails, the checkbox unticks.
 - A fallback plan carries a small "rough plan, model was out" tag.

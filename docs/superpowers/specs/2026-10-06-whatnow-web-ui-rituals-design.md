@@ -122,6 +122,10 @@ A sheet over the current page. Escape and ✕ close it without saving.
 - **Save:** `PUT /tasks/{id}` with every field. The task's existing refs are sent unchanged. It shows
   an undo toast and closes the sheet.
 - Editing not-before here is an ordinary edit. Push counts count only the push action.
+- **New task:** **+ Task**, beside Today's capture box and in the All tasks header, opens the same
+  sheet empty. Save sends `POST /tasks` with the fields and no raw text, so the model never touches
+  it. Blockers picked before saving are added once the task exists. It shows an "Added" undo toast,
+  and the task lands in the tray until a replan.
 
 ## Toast countdown
 
