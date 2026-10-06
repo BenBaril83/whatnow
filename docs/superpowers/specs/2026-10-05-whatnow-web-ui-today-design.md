@@ -8,7 +8,8 @@ now, the chat dock, undo, and a bare settings form for entering a key. The paren
 |---|---|
 | **5a (this spec)** | Scaffold and embed, SSE store, Today, capture, What now, chat dock, undo toasts, bare settings |
 | 5b | Good morning, wrap up, all tasks and the edit form |
-| 5c | Onboarding, full settings, nudges, Playwright |
+| 5c | Full settings, delete everything, onboarding, nudges, the day strip fix |
+| 5d | The `e2e` build tag, a fake provider, and Playwright |
 
 ## Visual direction: sticker
 
@@ -203,5 +204,5 @@ shows instead of an error.
   past the end of day.
 - The copy in the Done today header.
 
-Components get no unit tests. Playwright covers them in 5c. Until then, verify 5a by hand against
+Components get no unit tests. Playwright covers them in 5d. Until then, verify 5a by hand against
 `whatnow serve` with a throwaway `-db`.
