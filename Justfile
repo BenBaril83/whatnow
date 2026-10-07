@@ -47,3 +47,22 @@ dev *args:
 # Runs the Playwright suite against a server built with the fake model, so no model is ever called.
 e2e: web
     cd web && npx playwright install chromium && npx playwright test
+
+# A demo run on its own database and port, on a clock `just clock` moves. Delete .demo to start over.
+[positional-arguments]
+demo *args: web
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p .demo
+    [[ -f .demo/clock ]] || echo "$(date +%F) 08:40" > .demo/clock
+    WHATNOW_DEMO_CLOCK="$PWD/.demo/clock" go run ./cmd/whatnow -addr 127.0.0.1:7778 -db .demo/whatnow.db "$@"
+
+# Moves the demo clock: `just clock 13:45` on the same day, or `just clock 2026-10-09 08:40`.
+[positional-arguments]
+clock *when:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    when="$*"
+    [[ $when == *-* ]] || when="$(cut -d' ' -f1 .demo/clock) $when"
+    date -j -f "%Y-%m-%d %H:%M" "$when" >/dev/null
+    echo "$when" > .demo/clock

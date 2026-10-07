@@ -59,6 +59,7 @@ func newAPI(t *testing.T) *testAPI {
 		Hub:       api.hub,
 		DB:        db,
 		Loc:       testLoc,
+		Now:       now,
 		OnCapture: func(task domain.Task) { api.captured = append(api.captured, task.ID) },
 		Clean:     runner.Clean,
 		NewClient: func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {

@@ -19,6 +19,8 @@ class Live {
 	now = $state(new Date());
 	/** Nudges fire for the span since this, so each fires once and none fire for before the page loaded. */
 	#lastTick = Date.now();
+	/** How far the server's clock is ahead of this one. A demo clock makes it hours. */
+	#skew = 0;
 
 	#stream = new Stream(
 		{
@@ -65,7 +67,8 @@ class Live {
 			(err) => toasts.error(err)
 		);
 		this.#stream.open();
-		const clock = setInterval(() => this.#tick(), 60_000);
+		this.#sync();
+		const clock = setInterval(() => this.#sync(), 60_000);
 		const focus = () => this.#caughtUp();
 		window.addEventListener('focus', focus);
 		return () => {
@@ -78,7 +81,7 @@ class Live {
 	// A tab left open overnight still shows yesterday. Coming back to it catches up, and starts the
 	// morning when the new day has no plan yet.
 	async #caughtUp(): Promise<void> {
-		this.#tick();
+		await this.#sync();
 		const seen = today.today?.date;
 		try {
 			await today.refresh();
@@ -90,8 +93,23 @@ class Live {
 		if (seen && t && morningDue(seen, t.date, t.plan !== null)) goto('/morning');
 	}
 
+	/**
+	 * Ticks on the server's clock. A jump of more than a minute moves the nudge window along with
+	 * it, so the nudges for the hours skipped don't all fire at once.
+	 */
+	async #sync(): Promise<void> {
+		try {
+			const skew = Date.parse((await api.clock()).now) - Date.now();
+			if (Math.abs(skew - this.#skew) > 60_000) this.#lastTick += skew - this.#skew;
+			this.#skew = skew;
+		} catch {
+			// Keep the last skew. The stream's reconnect reports a server that's gone.
+		}
+		this.#tick();
+	}
+
 	#tick(): void {
-		this.now = new Date();
+		this.now = new Date(Date.now() + this.#skew);
 		const to = this.now.getTime();
 		const t = today.today;
 		if (this.view && t) {

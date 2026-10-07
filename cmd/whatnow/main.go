@@ -62,7 +62,11 @@ func command(args []string) (string, []string) {
 }
 
 func open(dbPath string) (*app.App, error) {
-	return app.Open(app.Options{DBPath: dbPath, NewClient: newClient, Now: time.Now, Loc: time.Local})
+	now := time.Now
+	if path := os.Getenv("WHATNOW_DEMO_CLOCK"); path != "" {
+		now = demoClock(path)
+	}
+	return app.Open(app.Options{DBPath: dbPath, NewClient: newClient, Now: now, Loc: time.Local})
 }
 
 func serve(addr, dbPath string) error {
@@ -81,6 +85,7 @@ func newServer(a *app.App, addr string) *http.Server {
 		Hub:       a.Hub,
 		DB:        a.DB,
 		Loc:       a.Loc,
+		Now:       a.Now,
 		OnCapture: a.Cleanup.Enqueue,
 		Clean:     a.Cleanup.Clean,
 		NewClient: newClient,

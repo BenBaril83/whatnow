@@ -32,6 +32,7 @@ type Deps struct {
 	DB *sql.DB
 	// Loc is the user's time zone, which turns a date into a day of events.
 	Loc *time.Location
+	Now func() time.Time
 	// OnCapture is called with each task created from raw text, as it was captured.
 	OnCapture func(task domain.Task)
 	// Clean runs cleanup on a captured task right away, for the morning's brain dump.
@@ -88,6 +89,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/settings/keys/{provider}", s.deleteKey)
 	mux.HandleFunc("POST /api/v1/settings/test", s.testConnection)
 	mux.HandleFunc("DELETE /api/v1/data", s.deleteData)
+	mux.HandleFunc("GET /api/v1/clock", s.clock)
 	mux.Handle("GET /", d.Static)
 	return localOnly(mux)
 }

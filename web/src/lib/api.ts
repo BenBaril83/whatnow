@@ -251,7 +251,8 @@ export const api = {
 	saveKey: (provider: Provider, key: string) =>
 		request<void>('PUT', `/settings/keys/${provider}`, { key }),
 	testConnection: () => request<ConnectionResult>('POST', '/settings/test'),
-	deleteData: () => request<void>('DELETE', '/data')
+	deleteData: () => request<void>('DELETE', '/data'),
+	clock: () => request<{ now: string }>('GET', '/clock')
 };
 
 /** Whether a model is set up. Without one, capture still works and plans come from code. */
