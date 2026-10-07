@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/stream"
 )
 
 const keyHint = "space done · w what now · a add · p push · x drop · u undo · c chat · ? keys · q quit"
@@ -90,8 +91,17 @@ func (m Model) header() string {
 	if m.stale {
 		line += "  " + nowStyle.Render("stale")
 	}
-	if m.asking || m.sending {
+	if m.spinning() {
 		line += "  " + m.spin.View()
+		if m.working[stream.WorkReplan] > 0 {
+			line += softStyle.Render(" replanning")
+		}
+		if m.working[stream.WorkCleanup] > 0 {
+			line += softStyle.Render(" tidying")
+		}
+	}
+	if m.cheer != cheerNone {
+		line += "  " + m.cheerChip()
 	}
 	strip := layoutStrip(s.events, s.now, s.endOfDay, s.today.Day.StartedAt, max(m.width-5, 1)).render()
 	return sticker(append([]string{line}, strings.Split(strip, "\n")...), m.width, 6)
@@ -114,6 +124,9 @@ func (m Model) body(h int) string {
 func (m Model) mainLines(w, rows int) []string {
 	if m.wrapped() {
 		return m.goodnightLines(w)
+	}
+	if m.cheer == cheerFinale {
+		return append([]string{fireworks(w), fireworks(w)}, m.listLines(max(rows-2, 1))...)
 	}
 	return m.listLines(rows)
 }

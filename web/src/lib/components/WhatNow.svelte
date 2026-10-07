@@ -29,7 +29,7 @@
 	}
 </script>
 
-<section class="sticker whatnow" aria-live="polite">
+<section class="sticker whatnow" aria-live="polite" data-task={pick.task_id}>
 	<button class="close" aria-label="Close" onclick={onclose}>✕</button>
 	<p class="label">Do this now</p>
 	<h2>{task?.title ?? 'That task'}</h2>

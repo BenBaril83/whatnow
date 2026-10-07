@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -111,7 +112,7 @@ func TestSplitsANoteIntoTasksWithABlocker(t *testing.T) {
 	})
 	existing := f.capture(t, "water the plants")
 	captured := f.capture(t, flexNote)
-	msgs, unsub := f.hub.Subscribe()
+	msgs, unsub := f.hub.Subscribe("batch.applied")
 	defer unsub()
 	ctx := context.Background()
 
@@ -294,7 +295,7 @@ func TestRunReportsFailuresButNotMissingSetup(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f := newFixture(t, c.model)
 			captured := f.capture(t, "do the thing")
-			msgs, unsub := f.hub.Subscribe()
+			msgs, unsub := f.hub.Subscribe("cleanup.failed")
 			defer unsub()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -316,6 +317,40 @@ func TestRunReportsFailuresButNotMissingSetup(t *testing.T) {
 			tasks, _ := f.svc.ListTasks(context.Background())
 			if len(tasks) != 1 || tasks[0].Title != "do the thing" {
 				t.Errorf("the raw card should be untouched: %+v", tasks)
+			}
+		})
+	}
+}
+
+func TestAnnouncesTheWorkAroundTheModelCall(t *testing.T) {
+	cases := []struct {
+		name  string
+		model replyFunc
+		want  []string
+	}{
+		{"cleaned", reply(t, flexReply), []string{"work.started", "work.finished", "batch.applied"}},
+		{"provider error", func(llm.Request) (string, error) { return "", llm.ErrRefused }, []string{"work.started", "work.finished"}},
+		{"no provider set up", nil, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := newFixture(t, c.model)
+			captured := f.capture(t, flexNote)
+			msgs, unsub := f.hub.Subscribe()
+			defer unsub()
+
+			_, _ = f.runner.Clean(context.Background(), captured)
+
+			var got []string
+			for len(msgs) > 0 {
+				m := <-msgs
+				got = append(got, m.Type)
+				if strings.HasPrefix(m.Type, "work.") && m.Data != (stream.Work{Kind: stream.WorkCleanup}) {
+					t.Errorf("%s data = %+v", m.Type, m.Data)
+				}
+			}
+			if !slices.Equal(got, c.want) {
+				t.Errorf("published %v, want %v", got, c.want)
 			}
 		})
 	}

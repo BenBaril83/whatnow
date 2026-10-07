@@ -147,7 +147,16 @@ export interface Mutation {
 export interface BatchApplied {
 	batch_id: number;
 	source: Source;
-	activity: { action: string; entity: string }[];
+	activity: Activity[];
+}
+
+/** One change in a batch. before and after are the entity's JSON, or null where it didn't exist. */
+export interface Activity {
+	action: string;
+	entity: string;
+	entity_id: number;
+	before: { status?: Status } | null;
+	after: { status?: Status } | null;
 }
 
 export interface ProviderConfig {

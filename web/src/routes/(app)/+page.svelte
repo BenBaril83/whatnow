@@ -16,6 +16,8 @@
 	import Header from '#lib/components/Header.svelte';
 	import TaskCard from '#lib/components/TaskCard.svelte';
 	import WhatNow from '#lib/components/WhatNow.svelte';
+	import Working from '#lib/components/Working.svelte';
+	import { work } from '#lib/work.svelte.ts';
 
 	let pick = $state<Pick | null>(null);
 	let asking = $state(false);
@@ -29,6 +31,8 @@
 	const done = $derived(t ? doneOn(t.date, today.tasks) : []);
 	const pickTask = $derived(pick ? today.tasks.find((x) => x.id === pick?.task_id) : undefined);
 	const tierNames: Tier[] = ['must', 'should', 'could'];
+	// A replan can come from anywhere: this button, a pace change, the agent, or an edit that matters.
+	const replanBusy = $derived(replanning || work.busy('replan'));
 
 	// A day with no plan starts with the morning check-in, once first-run setup has had its turn.
 	$effect(() => {
@@ -94,6 +98,7 @@
 	{#if t.day?.wrapped_at}
 		<DaysDone day={t.day} done={done.length} meetings={survived(today.events, live.now)} />
 	{:else if planned}
+		{#if replanBusy}<Working label="Replanning…" />{/if}
 		{#if t.plan.fallback}
 			<p class="chip rough">rough plan, model was out</p>
 		{/if}
@@ -114,8 +119,8 @@
 			<div class="tray-head">
 				<h2 class="label">Unplanned</h2>
 				{#if tray.length && !t.day?.wrapped_at}
-					<button class="btn" disabled={replanning} onclick={replan}>
-						{replanning ? 'Replanning…' : 'Replan'}
+					<button class="btn" disabled={replanBusy} onclick={replan}>
+						{replanBusy ? 'Replanning…' : 'Replan'}
 					</button>
 				{/if}
 			</div>

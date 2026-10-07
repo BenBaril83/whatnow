@@ -86,8 +86,12 @@ type Model struct {
 	asking        bool  // what now is thinking
 	sending       bool  // a chat reply is being written
 	pick          *planner.Pick
-	passing       int64  // the pick being passed on while its reason is typed
-	streaming     string // the chat reply so far, while it's written
+	passing       int64                   // the pick being passed on while its reason is typed
+	streaming     string                  // the chat reply so far, while it's written
+	working       map[stream.WorkKind]int // the server's slow model calls in flight, by kind
+	cheer         cheer
+	cheerFrame    int
+	cheerSeq      int
 }
 
 // New makes the TUI and subscribes it to the hub. webURL is where the user starts and wraps the day.
@@ -103,6 +107,7 @@ func New(a *app.App, webURL string) Model {
 		unsubscribe: unsubscribe,
 		input:       in,
 		spin:        spinner.New(spinner.WithSpinner(spinner.MiniDot)),
+		working:     map[stream.WorkKind]int{},
 	}
 }
 
@@ -161,8 +166,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chatSentMsg:
 		m.sending = false
 		return m, m.load()
+	case cheerTickMsg:
+		return m.onCheerTick(msg)
 	case spinner.TickMsg:
-		if !m.asking && !m.sending {
+		if !m.spinning() {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -209,8 +216,28 @@ func (m Model) onHub(msg stream.Message) (tea.Model, tea.Cmd) {
 			m.snap.chat = append(m.snap.chat, said)
 		}
 		return m, m.listen()
+	case "work.started", "work.finished":
+		was := m.spinning()
+		w := msg.Data.(stream.Work)
+		if msg.Type == "work.started" {
+			m.working[w.Kind]++
+		} else {
+			m.working[w.Kind] = max(m.working[w.Kind]-1, 0)
+		}
+		if !was && m.spinning() {
+			return m, tea.Batch(m.listen(), m.spin.Tick)
+		}
+		return m, m.listen()
+	case "batch.applied":
+		cmd := m.startCheer(cheerFor(msg.Data.(stream.BatchApplied), m.snap))
+		return m, tea.Batch(m.listen(), m.load(), cmd)
 	}
 	return m, tea.Batch(m.listen(), m.load())
+}
+
+// spinning says something is in flight: what now, a chat reply, or the server's own model work.
+func (m Model) spinning() bool {
+	return m.asking || m.sending || m.working[stream.WorkReplan] > 0 || m.working[stream.WorkCleanup] > 0
 }
 
 func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {

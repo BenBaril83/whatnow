@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api, ApiError, type Day, type Review } from '#lib/api.ts';
 	import Dots from '#lib/components/Dots.svelte';
+	import Working from '#lib/components/Working.svelte';
 	import Tagline from '#lib/components/Tagline.svelte';
 	import TriageList from '#lib/components/TriageList.svelte';
 	import { live } from '#lib/live.svelte.ts';
@@ -74,7 +75,7 @@
 
 {#if step === 'loading'}
 	<h1>Wrapping up</h1>
-	<p class="muted center">Looking back at today…</p>
+	<Working label="Looking back at today…" />
 {:else if step === 'done' && review}
 	<h1>{winLine(review.done.length, survived(today.events, live.now))}</h1>
 	{#if review.done.length}

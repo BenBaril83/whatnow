@@ -97,3 +97,22 @@ type BatchUndone struct {
 func (h *Hub) PublishUndone(batch int64) {
 	h.Publish(Message{Type: "batch.undone", Data: BatchUndone{BatchID: batch}})
 }
+
+// WorkKind names a slow model call that clients show as in progress.
+type WorkKind string
+
+const (
+	WorkReplan  WorkKind = "replan"
+	WorkCleanup WorkKind = "cleanup"
+)
+
+// Work is the work.started and work.finished payload.
+type Work struct {
+	Kind WorkKind `json:"kind"`
+}
+
+// StartWork announces work.started and returns the function that announces work.finished.
+func (h *Hub) StartWork(kind WorkKind) (finish func()) {
+	h.Publish(Message{Type: "work.started", Data: Work{Kind: kind}})
+	return func() { h.Publish(Message{Type: "work.finished", Data: Work{Kind: kind}}) }
+}

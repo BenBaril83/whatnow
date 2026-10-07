@@ -100,7 +100,7 @@ describe('Toasts', () => {
 });
 
 describe('cleanupText', () => {
-	const act = (action: string, entity: string) => ({ action, entity });
+	const act = (action: string, entity: string) => ({ action, entity, entity_id: 1, before: null, after: null });
 	it.each([
 		['tidied one task', [act('update', 'task')], 'Tidied up your note'],
 		['split into tasks', [act('update', 'task'), act('create', 'task'), act('create', 'task')], 'Split your note into 3 tasks'],

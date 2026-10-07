@@ -54,6 +54,7 @@
 </script>
 
 <article
+	data-task={task.id}
 	class="sticker card {tier ?? (listed ? 'listed' : 'unplanned')}"
 	class:closed={task.status !== 'open'}
 	class:linked={linked.ids.includes(task.id)}

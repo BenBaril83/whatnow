@@ -43,6 +43,7 @@ func (p *Planner) Replan(ctx context.Context, trigger domain.Trigger, reason str
 	if st.day.WrappedAt != nil {
 		return domain.Plan{}, fmt.Errorf("%w: %s is already wrapped", service.ErrConflict, st.day.Date)
 	}
+	defer p.hub.StartWork(stream.WorkReplan)()
 	plan := domain.Plan{DayID: st.day.ID, Trigger: trigger, Reason: reason}
 
 	reply, err := p.askPlan(ctx, st, trigger, reason)

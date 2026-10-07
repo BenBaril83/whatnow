@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { api } from '#lib/api.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
+	import { work } from '#lib/work.svelte.ts';
+	import Working from './Working.svelte';
 
 	let text = $state('');
 
@@ -18,6 +20,7 @@
 <form class="capture" onsubmit={capture}>
 	<input class="field" bind:value={text} placeholder="Capture anything… press Enter" aria-label="Capture" />
 </form>
+{#if work.busy('cleanup')}<Working label="Tidying up what you captured…" />{/if}
 
 <style>
 	.capture input {

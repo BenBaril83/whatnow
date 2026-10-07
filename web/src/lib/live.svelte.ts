@@ -1,11 +1,14 @@
 import { goto } from '$app/navigation';
 import { api, type SettingsView } from './api';
+import { celebration } from './celebrate';
+import { cheer } from './cheer';
 import { chat } from './chat.svelte';
 import { Stream } from './stream.svelte';
 import { due, nudges, type Nudge } from './nudges';
 import { morningDue } from './time';
 import { toasts } from './toasts.svelte';
 import { today } from './today.svelte';
+import { work } from './work.svelte';
 
 /**
  * The page's live connection to the server, shared by every screen: the event stream, the
@@ -20,6 +23,8 @@ class Live {
 	#stream = new Stream(
 		{
 			'batch.applied': (d) => {
+				const size = celebration(d, today.today, today.tasks);
+				if (size) cheer(size, d.activity.filter((a) => a.entity === 'task').map((a) => a.entity_id));
 				today.changed();
 				toasts.applied(d);
 			},
@@ -33,9 +38,12 @@ class Live {
 			'chat.tool': (d) => chat.tool(d),
 			'chat.message': (d) => chat.message(d),
 			// Everything was deleted, maybe from another tab. Start over from first-run setup.
-			'data.reset': () => location.assign('/')
+			'data.reset': () => location.assign('/'),
+			'work.started': (d) => work.started(d),
+			'work.finished': (d) => work.finished(d)
 		},
 		() => {
+			work.reset();
 			today.changed();
 			chat.load().catch((err) => toasts.error(err));
 		}

@@ -97,6 +97,7 @@ func (r *Runner) Clean(ctx context.Context, captured domain.Task) (int64, error)
 		return 0, err
 	}
 
+	finish := r.hub.StartWork(stream.WorkCleanup)
 	reply, err := client.Complete(ctx, llm.Request{
 		Model:      cfg.LightModel,
 		System:     prompt.System(instructions, "", s.AboutMe, situation),
@@ -105,6 +106,7 @@ func (r *Runner) Clean(ctx context.Context, captured domain.Task) (int64, error)
 		SchemaName: "cleanup",
 		MaxTokens:  maxTokens,
 	})
+	finish()
 	if err != nil {
 		return 0, err
 	}

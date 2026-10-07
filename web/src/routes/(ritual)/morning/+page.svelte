@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api, ApiError, paceLabels, type Review, type Tier } from '#lib/api.ts';
 	import Dots from '#lib/components/Dots.svelte';
+	import Working from '#lib/components/Working.svelte';
 	import Tagline from '#lib/components/Tagline.svelte';
 	import TriageList from '#lib/components/TriageList.svelte';
 	import { tiers } from '#lib/plan.ts';
@@ -21,6 +22,8 @@
 	let mood = $state('');
 	let dump = $state('');
 	let notice = $state('');
+	/** The plan is taking longer than usual, as when the model is slow or retrying. */
+	let slow = $state(false);
 
 	const reconciling = $derived((review?.unfinished.length ?? 0) > 0);
 	const steps = $derived<Step[]>(reconciling ? ['reconcile', 'dump', 'pace', 'reveal'] : ['dump', 'pace', 'reveal']);
@@ -50,6 +53,7 @@
 	async function start() {
 		step = 'making';
 		notice = '';
+		const timer = setTimeout(() => (slow = true), 10_000);
 		try {
 			await api.start(pace, mood.trim(), review ? triagePayload(choices) : [], dump.trim());
 			await today.refresh();
@@ -68,6 +72,9 @@
 				toasts.error(err);
 				step = 'pace';
 			}
+		} finally {
+			clearTimeout(timer);
+			slow = false;
 		}
 	}
 </script>
@@ -77,7 +84,7 @@
 
 {#if step === 'greet'}
 	<h1>Good morning ☀︎</h1>
-	<p class="muted center">Looking at where things stand…</p>
+	<Working label="Looking at where things stand…" />
 {:else if step === 'reconcile' && review}
 	<h1>Good morning ☀︎</h1>
 	<p class="center">
@@ -110,8 +117,8 @@
 		<button class="btn primary" onclick={start}>Plan my day →</button>
 	</div>
 {:else if step === 'making'}
-	<h1>Making your plan…</h1>
-	<p class="muted center">This takes a few seconds.</p>
+	<h1>Making your plan</h1>
+	<Working label={slow ? 'Still thinking. Big days take a little longer.' : 'This takes a few seconds…'} />
 {:else if step === 'reveal' && today.today?.plan && revealed}
 	<p class="opening">{today.today.plan.opening || "Here's today."}</p>
 	<div class="sticker reveal">

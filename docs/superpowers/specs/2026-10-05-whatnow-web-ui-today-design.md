@@ -75,12 +75,15 @@ patching local state.
 - **On load:** fetch `/today`, `/events`, `/tasks`, and `/chat`, then open the stream.
 - **`batch.applied`, `batch.undone`, `plan.updated`:** call `refresh()`, which refetches
   `/today`, `/events`, and `/tasks`. It is debounced by about 100ms, so a burst of events causes
-  one refetch.
+  one refetch. A `batch.applied` that finishes a task also triggers confetti: a small burst, a
+  bigger one for a must, and fireworks for the plan's last open task. Morning triage doesn't.
+- **`work.started`, `work.finished`:** the server is running a slow model call, a `replan` or a
+  `cleanup`. Today shows "Replanning…" and the capture bar shows "Tidying…" until it finishes.
 - **`chat.delta`:** append to the in-flight reply. **`chat.tool`:** add a chip to it.
   **`chat.message`:** replace the in-flight reply with the stored message. Deltas are best-effort,
   and `chat.message` is authoritative, even when no deltas arrived before it.
 - **Reconnect:** `EventSource` retries on its own. Once it is back, run `refresh()` and refetch
-  `/chat`. A "reconnecting…" pill shows in the header while it is down.
+  `/chat`, and clear any work in progress, since its `work.finished` may have been lost. A "reconnecting…" pill shows in the header while it is down.
 
 ### Backend change: `source` on `batch.applied`
 

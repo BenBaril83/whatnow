@@ -1,4 +1,5 @@
 import type { BatchApplied, Message, ToolUse } from './api';
+import type { WorkKind } from './work.svelte';
 
 export interface Handlers {
 	'batch.applied': (d: BatchApplied) => void;
@@ -8,6 +9,8 @@ export interface Handlers {
 	'chat.tool': (d: ToolUse) => void;
 	'chat.message': (d: Message) => void;
 	'data.reset': () => void;
+	'work.started': (d: { kind: WorkKind }) => void;
+	'work.finished': (d: { kind: WorkKind }) => void;
 }
 
 /** The parts of EventSource the stream uses, so tests can drive it. */

@@ -20,7 +20,9 @@ function handlers(): Handlers {
 		'chat.delta': vi.fn(),
 		'chat.tool': vi.fn(),
 		'chat.message': vi.fn(),
-		'data.reset': vi.fn()
+		'data.reset': vi.fn(),
+		'work.started': vi.fn(),
+		'work.finished': vi.fn()
 	};
 }
 

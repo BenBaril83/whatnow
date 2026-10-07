@@ -13,6 +13,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
+	"github.com/jameynakama/whatnow/internal/stream"
 )
 
 func TestMorningPlanFromTheModel(t *testing.T) {
@@ -24,7 +25,7 @@ func TestMorningPlanFromTheModel(t *testing.T) {
 		"opening": "Rough night. One must today.",
 	}}
 	f.start(t, 2, "slept badly")
-	msgs, unsub := f.hub.Subscribe()
+	msgs, unsub := f.hub.Subscribe("plan.updated")
 	defer unsub()
 
 	plan, err := f.planner.Replan(context.Background(), domain.TriggerMorning, "")
@@ -187,7 +188,7 @@ func TestReplanNeedsAStartedDay(t *testing.T) {
 func TestAnEmptyDayStillGetsAPlan(t *testing.T) {
 	f := newFixture(t, map[string]any{"entries": []any{}, "opening": "Nothing on the list. Enjoy it."})
 	f.start(t, 3, "")
-	msgs, unsub := f.hub.Subscribe()
+	msgs, unsub := f.hub.Subscribe("plan.updated")
 	defer unsub()
 
 	plan, err := f.planner.Replan(context.Background(), domain.TriggerMorning, "")
@@ -199,6 +200,43 @@ func TestAnEmptyDayStillGetsAPlan(t *testing.T) {
 	}
 	if m := <-msgs; m.Type != "plan.updated" {
 		t.Errorf("published %+v", m)
+	}
+}
+
+func TestReplanAnnouncesTheWorkAroundThePlan(t *testing.T) {
+	f := newFixture(t, map[string]any{"entries": []any{}, "opening": "hi"})
+	f.start(t, 3, "")
+	msgs, unsub := f.hub.Subscribe()
+	defer unsub()
+
+	if _, err := f.planner.Replan(context.Background(), domain.TriggerEdit, "x"); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{"work.started", "plan.updated", "work.finished"}
+	for i, w := range want {
+		m := <-msgs
+		if m.Type != w {
+			t.Fatalf("message %d is %q, want %q", i, m.Type, w)
+		}
+		if w != "plan.updated" && m.Data != (stream.Work{Kind: stream.WorkReplan}) {
+			t.Errorf("message %d data = %+v", i, m.Data)
+		}
+	}
+}
+
+func TestAReplanThatCannotRunAnnouncesNoWork(t *testing.T) {
+	f := newFixture(t)
+	msgs, unsub := f.hub.Subscribe()
+	defer unsub()
+
+	if _, err := f.planner.Replan(context.Background(), domain.TriggerEdit, "x"); !errors.Is(err, planner.ErrNoDay) {
+		t.Fatalf("err = %v, want ErrNoDay", err)
+	}
+	select {
+	case m := <-msgs:
+		t.Errorf("published %+v", m)
+	default:
 	}
 }
 
