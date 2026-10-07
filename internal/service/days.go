@@ -69,7 +69,7 @@ func (s *Service) SetPace(ctx context.Context, batch int64, date domain.Date, pa
 	return d, err
 }
 
-const dayColumns = `id, date, pace, mood_note, started_at, wrapped_at, tomorrow_note, summary`
+const dayColumns = `id, date, pace, mood_note, started_at, wrapped_at, tomorrow_note, summary, reflection`
 
 func dayByDate(ctx context.Context, q querier, date domain.Date) (domain.Day, error) {
 	d, err := scanDay(q.QueryRowContext(ctx, `SELECT `+dayColumns+` FROM days WHERE date = ?`, date))
@@ -83,7 +83,7 @@ func scanDay(row scanner) (domain.Day, error) {
 	var d domain.Day
 	var startedAt string
 	var wrappedAt sql.NullString
-	if err := row.Scan(&d.ID, &d.Date, &d.Pace, &d.MoodNote, &startedAt, &wrappedAt, &d.TomorrowNote, &d.Summary); err != nil {
+	if err := row.Scan(&d.ID, &d.Date, &d.Pace, &d.MoodNote, &startedAt, &wrappedAt, &d.TomorrowNote, &d.Summary, &d.Reflection); err != nil {
 		return d, err
 	}
 	var err error
@@ -95,7 +95,7 @@ func scanDay(row scanner) (domain.Day, error) {
 }
 
 // writeDay writes the columns a batch can change: pace and mood. Undo uses it to restore a
-// snapshot, so it must leave wrapping and the summary alone, which aren't in batches.
+// snapshot, so it must leave wrapping, the summary, and the reflection alone, which aren't in batches.
 func writeDay(ctx context.Context, tx *sql.Tx, d domain.Day) error {
 	_, err := tx.ExecContext(ctx, `UPDATE days SET pace = ?, mood_note = ? WHERE id = ?`, d.Pace, d.MoodNote, d.ID)
 	return err
@@ -124,6 +124,17 @@ func (s *Service) WrapDay(ctx context.Context, dayID int64, note string) (domain
 
 func (s *Service) SetDaySummary(ctx context.Context, dayID int64, summary string) error {
 	res, err := s.db.ExecContext(ctx, `UPDATE days SET summary = ? WHERE id = ?`, summary, dayID)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return errors.Join(err, fmt.Errorf("%w: day %d", ErrNotFound, dayID))
+	}
+	return nil
+}
+
+func (s *Service) SetDayReflection(ctx context.Context, dayID int64, reflection string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE days SET reflection = ? WHERE id = ?`, reflection, dayID)
 	if err != nil {
 		return err
 	}

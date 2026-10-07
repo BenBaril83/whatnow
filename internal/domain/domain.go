@@ -132,8 +132,11 @@ type Day struct {
 	WrappedAt *time.Time `json:"wrapped_at"`
 	// TomorrowNote is what the user left for the next day when wrapping up.
 	TomorrowNote string `json:"tomorrow_note"`
-	// Summary is the light model's short account of the day, written when it's wrapped.
+	// Summary is the light model's plain notes on the day, written when it's wrapped. The planner
+	// reads it on later days; the user never sees it.
 	Summary string `json:"summary"`
+	// Reflection is the day told to the user, in their assistant's voice, written from Summary.
+	Reflection string `json:"reflection"`
 }
 
 type Tier string

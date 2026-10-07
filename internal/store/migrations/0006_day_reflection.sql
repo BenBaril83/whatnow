@@ -1,0 +1,1 @@
+ALTER TABLE days ADD COLUMN reflection TEXT NOT NULL DEFAULT '';

@@ -148,3 +148,25 @@ func TestSavePlanRejectsBadTierOrTrigger(t *testing.T) {
 		}
 	}
 }
+
+func TestSetDayReflectionIsReadBack(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	day, err := svc.StartDay(ctx, "2026-10-05", 3, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetDayReflection(ctx, day.ID, "You got a lot done."); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.GetDay(ctx, "2026-10-05")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Reflection != "You got a lot done." {
+		t.Errorf("reflection = %q", got.Reflection)
+	}
+	if err := svc.SetDayReflection(ctx, day.ID+1, "x"); !errors.Is(err, service.ErrNotFound) {
+		t.Errorf("missing day: err = %v", err)
+	}
+}
