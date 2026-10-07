@@ -38,6 +38,8 @@ type Planner struct {
 	now    func() time.Time
 	// mu runs one replan at a time, so plan versions follow the order of what triggered them.
 	mu sync.Mutex
+	// fills keeps reflection writers to one per day.
+	fills *fills
 }
 
 const maxTokens = 8192
@@ -47,7 +49,7 @@ const maxTokens = 8192
 var modelTimeout = time.Minute
 
 func New(svc *service.Service, hub *stream.Hub, client ClientFunc, loc *time.Location, now func() time.Time) *Planner {
-	return &Planner{svc: svc, hub: hub, client: client, loc: loc, now: now}
+	return &Planner{svc: svc, hub: hub, client: client, loc: loc, now: now, fills: newFills()}
 }
 
 // state is what one call sees. day and plan are nil when today hasn't started or has no plan yet.

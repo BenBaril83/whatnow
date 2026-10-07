@@ -86,3 +86,14 @@ func TestChatStreamsTheCannedReplyWithoutTools(t *testing.T) {
 		t.Errorf("reply = %+v", reply)
 	}
 }
+
+func TestAReflectionRequestGetsTheFixedReflection(t *testing.T) {
+	req := llm.Request{System: []llm.Block{{Text: "Write a short message to them about their day."}}}
+	reply, err := fake.Client{}.Complete(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != fake.Reflection {
+		t.Errorf("reply = %q, want %q", reply, fake.Reflection)
+	}
+}

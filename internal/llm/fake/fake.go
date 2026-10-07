@@ -14,16 +14,21 @@ import (
 
 // The fixed text the fake answers with. The Playwright tests look for these.
 const (
-	Opening   = "A fake plan, in order."
-	Rationale = "Next in line."
-	Reason    = "First free task."
-	Suggest   = "Keep it going."
-	Sentence  = "A fake summary."
-	ChatReply = "A fake reply. Nothing changed."
+	Opening    = "A fake plan, in order."
+	Rationale  = "Next in line."
+	Reason     = "First free task."
+	Suggest    = "Keep it going."
+	Sentence   = "A fake summary."
+	ChatReply  = "A fake reply. Nothing changed."
+	Reflection = "A fake reflection, to you."
 )
 
 // Client answers Complete by the request's schema name, and Chat with ChatReply.
 type Client struct{}
+
+// reflectionMarker is a phrase from the planner's reflection instructions. TestTheFakeReflectsOnTheSummary
+// in the planner fails if the two drift apart.
+const reflectionMarker = "a short message to them about their day"
 
 func (Client) Complete(_ context.Context, req llm.Request) (string, error) {
 	var reply any
@@ -37,6 +42,9 @@ func (Client) Complete(_ context.Context, req llm.Request) (string, error) {
 	case "suggestions":
 		reply = suggestions(req.User)
 	default:
+		if strings.Contains(system(req.System), reflectionMarker) {
+			return Reflection, nil
+		}
 		return Sentence, nil
 	}
 	b, err := json.Marshal(reply)

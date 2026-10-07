@@ -25,7 +25,8 @@ const summaryTokens = 2048
 // Close wraps up a day. It applies the triage as one user batch, wraps the day with the note, and
 // has the light model write the day's summary. It returns the batch, or 0 when the triage changed
 // nothing. A summary that fails is logged and left empty: it's context for later, never worth
-// failing a wrap-up over.
+// failing a wrap-up over. It writes no reflection; WrapUp does, since only today's goodnight is
+// seen.
 func (p *Planner) Close(ctx context.Context, day domain.Day, triage []Triage, note string) (int64, domain.Day, error) {
 	if day.WrappedAt != nil {
 		return 0, day, fmt.Errorf("%w: %s is already wrapped", service.ErrConflict, day.Date)
@@ -73,7 +74,8 @@ func (p *Planner) Close(ctx context.Context, day domain.Day, triage []Triage, no
 	return batch, wrapped, nil
 }
 
-// WrapUp closes today. It returns ErrNoDay if today hasn't started.
+// WrapUp closes today and writes the user's reflection from the summary. It returns ErrNoDay if
+// today hasn't started. A reflection that fails is logged and left empty, like the summary.
 func (p *Planner) WrapUp(ctx context.Context, triage []Triage, note string) (int64, domain.Day, error) {
 	day, err := p.svc.GetDay(ctx, p.Date())
 	if errors.Is(err, service.ErrNotFound) {
@@ -82,7 +84,20 @@ func (p *Planner) WrapUp(ctx context.Context, triage []Triage, note string) (int
 	if err != nil {
 		return 0, domain.Day{}, err
 	}
-	return p.Close(ctx, day, triage, note)
+	// Held from before the summary is saved, so a lazy fill can't start a second reflection.
+	p.fills.hold(day.ID)
+	defer p.fills.release(day.ID, false)
+	batch, wrapped, err := p.Close(ctx, day, triage, note)
+	if err != nil || wrapped.Summary == "" {
+		return batch, wrapped, err
+	}
+	// Written even if the user has left, like the summary.
+	if r, err := p.writeReflection(context.WithoutCancel(ctx), wrapped); err != nil {
+		fallbackNote(err)
+	} else {
+		wrapped.Reflection = r
+	}
+	return batch, wrapped, nil
 }
 
 func (p *Planner) checkTriage(triage []Triage) error {

@@ -87,3 +87,16 @@ func TestTheFakeRollsOverEveryUnfinishedTask(t *testing.T) {
 		t.Errorf("fallback %v, suggestions (-want +got):\n%s", r.Fallback, diff)
 	}
 }
+
+func TestTheFakeReflectsOnTheSummary(t *testing.T) {
+	f := newFixture(t)
+	f.slow = fake.Client{}
+	f.start(t, 3, "")
+	_, wrapped, err := f.planner.WrapUp(context.Background(), nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wrapped.Summary != fake.Sentence || wrapped.Reflection != fake.Reflection {
+		t.Errorf("wrapped = %+v", wrapped)
+	}
+}
