@@ -102,7 +102,7 @@
 	</div>
 {:else if step === 'goodnight'}
 	<h1>Goodnight 🌙</h1>
-	{#if wrapped?.summary}<p class="sticker summary">{wrapped.summary}</p>{/if}
+	{#if wrapped?.reflection}<p class="sticker summary">{wrapped.reflection}</p>{/if}
 	<button class="btn primary next" onclick={() => goto('/')}>Goodnight →</button>
 {/if}
 

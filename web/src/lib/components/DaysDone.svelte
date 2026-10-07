@@ -13,7 +13,7 @@
 <section class="sticker daysdone">
 	<p class="label">Day's done</p>
 	<h2>{winLine(done, meetings)}</h2>
-	{#if day.summary}<p>{day.summary}</p>{/if}
+	{#if day.reflection}<p>{day.reflection}</p>{/if}
 	{#if day.tomorrow_note}
 		<p class="note"><span class="label">For tomorrow</span> {day.tomorrow_note}</p>
 	{/if}

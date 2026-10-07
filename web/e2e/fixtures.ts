@@ -6,6 +6,7 @@ export const fake = {
 	reason: 'First free task.',
 	suggest: 'Keep it going.',
 	sentence: 'A fake summary.',
+	reflection: 'A fake reflection, to you.',
 	chatReply: 'A fake reply. Nothing changed.'
 };
 

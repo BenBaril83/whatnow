@@ -60,7 +60,9 @@ test('wrap-up suggests rolling over what is left, and wraps the day', async ({ p
 	await page.getByRole('button', { name: 'Wrap up' }).click();
 
 	await expect(page.getByRole('heading', { name: 'Goodnight 🌙' })).toBeVisible();
-	await expect(page.getByText(fake.sentence)).toBeVisible();
+	// The goodnight screen shows the reflection; the summary is the planner's, not the user's.
+	await expect(page.getByText(fake.reflection)).toBeVisible();
+	await expect(page.getByText(fake.sentence)).toHaveCount(0);
 });
 
 test('the end-of-day label stays inside the strip on a phone', async ({ page, request }) => {

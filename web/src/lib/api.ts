@@ -65,6 +65,7 @@ export interface Day {
 	wrapped_at: string | null;
 	tomorrow_note: string;
 	summary: string;
+	reflection: string;
 }
 
 export type Action = 'roll_over' | 'push' | 'drop';

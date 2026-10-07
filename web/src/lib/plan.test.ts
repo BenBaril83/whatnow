@@ -20,7 +20,7 @@ const task = (id: number, status: Status = 'open', updated_at = '2026-10-05T15:0
 
 const today = (over: Partial<Today> = {}): Today => ({
 	date: '2026-10-05',
-	day: { date: '2026-10-05', pace: 3, started_at: '', wrapped_at: null, tomorrow_note: '', summary: '' },
+	day: { date: '2026-10-05', pace: 3, started_at: '', wrapped_at: null, tomorrow_note: '', summary: '', reflection: '' },
 	plan: {
 		id: 1,
 		opening: '',
