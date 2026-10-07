@@ -42,11 +42,15 @@ later.
 starts `reflect` in the background and saves the result. This retries a reflection that failed at
 wrap time, and backfills days wrapped before this change.
 
-- At most one fill runs per day at a time, guarded inside the planner. A second process (`serve`
+- At most one reflection is written per day at a time in a process. Wrap-up holds the day while
+  it writes the summary and reflection, so a `Today` call landing in between (the web refetches
+  today on the triage's `batch.applied`) doesn't start a second one. A second process (`serve`
   and `tui` both open) may write its own; the later write wins, which is harmless.
 - `Today` returns at once without the reflection. The TUI's 5-second reload picks it up; the web
   picks it up on its next fetch of today.
-- A fill that fails is logged, and the next `Today` call tries again.
+- A fill that fails is logged, and this process doesn't try that day again until it restarts.
+  Otherwise a bad key would mean a failing model call on every reload, every 5 seconds, all
+  evening.
 
 ## Storage and API
 
@@ -77,7 +81,8 @@ summary and reflection would match and a test couldn't tell them apart. It gains
 - **Failures:** a failed reflection leaves the wrap and the summary intact; a failed summary
   makes no reflection call.
 - **Lazy fill:** `Today` on a wrapped day with no reflection writes one in the background, and
-  concurrent `Today` calls make exactly one model call.
+  repeated `Today` calls make exactly one model call. A fill that fails isn't retried, and a
+  `Today` during wrap-up doesn't start a second reflection.
 - **Service and store:** the migration applies, and `SetDayReflection` round-trips.
 - **Playwright:** the wrap-up flow shows `fake.reflection` on the goodnight screen, and not
   `fake.sentence`.
