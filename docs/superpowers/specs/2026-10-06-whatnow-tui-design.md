@@ -38,6 +38,14 @@ A centered card: the tagline ("whatnow · executive function for the rest of us"
 Start your day in the browser:", and the `serve` address. It
 reloads every 5 seconds and switches to Today once the day has a plan.
 
+### Goodnight
+
+Once the day is wrapped, the list pane shows a card instead: the tagline, "Goodnight. Day's
+done.", the win line (things done and meetings survived, as the web's Day's-done card counts
+them), the day's reflection, the note for tomorrow, and "You're off the hook". Only `a`, `u`,
+`c`, `?`, `r`, and `q` work; there's no list to act on, and no wrap-up banner. At midnight it gives
+way to the good-morning card.
+
 ### Today
 
 ```

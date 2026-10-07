@@ -68,7 +68,7 @@ func (m Model) helpView() string {
 
 func (m Model) todayView() string {
 	top := []string{m.header()}
-	if wrapDue(m.snap.now, m.snap.endOfDay) {
+	if !m.wrapped() && wrapDue(m.snap.now, m.snap.endOfDay) {
 		top = append(top, ansi.Truncate(toastStyle.Render("Nearly the end of the day. Wrap up in the browser: "+m.webURL), m.width, "…"))
 	}
 	head := strings.Join(top, "\n")
@@ -100,14 +100,22 @@ func (m Model) header() string {
 func (m Model) body(h int) string {
 	switch {
 	case !m.chatOpen:
-		return sticker(m.listLines(h-3), m.width, h)
+		return sticker(m.mainLines(m.width-5, h-3), m.width, h)
 	case m.width < wideEnough:
 		return sticker(m.chatLines(m.width-5, h-3), m.width, h)
 	}
 	chatW := m.chatPaneWidth()
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		sticker(m.listLines(h-3), m.width-chatW, h),
+		sticker(m.mainLines(m.width-chatW-5, h-3), m.width-chatW, h),
 		sticker(m.chatLines(chatW-5, h-3), chatW, h))
+}
+
+// mainLines is the main pane w columns wide: the list, or the goodnight card once the day is wrapped.
+func (m Model) mainLines(w, rows int) []string {
+	if m.wrapped() {
+		return m.goodnightLines(w)
+	}
+	return m.listLines(rows)
 }
 
 // chatPaneWidth is the chat pane's width, shadow included: two fifths beside the list, or the
@@ -219,5 +227,9 @@ func (m Model) footer() string {
 	if m.mode == modeAdd || m.mode == modePass {
 		return ansi.Truncate(m.input.View(), m.width, "…")
 	}
-	return softStyle.Render(ansi.Truncate(keyHint, m.width, "…"))
+	hint := keyHint
+	if m.wrapped() {
+		hint = goodnightKeyHint
+	}
+	return softStyle.Render(ansi.Truncate(hint, m.width, "…"))
 }

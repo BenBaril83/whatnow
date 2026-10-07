@@ -233,6 +233,14 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.snap == nil || m.snap.today.Plan == nil {
 		return m, nil
 	}
+	// Once the day is wrapped there's no list to act on: adding, undo, chat, and help still work.
+	if m.wrapped() {
+		switch k.String() {
+		case "a", "u", "c", "?":
+		default:
+			return m, nil
+		}
+	}
 	switch k.String() {
 	case "up", "k":
 		m.move(-1)

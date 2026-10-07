@@ -18,6 +18,7 @@ type snapshot struct {
 	events    []domain.Event
 	waits     map[int64]int // open blockers per task
 	doneToday int
+	meetings  int // today's events that have ended
 	endOfDay  time.Time
 	chat      []domain.Message
 }
@@ -41,6 +42,11 @@ func load(ctx context.Context, a *app.App) (snapshot, error) {
 	}
 	if s.events, err = a.Service.ListEvents(ctx, dayStart, dayEnd); err != nil {
 		return snapshot{}, err
+	}
+	for _, e := range s.events {
+		if !eventEnd(e).After(now) {
+			s.meetings++
+		}
 	}
 	blockers, err := a.Service.ListBlockers(ctx)
 	if err != nil {
