@@ -4,7 +4,8 @@
 companion, not a second client with parity: it shows the day, takes the quick actions, and
 hosts chat. Setup and the morning and wrap-up rituals stay in the web UI.
 
-It runs in-process and calls the Go services directly, without HTTP.
+It runs in-process and calls the Go services directly, without HTTP. It's built on Bubble Tea, Bubbles, and Lip Gloss v1 (`github.com/charmbracelet/...`);
+teatest pins Bubble Tea v1, so don't mix in the v2 `charm.land` packages.
 
 ## Shared wiring (`internal/app`)
 
