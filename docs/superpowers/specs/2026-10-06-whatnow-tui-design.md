@@ -18,11 +18,20 @@ the goroutines and closes the database. `main` passes its `newClient` as `Option
 the `e2e` build's fake model reaches both subcommands. `Now` and `Loc` let tests fix the clock.
 
 `serve` becomes `app.Open` plus the HTTP server. `tui` becomes `app.Open` plus the Bubble Tea
-program. Both take the same `-db` flag.
+program. Both take the same `-addr` and `-db` flags.
+
+### Serving from the TUI
+
+The TUI sends the user to the browser to start and wrap up the day, so the address it shows must
+work. If nothing is using `-addr`, `tui` serves the web UI from the same `App`. The two share a
+hub, so changes appear live in both. Quitting the TUI stops its server.
+
+If `-addr` is already in use, `tui` assumes `whatnow serve` is running there and only points the
+user to it. It doesn't check what is listening.
 
 ### Running both at once
 
-`serve` and `tui` may run at the same time on the same database:
+`serve` and `tui` may run as separate processes on the same database:
 
 - SQLite is already in WAL mode with a busy timeout.
 - The cleanup runner cleans only tasks captured by its own process, so the two never clean the
