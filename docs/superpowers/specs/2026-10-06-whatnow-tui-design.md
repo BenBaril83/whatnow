@@ -75,7 +75,7 @@ way to the good-morning card.
 ```
 
 - **Header:** the date, the done count (tasks done today out of those plus the open tasks on the
-  list), and the day strip.
+  list), today's pace, and the day strip.
 - **Day strip:** a Go port of `strip()` in `web/src/lib/time.ts`, laid out in whole columns:
   events as green blocks, the now line as a hot-pink bar, and the end of day as a dashed rule
   whose label stays inside the right edge.
@@ -101,6 +101,7 @@ way to the good-morning card.
 | `a` | Add: one line of text, captured and cleaned up in the background like the web's Capture |
 | `p` | Push to tomorrow |
 | `x` | Drop |
+| `-` / `+` | Slower or faster pace, one step at a time, as the web's pace chip sets it. `=` works as `+`, so shift isn't needed. The replan arrives over the hub. |
 | `u` | Undo your last change, as the web's toast Undo does |
 | `c` | Open and focus chat. `enter` sends, the reply streams in, `esc` returns to the list (and hides chat below 90 columns). |
 | `r` | Refresh now |

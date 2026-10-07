@@ -12,7 +12,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/stream"
 )
 
-const keyHint = "space done · w what now · a add · p push · x drop · u undo · c chat · ? keys · q quit"
+const keyHint = "space done · w what now · a add · p push · x drop · - + pace · u undo · c chat · ? keys · q quit"
 
 var helpKeys = [][2]string{
 	{"↑ ↓  k j", "move"},
@@ -22,6 +22,7 @@ var helpKeys = [][2]string{
 	{"a", "add a task"},
 	{"p", "push to tomorrow"},
 	{"x", "drop"},
+	{"- +", "slower or faster pace"},
 	{"u", "undo your last change"},
 	{"c", "chat"},
 	{"r", "refresh"},
@@ -90,7 +91,7 @@ func (m Model) header() string {
 	line := fmt.Sprintf("%s  %s  %s",
 		cursorStyle.Render("whatnow"),
 		s.now.Format("Mon Jan 2"),
-		softStyle.Render(fmt.Sprintf("%d of %d done", s.doneToday, s.doneToday+len(s.order()))))
+		softStyle.Render(fmt.Sprintf("%d of %d done · %s", s.doneToday, s.doneToday+len(s.order()), s.today.Day.Pace.Label())))
 	if m.stale {
 		line += "  " + nowStyle.Render("stale")
 	}

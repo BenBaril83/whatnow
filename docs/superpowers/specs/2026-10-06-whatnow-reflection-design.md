@@ -63,7 +63,7 @@ wrap time, and backfills days wrapped before this change.
 
 - The web goodnight step (`routes/(ritual)/wrap`) and `DaysDone.svelte` show `reflection` instead
   of `summary`, and nothing when it's empty. The summary is never shown to the user.
-- The TUI's goodnight card, a follow-up slice, shows the reflection.
+- The TUI's goodnight card shows the reflection.
 
 ## Fake model
 

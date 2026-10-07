@@ -118,7 +118,10 @@ seconds.
 
 **Day strip:** today's events placed by time, with a red now line that moves along it, ticking each
 minute. Part 3 (`2026-10-06-whatnow-web-ui-settings-design.md`) sets the window, the hour ticks, and
-the end-of-day mark. An event with no end is drawn as 30 minutes, the same as `facts`.
+the end-of-day mark. An event with no end is drawn as 30 minutes, the same as `facts`. An event's
+box grows to fit its title on one line, even past its end time, so it can overlap the next event.
+Boxes held to their time with titles clamped to two lines were tried and lost: a half-hour event at
+a normal width showed only the start time and an ellipsis.
 
 **Capture box:** pressing Enter sends `POST /tasks {raw_text}` and clears the box at once. The raw
 card appears in the tray after the refetch, and the cleanup batch replaces it later. If the save

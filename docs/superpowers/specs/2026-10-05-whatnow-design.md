@@ -19,7 +19,7 @@ Priorities, in order:
 it into tasks and events.
 
 **After the MVP, explicitly out of scope here:**
-- A Bubbletea TUI and a `whatnow add` CLI. Both are clients of the same API.
+- A `whatnow add` CLI, as a client of the API.
 - Integrations as plugins (calendar, Jira, PR review queue). Each plugin will declare the
   settings fields it needs. That contract gets designed alongside the first plugin.
 - Native OS notifications.

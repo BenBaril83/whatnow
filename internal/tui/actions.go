@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -86,6 +87,18 @@ func (m Model) act(key string, t domain.Task) tea.Cmd {
 	}
 	return m.write("Done: "+t.Title, func(ctx context.Context, batch int64) error {
 		_, err := svc.SetTaskStatus(ctx, batch, t.ID, domain.StatusDone)
+		return err
+	})
+}
+
+// shiftPace moves today's pace by one step. The replan it causes arrives over the hub.
+func (m Model) shiftPace(by int) tea.Cmd {
+	pace := m.snap.today.Day.Pace + domain.Pace(by)
+	if !pace.Valid() {
+		return func() tea.Msg { return failedMsg{fmt.Errorf("pace is already %s", m.snap.today.Day.Pace.Label())} }
+	}
+	return m.write("Pace: "+pace.Label(), func(ctx context.Context, batch int64) error {
+		_, err := m.app.Service.SetPace(ctx, batch, m.app.Planner.Date(), pace, "")
 		return err
 	})
 }

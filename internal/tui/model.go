@@ -314,6 +314,10 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.show("Nothing to undo", false)
 		}
 		return m, m.undo(m.lastBatch)
+	case "-":
+		return m, m.shiftPace(-1)
+	case "+", "=":
+		return m, m.shiftPace(1)
 	case " ", "p", "x":
 		if t, ok := m.current(); ok {
 			return m, m.act(k.String(), t)

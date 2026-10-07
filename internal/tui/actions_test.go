@@ -81,6 +81,53 @@ func TestPPushesToTomorrow(t *testing.T) {
 	quit(t, tm)
 }
 
+func (f *fixture) pace(t *testing.T) domain.Pace {
+	t.Helper()
+	today, err := f.app.Planner.Today(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return today.Day.Pace
+}
+
+func TestPlusAndMinusShiftThePaceAndUUndoesIt(t *testing.T) {
+	f := newFixture(t)
+	f.task(t, "buy milk")
+	f.start(t)
+	tm := f.run(t)
+	waitFor(t, tm, "steady")
+
+	tm.Send(key("+"))
+	waitFor(t, tm, "Pace: full steam · u to undo")
+	if got := f.pace(t); got != 4 {
+		t.Errorf("pace = %d, want 4", got)
+	}
+	tm.Send(key("u"))
+	waitFor(t, tm, "Undone")
+	tm.Send(key("-"))
+	waitFor(t, tm, "Pace: gentle")
+	if got := f.pace(t); got != 2 {
+		t.Errorf("pace = %d, want 2", got)
+	}
+	quit(t, tm)
+}
+
+func TestThePaceStopsAtItsEnds(t *testing.T) {
+	f := newFixture(t)
+	f.task(t, "buy milk")
+	if _, _, err := f.app.Planner.StartDay(context.Background(), 5, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	tm := f.run(t)
+	waitFor(t, tm, "go hard")
+	tm.Send(key("="))
+	waitFor(t, tm, "pace is already go hard")
+	quit(t, tm)
+	if got := f.pace(t); got != 5 {
+		t.Errorf("pace = %d, want it left at 5", got)
+	}
+}
+
 func TestXDrops(t *testing.T) {
 	f := newFixture(t)
 	milk := f.task(t, "buy milk")
