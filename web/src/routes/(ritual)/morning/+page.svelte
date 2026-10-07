@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api, ApiError, paceLabels, type Review, type Tier } from '#lib/api.ts';
 	import Dots from '#lib/components/Dots.svelte';
+	import Tagline from '#lib/components/Tagline.svelte';
 	import TriageList from '#lib/components/TriageList.svelte';
 	import { tiers } from '#lib/plan.ts';
 	import { ritualOver } from '#lib/rituals.ts';
@@ -72,6 +73,7 @@
 </script>
 
 <Dots count={steps.length} {at} />
+{#if step === 'greet' || step === steps[0]}<Tagline />{/if}
 
 {#if step === 'greet'}
 	<h1>Good morning ☀︎</h1>

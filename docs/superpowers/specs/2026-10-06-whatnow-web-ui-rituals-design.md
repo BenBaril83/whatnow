@@ -54,6 +54,9 @@ Both rituals use one component for unfinished tasks.
 
 ## Good morning (`/morning`)
 
+The tagline ("whatnow · executive function for the rest of us") sits above the first screen, and
+above the goodnight screen at the end of wrap-up.
+
 0. **Greeting:** "Good morning ☀︎" while `GET /morning` loads. That call runs the main model and
    takes several seconds, so the greeting covers the wait.
 1. **Reconcile:** only when `review` is non-null and has unfinished tasks. It starts with the

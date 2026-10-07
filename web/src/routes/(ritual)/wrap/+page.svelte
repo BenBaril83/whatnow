@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api, ApiError, type Day, type Review } from '#lib/api.ts';
 	import Dots from '#lib/components/Dots.svelte';
+	import Tagline from '#lib/components/Tagline.svelte';
 	import TriageList from '#lib/components/TriageList.svelte';
 	import { live } from '#lib/live.svelte.ts';
 	import { winLine } from '#lib/plan.ts';
@@ -101,6 +102,7 @@
 		<button class="btn primary" disabled={wrapping} onclick={wrap}>{wrapping ? 'Wrapping up…' : 'Wrap up'}</button>
 	</div>
 {:else if step === 'goodnight'}
+	<Tagline />
 	<h1>Goodnight 🌙</h1>
 	{#if wrapped?.reflection}<p class="sticker summary">{wrapped.reflection}</p>{/if}
 	<button class="btn primary next" onclick={() => goto('/')}>Goodnight →</button>
