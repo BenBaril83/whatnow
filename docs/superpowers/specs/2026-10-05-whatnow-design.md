@@ -205,9 +205,11 @@ for this answer only. Its optional reason is appended to the task's `feeling` no
 1. Show what got done.
 2. Decide what happens to each unfinished task.
 3. Take an optional note for tomorrow.
-4. Write the day summary.
+4. Write the day summary for the planner, then the reflection for the user (see
+   `2026-10-06-whatnow-reflection-design.md`).
 
-If wrap-up is skipped, the next good morning reconciles and writes the summary instead.
+If wrap-up is skipped, the next good morning reconciles and writes the summary instead, with no
+reflection.
 
 - Unfinished means in the day's latest plan, open, not deleted, and not pushed past today.
   Unplanned tasks aren't reviewed; they stay in the tray.

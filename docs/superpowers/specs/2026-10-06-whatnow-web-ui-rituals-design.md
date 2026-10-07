@@ -75,7 +75,8 @@ Both rituals use one component for unfinished tasks.
 2. **Unfinished:** the triage list. It is skipped when nothing is unfinished.
 3. **Note for tomorrow:** optional. **Wrap up** sends `POST /today/wrap` with the triage and the
    note.
-4. **Goodnight:** the day's summary from the response, if the model wrote one. **Goodnight** opens
+4. **Goodnight:** the day's reflection from the response, if the model wrote one (the summary is
+   the planner's and isn't shown). **Goodnight** opens
    Today.
 
 **After wrap-up,** Today's tiers give way to a Day's-done card: the win line, the summary, and the
