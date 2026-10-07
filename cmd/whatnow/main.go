@@ -7,7 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jameynakama/whatnow/internal/app"
 	"github.com/jameynakama/whatnow/internal/httpapi"
@@ -83,5 +86,11 @@ func runTUI(dbPath string) error {
 		return err
 	}
 	defer a.Close()
+	// Background work logs as it goes. Under the TUI, those lines would land on the screen.
+	logs, err := tea.LogToFile(filepath.Join(filepath.Dir(a.DBPath), "tui.log"), "")
+	if err != nil {
+		return err
+	}
+	defer logs.Close()
 	return tui.Run(a, "http://"+defaultAddr)
 }

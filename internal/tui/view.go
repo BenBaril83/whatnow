@@ -104,10 +104,19 @@ func (m Model) body(h int) string {
 	case m.width < wideEnough:
 		return sticker(m.chatLines(m.width-5, h-3), m.width, h)
 	}
-	listW := m.width * 3 / 5
+	chatW := m.chatPaneWidth()
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		sticker(m.listLines(h-3), listW, h),
-		sticker(m.chatLines(m.width-listW-5, h-3), m.width-listW, h))
+		sticker(m.listLines(h-3), m.width-chatW, h),
+		sticker(m.chatLines(chatW-5, h-3), chatW, h))
+}
+
+// chatPaneWidth is the chat pane's width, shadow included: two fifths beside the list, or the
+// whole width in its place.
+func (m Model) chatPaneWidth() int {
+	if m.width < wideEnough {
+		return m.width
+	}
+	return m.width - m.width*3/5
 }
 
 // chatLines is today's chat, newest at the bottom above the input, wrapped to w columns.
@@ -171,7 +180,7 @@ func (m Model) listLines(rows int) []string {
 			}
 		}
 	}
-	if top := at - rows + 2; top > 0 {
+	if top := at - rows + min(2, rows); top > 0 {
 		lines = lines[top:]
 	}
 	return lines

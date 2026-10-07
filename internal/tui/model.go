@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jameynakama/whatnow/internal/agent"
 	"github.com/jameynakama/whatnow/internal/app"
@@ -123,7 +124,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.width == 0 {
 			m.chatOpen = msg.Width >= wideEnough
 		}
+		// Below wideEnough chat takes the list's place, so it closes unless the user is in it.
+		if msg.Width < wideEnough && m.mode != modeChat {
+			m.chatOpen = false
+		}
 		m.width, m.height = msg.Width, msg.Height
+		m.fitInput()
 	case snapshotMsg:
 		m.replace(msg.snap)
 	case loadFailedMsg:
@@ -307,7 +313,18 @@ func (m Model) prompt(md mode, placeholder string) (tea.Model, tea.Cmd) {
 	m.mode = md
 	m.input.Reset()
 	m.input.Placeholder = placeholder
+	m.fitInput()
 	return m, m.input.Focus()
+}
+
+// fitInput sizes the one-line input to where it's drawn, so long text scrolls instead of being
+// cut off: the chat pane for chat, the footer otherwise.
+func (m *Model) fitInput() {
+	w := m.width
+	if m.mode == modeChat {
+		w = m.chatPaneWidth() - 5
+	}
+	m.input.Width = max(w-lipgloss.Width(m.input.Prompt)-1, 1)
 }
 
 // current is the task under the cursor, if the list has one.

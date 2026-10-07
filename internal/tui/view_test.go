@@ -295,3 +295,38 @@ func TestChatShowsTheNewestMessagesWhenItOverflows(t *testing.T) {
 		t.Errorf("view:\n%s", v)
 	}
 }
+
+func TestAShortTerminalStillShowsTheCursorRow(t *testing.T) {
+	f := newFixture(t)
+	f.today(t)
+	if v := f.model(t, 80, 12).View(); !strings.Contains(v, "▸ ☐ buy milk") {
+		t.Errorf("the cursor row is out of view:\n%s", v)
+	}
+}
+
+func TestNarrowingTheTerminalBringsTheListBack(t *testing.T) {
+	f := newFixture(t)
+	f.today(t)
+	m := send(f.model(t, 120, 30), tea.WindowSizeMsg{Width: 70, Height: 30})
+	if v := m.View(); !strings.Contains(v, "buy milk") {
+		t.Errorf("the list is hidden at 70 columns:\n%s", v)
+	}
+}
+
+func TestLongInputScrollsToKeepTheEndInView(t *testing.T) {
+	f := newFixture(t)
+	f.today(t)
+	long := strings.Repeat("words ", 20) + "TAIL"
+	for _, c := range []struct {
+		name string
+		keys string
+	}{{"chat", "c"}, {"add", "a"}} {
+		m := send(f.model(t, 100, 30), key(c.keys))
+		for _, r := range long {
+			m = send(m, key(string(r)))
+		}
+		if v := m.View(); !strings.Contains(v, "TAIL") {
+			t.Errorf("%s: the end of the input is cut off:\n%s", c.name, v)
+		}
+	}
+}
