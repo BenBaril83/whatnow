@@ -1,6 +1,6 @@
 # whatnow TUI: a Bubble Tea companion
 
-`whatnow tui` is a terminal view of today, meant to stay open in a spare pane all day. It is a
+`whatnow` (or `whatnow tui`) is a terminal view of today, meant to stay open in a spare pane all day. It is a
 companion, not a second client with parity: it shows the day, takes the quick actions, and
 hosts chat. Setup and the morning and wrap-up rituals stay in the web UI.
 

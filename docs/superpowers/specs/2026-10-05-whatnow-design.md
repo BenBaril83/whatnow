@@ -38,7 +38,7 @@ it into tasks and events.
 
 ## Stack
 
-A single Go binary, `whatnow serve` (plus `whatnow tui`, a terminal companion), with a SvelteKit frontend built by `adapter-static` and
+A single Go binary: `whatnow serve`, plus bare `whatnow` (the terminal companion, which serves too), with a SvelteKit frontend built by `adapter-static` and
 embedded with `go:embed`. SQLite through `modernc.org/sqlite`, which is pure Go with no cgo. In
 development, the Vite dev server proxies `/api` to Go. Distribution is a Homebrew tap built with
 goreleaser.

@@ -22,6 +22,10 @@ web:
 build: web
     go build -o whatnow ./cmd/whatnow
 
+# Puts whatnow on your PATH, in GOBIN.
+install: web
+    go install ./cmd/whatnow
+
 # Positional arguments keep quoted paths with spaces intact.
 [positional-arguments]
 serve *args:

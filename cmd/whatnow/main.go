@@ -1,4 +1,4 @@
-// Command whatnow runs the whatnow server, or the terminal companion.
+// Command whatnow runs the terminal companion, which serves the web UI too, or the server alone.
 package main
 
 import (
@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -27,23 +28,21 @@ var newClient = settings.NewClient
 
 const defaultAddr = "127.0.0.1:7777"
 
-const usage = "usage: whatnow serve [-addr 127.0.0.1:7777] [-db PATH]\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]"
+const usage = "usage: whatnow [-addr 127.0.0.1:7777] [-db PATH]        the terminal view, serving the web UI if nothing else is\n       whatnow serve [-addr 127.0.0.1:7777] [-db PATH]  the web UI only\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]    same as bare whatnow"
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, usage)
-		os.Exit(2)
-	}
-	flags := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
+	cmd, args := command(os.Args[1:])
+	flags := flag.NewFlagSet(cmd, flag.ExitOnError)
+	flags.Usage = func() { fmt.Fprintln(os.Stderr, usage) }
 	dbPath := flags.String("db", "", "database path (default <user config dir>/whatnow/whatnow.db)")
 	addr := flags.String("addr", defaultAddr, "listen address; keep it on loopback")
 	var err error
-	switch os.Args[1] {
+	switch cmd {
 	case "serve":
-		flags.Parse(os.Args[2:])
+		flags.Parse(args)
 		err = serve(*addr, *dbPath)
 	case "tui":
-		flags.Parse(os.Args[2:])
+		flags.Parse(args)
 		err = runTUI(*addr, *dbPath)
 	default:
 		fmt.Fprintln(os.Stderr, usage)
@@ -52,6 +51,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// command splits off the subcommand. With none, or only flags, it's the TUI.
+func command(args []string) (string, []string) {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return "tui", args
+	}
+	return args[0], args[1:]
 }
 
 func open(dbPath string) (*app.App, error) {
