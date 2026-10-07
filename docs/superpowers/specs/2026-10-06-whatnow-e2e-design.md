@@ -52,9 +52,9 @@ Only `cmd/whatnow/e2e.go` carries the tag. Its `init`:
   The wrapper keeps its errors, so an unconfigured install still reads as unconfigured, and
   replaces the real client with the fake.
 
-`main.go` gains that `newClient` variable, defaulting to `settings.NewClient`. Both the `active`
-closure and `Deps.NewClient` use it, so `active` loads settings itself. Without the
-tag, the binary behaves as before.
+`main.go` holds that `newClient` variable, defaulting to `settings.NewClient`. It is passed to
+`app.Open` as `Options.NewClient`, where the shared `active` closure loads settings and calls it,
+and to `Deps.NewClient`. Without the tag, the binary behaves as before.
 
 ## Playwright (`web/e2e/`)
 

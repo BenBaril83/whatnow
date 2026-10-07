@@ -8,8 +8,7 @@ It runs in-process and calls the Go services directly, without HTTP.
 
 ## Shared wiring (`internal/app`)
 
-`serve` builds its parts inline in `main.go`. That wiring moves to `internal/app`, so `serve` and
-`tui` get identical behavior: captures are cleaned up, changes trigger replans, and chat streams.
+The wiring lives in `internal/app`, not `main.go`, so `serve` and `tui` get identical behavior: captures are cleaned up, changes trigger replans, and chat streams.
 
 `app.Open(app.Options{DBPath, NewClient, Now, Loc})` resolves the default database path, opens
 the store, and builds the service, hub, cleanup runner, planner, and agent. It starts the cleanup
@@ -34,7 +33,8 @@ program. Both take the same `-db` flag.
 
 ### No day yet
 
-A centered card: "Good morning. Start your day in the browser:" and the `serve` address. It
+A centered card: the tagline ("whatnow · executive function for the rest of us"), "Good morning.
+Start your day in the browser:", and the `serve` address. It
 reloads every 5 seconds and switches to Today once the day has a plan.
 
 ### Today
@@ -65,7 +65,8 @@ reloads every 5 seconds and switches to Today once the day has a plan.
   color, then a dim "not planned" group for eligible tasks the plan leaves out. ⛓ marks a task
   waiting on an open blocker. A task marked done leaves the list.
 - **Chat pane:** on the right, open from the start on a terminal 90 columns or wider. Below 90
-  columns it is hidden until `c`, and then replaces the list.
+  columns it is hidden until `c`, and then replaces the list. Narrowing the terminal below 90
+  closes it unless chat has focus, so the list the keys act on never disappears.
 - **Footer:** a one-line key hint; `?` shows the full list.
 - **Wrap-up banner:** when `wrapDue` holds (within an hour of the end of day), a banner says to
   wrap up in the browser.
@@ -118,6 +119,8 @@ ink. Lip Gloss adaptive colors keep it readable on light and dark terminals.
   free task with a note saying why, and chat replies that no provider is set up.
 - If a reload fails, the last snapshot stays on screen, marked "stale", until a later reload
   succeeds.
+- The shared packages log with `log.Printf`. While the TUI runs, the log goes to `tui.log` next to
+  the database, because stderr is the same terminal and lines would land on the screen.
 
 ## Testing
 
@@ -131,4 +134,6 @@ ink. Lip Gloss adaptive colors keep it readable on light and dark terminals.
   colors stripped, so layout changes produce readable diffs.
 - **`internal/app`:** an open-and-close test on a temp database. `serve` keeps its existing
   coverage through the HTTP tests.
-- **Coverage:** 100%, except the line in `main` that starts the program on a real terminal.
+- **Coverage:** 100%, except code a test can't reach on its own: `tui.Run`, which needs a real
+  terminal; the `tea.Tick` callbacks, which fire after seconds; and error returns that share one
+  database with an earlier call (`load` after its first, `commit`'s activity read).
