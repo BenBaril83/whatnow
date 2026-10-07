@@ -24,7 +24,7 @@ const (
 )
 
 const (
-	cheerFrames = 6
+	cheerFrames = 16
 	cheerEvery  = 250 * time.Millisecond
 )
 
