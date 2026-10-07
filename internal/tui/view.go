@@ -36,6 +36,8 @@ func (m Model) View() string {
 		return "Couldn't load today: " + m.loadErr.Error()
 	case m.snap == nil:
 		return "Loading…"
+	case m.morning.step != stepNone:
+		return m.morningView()
 	case m.snap.today.Plan == nil:
 		return m.noDayView()
 	case m.mode == modeHelp:
@@ -45,16 +47,17 @@ func (m Model) View() string {
 }
 
 func (m Model) noDayView() string {
-	card := sticker([]string{
+	lines := []string{
 		cursorStyle.Render("whatnow") + softStyle.Render(" · executive function for the rest of us"),
 		"",
 		"☀  Good morning.",
 		"",
-		"Start your day in the browser:",
-		cursorStyle.Render(m.webURL),
-		"",
-		softStyle.Render("I'll pick it up from there."),
-	}, min(56, m.width), 11)
+		cursorStyle.Render("enter") + " to start your day",
+	}
+	if t := m.toastLine(); t != "" {
+		lines = append(lines, "", t)
+	}
+	card := sticker(lines, min(cardWidth, m.width), len(lines)+3)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, card)
 }
 

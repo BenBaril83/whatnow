@@ -80,7 +80,7 @@ func TestTodayView(t *testing.T) {
 	}
 }
 
-func TestNoDayViewPointsToTheBrowser(t *testing.T) {
+func TestNoDayViewOffersTheMorning(t *testing.T) {
 	f := newFixture(t)
 	golden(t, "no-day", f.model(t, 80, 24).View())
 }
@@ -89,7 +89,7 @@ func TestTheDayRollsOverAtMidnight(t *testing.T) {
 	f := newFixture(t)
 	f.today(t)
 	f.clock.t = f.clock.t.Add(24 * time.Hour)
-	if v := f.model(t, 80, 24).View(); !strings.Contains(v, "Start your day in the browser") {
+	if v := f.model(t, 80, 24).View(); !strings.Contains(v, "to start your day") {
 		t.Errorf("after midnight the view is:\n%s", v)
 	}
 }
@@ -232,6 +232,14 @@ func key(s string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyEnter}
 	case "esc":
 		return tea.KeyMsg{Type: tea.KeyEsc}
+	case "up":
+		return tea.KeyMsg{Type: tea.KeyUp}
+	case "down":
+		return tea.KeyMsg{Type: tea.KeyDown}
+	case "left":
+		return tea.KeyMsg{Type: tea.KeyLeft}
+	case "right":
+		return tea.KeyMsg{Type: tea.KeyRight}
 	}
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }

@@ -2,7 +2,8 @@
 
 `whatnow` (or `whatnow tui`) is a terminal view of today, meant to stay open in a spare pane all day. It is a
 companion, not a second client with parity: it shows the day, takes the quick actions, and
-hosts chat. Setup and the morning and wrap-up rituals stay in the web UI.
+hosts chat. Setup and the wrap-up ritual stay in the web UI. The morning ritual is in
+`2026-10-07-whatnow-tui-morning-design.md`.
 
 It runs in-process and calls the Go services directly, without HTTP. It's built on Bubble Tea, Bubbles, and Lip Gloss v1 (`github.com/charmbracelet/...`);
 teatest pins Bubble Tea v1, so don't mix in the v2 `charm.land` packages.
@@ -22,8 +23,7 @@ program. Both take the same `-addr` and `-db` flags.
 
 ### Serving from the TUI
 
-The TUI sends the user to the browser to start and wrap up the day, so the address it shows must
-work. If nothing is using `-addr`, `tui` serves the web UI from the same `App`. The two share a
+The TUI sends the user to the browser to wrap up the day, so the address it shows must work. If nothing is using `-addr`, `tui` serves the web UI from the same `App`. The two share a
 hub, so changes appear live in both. Quitting the TUI stops its server.
 
 If `-addr` is already in use, `tui` assumes `whatnow serve` is running there and only points the
@@ -43,9 +43,9 @@ user to it. It doesn't check what is listening.
 
 ### No day yet
 
-A centered card: the tagline ("whatnow · executive function for the rest of us"), "Good morning.
-Start your day in the browser:", and the `serve` address. It
-reloads every 5 seconds and switches to Today once the day has a plan.
+A centered card: the tagline ("whatnow · executive function for the rest of us"), "Good morning.",
+and "enter to start your day", which begins the morning ritual. It reloads every 5 seconds and
+switches to Today once the day has a plan, so a day started in the browser shows up too.
 
 ### Goodnight
 
@@ -107,8 +107,8 @@ way to the good-morning card.
 | `?` | Show all keys |
 | `q` | Quit |
 
-Out of scope: editing a task's fields, picking blockers, All tasks, settings, onboarding, the
-rituals, and nudges.
+Out of scope: editing a task's fields, picking blockers, All tasks, settings, onboarding, wrap-up,
+and nudges.
 
 ## Look
 

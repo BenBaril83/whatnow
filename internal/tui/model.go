@@ -92,9 +92,10 @@ type Model struct {
 	cheer         cheer
 	cheerFrame    int
 	cheerSeq      int
+	morning       morning
 }
 
-// New makes the TUI and subscribes it to the hub. webURL is where the user starts and wraps the day.
+// New makes the TUI and subscribes it to the hub. webURL is where the user wraps up the day.
 func New(a *app.App, webURL string) Model {
 	hub, unsubscribe := a.Hub.Subscribe()
 	in := textinput.New()
@@ -137,6 +138,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fitInput()
 	case snapshotMsg:
 		m.replace(msg.snap)
+		// A day started in the browser ends the ritual here, short of this TUI's own start.
+		if msg.snap.today.Plan != nil && m.morning.step != stepNone && m.morning.step < stepMaking {
+			m.morning = morning{}
+			m.input.Blur()
+		}
 	case loadFailedMsg:
 		m.stale, m.loadErr = true, msg.err
 	case tickMsg:
@@ -166,6 +172,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chatSentMsg:
 		m.sending = false
 		return m, m.load()
+	case reviewedMsg, reviewFailedMsg, startedMsg, startFailedMsg, conflictMsg:
+		return m.onMorningMsg(msg)
 	case cheerTickMsg:
 		return m.onCheerTick(msg)
 	case spinner.TickMsg:
@@ -237,7 +245,7 @@ func (m Model) onHub(msg stream.Message) (tea.Model, tea.Cmd) {
 
 // spinning says something is in flight: what now, a chat reply, or the server's own model work.
 func (m Model) spinning() bool {
-	return m.asking || m.sending || m.working[stream.WorkReplan] > 0 || m.working[stream.WorkCleanup] > 0
+	return m.asking || m.sending || m.morning.step == stepGreet || m.morning.step == stepMaking || m.working[stream.WorkReplan] > 0 || m.working[stream.WorkCleanup] > 0
 }
 
 func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -251,13 +259,22 @@ func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeAdd, modePass, modeChat:
 		return m.onInput(k)
 	}
+	if m.morning.step != stepNone {
+		return m.onMorningKey(k)
+	}
 	switch k.String() {
 	case "q":
 		return m, tea.Quit
 	case "r":
 		return m, m.load()
 	}
-	if m.snap == nil || m.snap.today.Plan == nil {
+	if m.snap == nil {
+		return m, nil
+	}
+	if m.snap.today.Plan == nil {
+		if k.String() == "enter" {
+			return m.beginMorning()
+		}
 		return m, nil
 	}
 	// Once the day is wrapped there's no list to act on: adding, undo, chat, and help still work.
@@ -352,12 +369,17 @@ func (m Model) prompt(md mode, placeholder string) (tea.Model, tea.Cmd) {
 	return m, m.input.Focus()
 }
 
-// fitInput sizes the one-line input to where it's drawn, so long text scrolls instead of being
-// cut off: the chat pane for chat, the footer otherwise.
+// fitInput sizes the inputs to where they're drawn, so long text scrolls instead of being cut off:
+// the chat pane for chat, the morning card for the mood and the dump, the footer otherwise.
 func (m *Model) fitInput() {
 	w := m.width
-	if m.mode == modeChat {
+	switch {
+	case m.mode == modeChat:
 		w = m.chatPaneWidth() - 5
+	case m.morning.step == stepPace:
+		w = min(cardWidth, m.width) - 5
+	case m.morning.step == stepDump:
+		m.morning.dump.SetWidth(max(min(cardWidth, m.width)-7, 1))
 	}
 	m.input.Width = max(w-lipgloss.Width(m.input.Prompt)-1, 1)
 }

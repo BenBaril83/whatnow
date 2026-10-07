@@ -26,14 +26,20 @@ type fixture struct {
 // newFixture opens a temp database at 10:00 on a fixed day, with the fake model.
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
+	return newFixtureWith(t, func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
+		return fake.Client{}, settings.ProviderConfig{}, nil
+	})
+}
+
+// newFixtureWith is newFixture with its own model client.
+func newFixtureWith(t *testing.T, newClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)) *fixture {
+	t.Helper()
 	c := &clock{t: time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)}
 	a, err := app.Open(app.Options{
-		DBPath: filepath.Join(t.TempDir(), "test.db"),
-		NewClient: func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
-			return fake.Client{}, settings.ProviderConfig{}, nil
-		},
-		Now: c.now,
-		Loc: time.UTC,
+		DBPath:    filepath.Join(t.TempDir(), "test.db"),
+		NewClient: newClient,
+		Now:       c.now,
+		Loc:       time.UTC,
 	})
 	if err != nil {
 		t.Fatal(err)
