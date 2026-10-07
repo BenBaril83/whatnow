@@ -24,6 +24,9 @@ func (p *Planner) Today(ctx context.Context) (Today, error) {
 	if err != nil {
 		return Today{}, err
 	}
+	if d := st.day; d != nil && d.WrappedAt != nil && d.Summary != "" && d.Reflection == "" {
+		p.fillReflection(*d)
+	}
 	t := Today{Date: st.facts.Today, Day: st.day, Plan: st.plan, Unplanned: []int64{}, Blocked: []int64{}}
 	planned := map[int64]bool{}
 	if st.plan != nil {

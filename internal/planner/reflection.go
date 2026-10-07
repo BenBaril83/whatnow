@@ -74,3 +74,18 @@ func (f *fills) release(dayID int64, gaveUp bool) {
 		f.gaveUp[dayID] = true
 	}
 }
+
+// fillReflection writes a wrapped day's missing reflection in the background. It covers a
+// reflection that failed at wrap-up and days wrapped before reflections existed.
+func (p *Planner) fillReflection(day domain.Day) {
+	if !p.fills.claim(day.ID) {
+		return
+	}
+	go func() {
+		r, err := p.writeReflection(context.Background(), day)
+		if err != nil {
+			fallbackNote(err)
+		}
+		p.fills.release(day.ID, err != nil || r == "")
+	}()
+}
