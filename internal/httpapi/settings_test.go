@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -77,14 +78,14 @@ func TestConnectionTest(t *testing.T) {
 		t.Errorf("unconfigured: %+v", got)
 	}
 
-	var sentModel string
+	var sent []string
 	api.model = modelFunc(func(req llm.Request) (string, error) {
-		sentModel = req.Model
+		sent = append(sent, req.Model)
 		return "ok", nil
 	})
 	got = decodeAs[httpapi.ConnectionResult](t, api.do(http.MethodPost, "/api/v1/settings/test", nil))
-	if !got.OK || sentModel != "main" {
-		t.Errorf("working provider: %+v, model %q", got, sentModel)
+	if !got.OK || !slices.Equal(sent, []string{"main", "light"}) {
+		t.Errorf("working provider: %+v, models %q", got, sent)
 	}
 
 	api.model = modelFunc(func(llm.Request) (string, error) { return "", errors.New("anthropic: 401 invalid x-api-key") })
@@ -92,6 +93,36 @@ func TestConnectionTest(t *testing.T) {
 	wantStatus(t, rec, http.StatusOK)
 	if got := decodeAs[httpapi.ConnectionResult](t, rec); got.OK || !strings.Contains(got.Error, "401") {
 		t.Errorf("failing provider: %+v", got)
+	}
+}
+
+func TestConnectionTestNamesAMissingLightModel(t *testing.T) {
+	keyring.MockInit()
+	api := newAPI(t)
+	api.model = modelFunc(func(req llm.Request) (string, error) {
+		if req.Model == "light" {
+			return "", errors.New("openai: 404 The model 'light' does not exist")
+		}
+		return "ok", nil
+	})
+	got := decodeAs[httpapi.ConnectionResult](t, api.do(http.MethodPost, "/api/v1/settings/test", nil))
+	if got.OK || !strings.HasPrefix(got.Error, "light: ") {
+		t.Errorf("got %+v, want an error naming the light model", got)
+	}
+}
+
+func TestConnectionTestChecksASharedModelOnce(t *testing.T) {
+	keyring.MockInit()
+	api := newAPI(t)
+	api.models = settings.ProviderConfig{MainModel: "gpt-5.5", LightModel: "gpt-5.5"}
+	calls := 0
+	api.model = modelFunc(func(llm.Request) (string, error) {
+		calls++
+		return "ok", nil
+	})
+	got := decodeAs[httpapi.ConnectionResult](t, api.do(http.MethodPost, "/api/v1/settings/test", nil))
+	if !got.OK || calls != 1 {
+		t.Errorf("got %+v after %d calls, want ok after 1", got, calls)
 	}
 }
 

@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"slices"
 
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/settings"
@@ -81,8 +83,9 @@ type ConnectionResult struct {
 	Error string `json:"error,omitempty"`
 }
 
-// testConnection sends one tiny request to the main model. A failure is a normal result for the
-// settings screen to show, so it comes back as 200 with ok false.
+// testConnection sends one tiny request to each model, main then light, so a mistyped light
+// model shows here rather than as cleanups that quietly fail. A failure is a normal result for
+// the settings screen to show, so it comes back as 200 with ok false.
 func (s *Server) testConnection(w http.ResponseWriter, r *http.Request) {
 	saved, err := settings.Load(r.Context(), s.DB)
 	if err != nil {
@@ -90,16 +93,20 @@ func (s *Server) testConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client, cfg, err := s.NewClient(saved)
-	if err == nil {
-		_, err = client.Complete(r.Context(), llm.Request{
-			Model:     cfg.MainModel,
-			User:      "Reply with the single word: ok",
-			MaxTokens: 1024, // room for models that think before answering
-		})
-	}
 	if err != nil {
 		writeJSON(w, http.StatusOK, ConnectionResult{Error: err.Error()})
 		return
+	}
+	for _, model := range slices.Compact([]string{cfg.MainModel, cfg.LightModel}) {
+		_, err := client.Complete(r.Context(), llm.Request{
+			Model:     model,
+			User:      "Reply with the single word: ok",
+			MaxTokens: 1024, // room for models that think before answering
+		})
+		if err != nil {
+			writeJSON(w, http.StatusOK, ConnectionResult{Error: fmt.Sprintf("%s: %v", model, err)})
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, ConnectionResult{OK: true})
 }
