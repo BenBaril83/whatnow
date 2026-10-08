@@ -9,8 +9,7 @@ minutes.
 - `rm -rf .demo` for a fresh start, then `just demo`. It builds the web client and starts the TUI on
   its own database (`.demo/whatnow.db`) and port (7778), so your real whatnow is untouched. The web
   UI is at http://127.0.0.1:7778.
-- Set the day first: `just clock 2026-10-08 08:40`. A Thursday makes "need it by friday" in the
-  dump land as tomorrow.
+- Set the day first: `just clock 2026-10-08 08:40`, a Thursday.
 - `just clock HH:MM` jumps the clock. The TUI catches up within 5 seconds, and the browser does when
   you click into it. Nudges for the hours skipped are dropped, so a jump doesn't set off a burst.
 - After each act, checkpoint with `cp .demo/whatnow.db .demo/act1.db`. If the model goes off the
@@ -20,25 +19,19 @@ minutes.
 
 ## Settings
 
-**Bot prompt:** playful friendly voice, and i'm a buddhist, so give me relevant buddhist quotes or
-koans to chew on sometimes.
+**Bot prompt:** playful and friendly, with the odd buddhist quote or koan.
 
 **About me** (written to change the plan where people can see it):
 
-> ADHD brain. My focus peaks before lunch, so deep or scary work goes in the morning. After 3pm
-> I'm cooked: small admin tasks only. Meetings drain me, so I need something easy right after one.
-> I always underestimate writing tasks. I have to leave by 5:15 for school pickup. That's a hard
-> stop.
+ADHD brain. My focus peaks before lunch, so deep or scary work goes in the morning. After 3pm I'm cooked: small admin tasks only. Meetings drain me, so I need something easy right after one. I always underestimate writing tasks. I have to leave by 5:15 for school pickup. That's a hard stop.
 
-Each line shows up somewhere in the demo: the dreaded report lands in the morning, something
-gentle follows the 1:1, the afternoon is lighter, and the 5:15 stop limits what's possible.
+Each line shows up somewhere in the demo: the dreaded report lands in the morning, something gentle follows the 1:1, the afternoon is lighter, and the 5:15 stop limits what's possible.
 
 ## The run
 
 ### Act 0: Onboarding (web, `/welcome`)
 
-Pick the provider, which shows the key from the keychain or env. Paste in the bot prompt and About
-me. Set end of day to 17:30. Then put the TUI next to the browser.
+Pick the provider, which shows the key from the keychain or env. Paste in the bot prompt and About me. Set end of day to 17:30. Then put the TUI next to the browser.
 
 ### Act 1: Good morning, 8:40 (TUI)
 
@@ -46,22 +39,20 @@ me. Set end of day to 17:30. Then put the TUI next to the browser.
   reconcile step.
 - Brain dump (paste it, messy on purpose):
 
-  ```
-  standup 9:30
-  1:1 with Priya at 2, 45 min
-  Q3 report draft. dreading this, been avoiding it all week
-  reply to Dana about the conference
-  renew passport, need it by friday
-  fix the flaky checkout test
-  review Marco's API doc
-  groceries
-  learn banjo someday
-  ```
+```
+standup 9:30-10
+1:1 with Priya at 2, 45 min
+Q3 report draft. dreading this, been avoiding it all week
+reply to Dana about the conference
+renew passport before the November trip
+fix the flaky checkout test
+review Davey's API doc
+groceries
+learn banjo someday
+```
 
 - Pace: steady. Mood: "slept badly, a bit fried".
-- The reveal: cleanup has turned the dump into events and tasks with feelings attached. The Q3
-  report is a morning must because of About me. Banjo is a could. The opening line might come with
-  a koan.
+- The reveal: cleanup has turned the dump into events and tasks with feelings attached. The Q3 report is a morning must because of About me. Banjo is a could. The opening line might come with a koan.
 
 ### Act 2: The morning (`just clock 9:19`)
 

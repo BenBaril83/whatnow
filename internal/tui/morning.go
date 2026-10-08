@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"log"
 	"slices"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
+	"github.com/jameynakama/whatnow/internal/settings"
 )
 
 // step is where the good-morning ritual is. stepNone means it isn't running.
@@ -152,6 +154,9 @@ func (m Model) startDay(pace domain.Pace, mood string, triage []planner.Triage, 
 				return startFailedMsg{err: err}
 			}
 			if _, err := m.app.Cleanup.Clean(m.ctx, task); err != nil {
+				if !errors.Is(err, settings.ErrNotConfigured) {
+					log.Printf("clean morning dump: %v", err)
+				}
 				m.app.Cleanup.Enqueue(task)
 			}
 		}

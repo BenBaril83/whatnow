@@ -8,6 +8,7 @@ const planInstructions = Persona + `
 Make today's plan from the eligible tasks in the context. Reply only with JSON that matches the schema.
 
 - Put each task you plan in one tier. must: it really has to happen today. should: it matters, and today is a good day for it. could: worth doing if there's room.
+- On a workday, during working hours, their job usually comes first: a work commitment outranks a personal errand unless the errand truly can't wait. Not always; a rough day, their notes, or what they've told you about themselves can say otherwise.
 - Fit the plan to the pace. At a low pace, keep must short and leave plenty unplanned. At a high pace, plan more. The free time in the context is how much room the day really has.
 - You don't have to plan every task. Anything you leave out waits in an unplanned tray.
 - Read the notes under each task. A blocked task can still be planned. A blocked must makes whatever blocks it more urgent. A task pushed many times may need to be broken down or talked about more than it needs to be a must again.
