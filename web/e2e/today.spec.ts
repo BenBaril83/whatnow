@@ -90,3 +90,18 @@ test('the end-of-day label stays inside the strip on a phone', async ({ page, re
 	const label = await page.getByText('11:59').boundingBox();
 	expect(label!.x + label!.width).toBeLessThanOrEqual(strip!.x + strip!.width);
 });
+
+test("an event's × removes it from the strip, and Undo brings it back", async ({ page, request }) => {
+	const startsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+	await request.post('/api/v1/events', { data: { title: 'Dentist', starts_at: startsAt, ends_at: null, raw_text: '' } });
+	await page.goto('/');
+	const strip = page.getByLabel("Today's events");
+	await expect(strip.getByText('Dentist')).toBeVisible();
+
+	await strip.getByText('Dentist').hover();
+	await page.getByRole('button', { name: 'Remove Dentist' }).click();
+	await expect(strip.getByText('Dentist')).toHaveCount(0);
+
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect(strip.getByText('Dentist')).toBeVisible();
+});

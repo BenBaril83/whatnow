@@ -1,6 +1,7 @@
 <script lang="ts">
-	import type { CalendarEvent } from '#lib/api.ts';
+	import { api, type CalendarEvent } from '#lib/api.ts';
 	import { strip } from '#lib/time.ts';
+	import { toasts } from '#lib/toasts.svelte.ts';
 
 	interface Props {
 		events: CalendarEvent[];
@@ -14,6 +15,8 @@
 	const layout = $derived(strip(events, now, endOfDay, startedAt));
 	const time = (d: Date | string) =>
 		new Date(d).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+	const remove = (event: CalendarEvent) =>
+		toasts.track(`Removed: ${event.title}`, () => api.deleteEvent(event.id));
 </script>
 
 <div class="sticker strip" aria-label="Today's events">
@@ -35,6 +38,7 @@
 		>
 			<span class="at">{time(item.event.starts_at)}</span>
 			{item.event.title}
+			<button class="remove" aria-label="Remove {item.event.title}" onclick={() => remove(item.event)}>×</button>
 		</div>
 	{/each}
 	<div class="now" style:left="{layout.now}%"></div>
@@ -105,8 +109,31 @@
 		font-weight: normal;
 		margin-right: 4px;
 	}
-	.event:hover {
+	.event:hover,
+	.event:focus-within {
 		z-index: 2;
+	}
+	/* Zero width rather than display: none, so a keyboard can still tab to it. Shown, it widens the event. */
+	.remove {
+		display: inline-block;
+		width: 0;
+		overflow: hidden;
+		vertical-align: top;
+		border: 0;
+		background: none;
+		padding: 0;
+		font: inherit;
+		line-height: inherit;
+		color: var(--ink-soft);
+		cursor: pointer;
+	}
+	.remove:hover {
+		color: inherit;
+	}
+	.event:hover .remove,
+	.remove:focus-visible {
+		width: auto;
+		margin-left: 8px;
 	}
 	.now {
 		position: absolute;

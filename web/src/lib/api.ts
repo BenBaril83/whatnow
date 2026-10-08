@@ -220,6 +220,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
 	today: () => request<Today>('GET', '/today'),
 	events: (date: string) => request<CalendarEvent[]>('GET', `/events?date=${date}`),
+	deleteEvent: (id: number) => request<Mutation>('DELETE', `/events/${id}`),
 	tasks: () => request<Task[]>('GET', '/tasks'),
 	chat: () => request<Message[]>('GET', '/chat'),
 	capture: (raw_text: string) => request<Mutation>('POST', '/tasks', { raw_text }),
