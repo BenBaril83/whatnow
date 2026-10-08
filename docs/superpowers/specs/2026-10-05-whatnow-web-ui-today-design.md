@@ -130,8 +130,9 @@ fails, the text goes back in the box. Capture works with no provider set up.
 **Plan tiers:**
 - Must, should, and could, in plan order. A task finished, dropped, deleted, or pushed past
   today since the plan was made leaves its tier at once, without waiting for a replan.
-- Each card shows the title, size and energy badges, and the feeling note in italics. The
-  rationale shows on hover or tap.
+- Each card shows the title, size and energy badges, the feeling note in italics, and the first
+  line of its notes. The rationale shows on hover. A click expands the card to the full notes and
+  the rationale, and a second click collapses it.
 - A card linked by blockers shows "⛓ waits on N" and/or "unblocks N", counting open tasks only.
   Clicking one shows the linked titles under it and puts a dashed outline on the linked cards.
   Clicking again hides them. The ⛓ glyph stays as it is, small and odd in the sticker font.

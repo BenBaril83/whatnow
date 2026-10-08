@@ -14,13 +14,13 @@
 		tier?: Tier;
 		/** Today's date, for push to tomorrow. */
 		date: string;
-		/** All tasks shows dates, and opens the editor on a click instead of the rationale. */
+		/** All tasks shows dates, and opens the editor on a click instead of expanding the card. */
 		listed?: boolean;
 	}
 	let { card, tier, date, listed = false }: Props = $props();
 
 	let menuOpen = $state(false);
-	let why = $state(false);
+	let expanded = $state(false);
 	const task = $derived(card.task);
 	const chain = $derived(links(task.id, today.blockers, today.tasks));
 	const showingLinks = $derived(linked.source === task.id);
@@ -67,8 +67,9 @@
 	<div class="main">
 		<button
 			class="body"
-			onclick={() => (listed ? editor.open(task.id) : (why = !why))}
-			disabled={!listed && !card.rationale}
+			onclick={() => (listed ? editor.open(task.id) : (expanded = !expanded))}
+			disabled={!listed && !card.rationale && !task.notes}
+			aria-expanded={listed ? undefined : expanded}
 		>
 			<span class="title">{task.title}</span>
 			<span class="badges">
@@ -78,7 +79,8 @@
 				{#if listed && task.not_before}<span class="badge">from {short(task.not_before)}</span>{/if}
 			</span>
 			{#if task.feeling}<span class="feeling">"{task.feeling}"</span>{/if}
-			{#if card.rationale}<span class="why" class:shown={why}>{card.rationale}</span>{/if}
+			{#if task.notes}<span class="notes" class:shown={expanded}>{task.notes}</span>{/if}
+			{#if card.rationale}<span class="why" class:shown={expanded}>{card.rationale}</span>{/if}
 		</button>
 		{#if task.status === 'open' && (chain.waitingOn.length || chain.unblocks.length)}
 			<div class="chain">
@@ -219,6 +221,19 @@
 		font-style: italic;
 		font-size: 13px;
 		color: var(--ink-soft);
+	}
+	.notes {
+		font-size: 13px;
+		white-space: pre-line;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		display: -webkit-box;
+		-webkit-line-clamp: 1;
+		line-clamp: 1;
+		-webkit-box-orient: vertical;
+	}
+	.notes.shown {
+		display: block;
 	}
 	.why {
 		display: none;

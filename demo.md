@@ -40,7 +40,7 @@ Pick the provider, which shows the key from the keychain or env. Paste in the bo
 - Brain dump (paste it, messy on purpose):
 
 ```
-standup 9:30-10
+standup 9:30
 1:1 with Priya at 2, 45 min
 Q3 report draft. dreading this, been avoiding it all week
 reply to Dana about the conference
@@ -56,20 +56,15 @@ learn banjo someday
 
 ### Act 2: The morning (`just clock 9:19`)
 
-- The strip and countdown read "standup in 11m". A minute later the web nudge fires. Jump to 9:19,
-  not 9:20: a jump that lands exactly on a nudge's time skips it.
-- Press `w` for what now. It picks something small before standup, and the reason appears in the
-  callout.
+- The strip and countdown read "standup in 11m". A minute later the web nudge fires. Jump to 9:19, not 9:20: a jump that lands exactly on a nudge's time skips it.
+- Press `w` for what now. It picks something small before standup, and the reason appears in the callout.
 - `space` marks the checkout test done, and the celebration plays.
 
 ### Act 3: Avoidance (`just clock 10:15`)
 
-- `w` picks the Q3 report. Press `n` and say "can't face it". It should answer kindly and offer
-  something smaller.
-- `c` opens chat: "help me break the Q3 report into tiny steps". The agent creates the subtasks and
-  replans. This is the money moment.
-- `a` captures "Marco needs the API doc reviewed by EOD". It's cleaned up in the background,
-  becomes a must, and triggers a replan.
+- `w` picks the Q3 report. Press `n` and say "can't face it". It should answer kindly and offer something smaller.
+- `c` opens chat: "help me break the Q3 report into tiny steps". The agent creates the subtasks and replans. This is the money moment.
+- `a` captures "Davey needs the API doc reviewed by EOD". It's cleaned up in the background, becomes a must, and triggers a replan.
 
 ### Act 4: After the 1:1 (`just clock 14:50`)
 

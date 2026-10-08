@@ -120,7 +120,8 @@
 	<h1>Making your plan</h1>
 	<Working label={slow ? 'Still thinking. Big days take a little longer.' : 'This takes a few seconds…'} />
 {:else if step === 'reveal' && today.today?.plan && revealed}
-	<p class="opening">{today.today.plan.opening || "Here's today."}</p>
+	<h1>Here's today</h1>
+	{#if today.today.plan.opening}<p class="opening">{today.today.plan.opening}</p>{/if}
 	<div class="sticker reveal">
 		{#each tierNames as tier (tier)}
 			{#if revealed[tier].length}
@@ -184,8 +185,8 @@
 		align-self: flex-end;
 	}
 	.opening {
-		font-size: 22px;
-		font-weight: var(--heavy);
+		font-size: 18px;
+		line-height: 1.5;
 		text-align: center;
 		margin: 0;
 	}

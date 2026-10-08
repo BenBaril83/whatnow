@@ -40,6 +40,21 @@ test('+ Task makes a blocked task, and its card links to the blocker', async ({ 
 	await expect(page.getByText('Waiting on: buy milk')).toBeVisible();
 });
 
+test('clicking a card opens its notes in full', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: '+ Task' }).click();
+	const sheet = page.getByRole('dialog', { name: 'New task' });
+	await sheet.getByLabel('Title').fill('pack');
+	await sheet.getByLabel('Notes').fill('socks\nshirts\ncharger');
+	await sheet.getByRole('button', { name: 'Save' }).click();
+	await expect(sheet).toBeHidden();
+
+	const notes = page.locator('article', { hasText: 'pack' }).locator('.notes');
+	const collapsed = (await notes.boundingBox())!.height;
+	await page.locator('article', { hasText: 'pack' }).getByRole('button', { name: /pack/ }).click();
+	await expect.poll(async () => (await notes.boundingBox())!.height).toBeGreaterThan(collapsed * 2);
+});
+
 test('chat streams a reply', async ({ page }) => {
 	await page.goto('/');
 	await page.getByLabel('Message').fill('hello');

@@ -69,8 +69,8 @@ above the goodnight screen at the end of wrap-up.
    note, the triage, and the dump. The server saves the dump as one captured card and runs cleanup
    on it right away, before planning. If cleanup fails, the raw card is planned as it is and goes to
    the background runner like any capture. A `409` comes after the dump is saved, so the page clears
-   the dump before retrying. Then the plan's `opening` line, large, above a compact list of each tier's
-   titles. **Let's go** opens Today.
+   the dump before retrying. Then a "Here's today" heading, the plan's `opening` in regular body
+   text, and a compact list of each tier's titles. **Let's go** opens Today.
 
 ## Wrap up (`/wrap`)
 
