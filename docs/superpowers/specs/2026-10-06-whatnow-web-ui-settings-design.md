@@ -140,6 +140,10 @@ fires every due nudge with `lastTick < at <= now`, then sets `lastTick` to now. 
 once, a reload never re-fires old ones, and a throttled background tab still fires a nudge that
 fell inside a long gap between ticks. A nudge can land up to a minute late.
 
+`now` is the server's clock (`GET /api/v1/clock`), checked on each tick, so a demo clock moves the
+page too. When the server's lead over the browser jumps by more than a minute, `lastTick` moves
+with it, so the nudges for the hours jumped over don't all fire at once.
+
 ### Delivery
 
 - **Permission granted:** an OS `Notification` with `tag` set to the key, so two open tabs show

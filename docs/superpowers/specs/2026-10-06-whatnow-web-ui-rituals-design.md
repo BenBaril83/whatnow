@@ -151,5 +151,5 @@ it resumes from where it paused.
   that has started, means stay.
 
 Components get no unit tests. The Playwright suite in `web/e2e/` (`just e2e`) covers them. It has
-no fake clock, so check a skipped wrap-up followed by a morning reconcile by hand, against
-`whatnow serve` with a throwaway `-db`.
+no fake clock, so check a skipped wrap-up followed by a morning reconcile by hand, with `just demo`
+and `just clock` to move to the next day.
