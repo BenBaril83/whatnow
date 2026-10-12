@@ -69,10 +69,7 @@
 	}
 </script>
 
-<main>
-	<a href="/">← Today</a>
-	<h1>Settings</h1>
-	{#if view}
+{#if view}
 		<form class="sticker" onsubmit={save}>
 			<h2 class="label">Connection</h2>
 			<label>
@@ -149,21 +146,8 @@
 	{:else}
 		<p class="muted">Loading…</p>
 	{/if}
-</main>
 
 <style>
-	main {
-		max-width: 560px;
-		margin: 0 auto;
-		padding: 16px;
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-	}
-	h1 {
-		margin: 0;
-		font-weight: var(--heavy);
-	}
 	h2 {
 		margin: 10px 0 0;
 		font-size: 14px;

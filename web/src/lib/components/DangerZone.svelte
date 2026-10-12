@@ -21,8 +21,8 @@
 <section class="sticker danger">
 	<h2 class="label">Danger zone</h2>
 	<p>
-		Deletes every task, event, day, plan, chat, and summary, your settings, and the saved keys. There's
-		no undo.
+		Deletes every task, event, day, plan, chat, and summary, your settings, the saved keys, and your
+		integrations' saved addresses. There's no undo.
 	</p>
 	<label>
 		<span class="muted">Type <strong>{phrase}</strong> to confirm</span>

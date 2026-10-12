@@ -21,7 +21,8 @@ describe('welcomeDue', () => {
 		['setup was skipped', { ...fresh, onboarded: true }, '/', false],
 		['a provider is saved', { ...fresh, provider: 'anthropic' }, '/', false],
 		['already in onboarding', fresh, '/welcome', false],
-		['in Settings', fresh, '/settings', false]
+		['in Settings', fresh, '/settings', false],
+		["in Settings' integrations", fresh, '/settings/integrations', false]
 	] as const)('Should know whether to onboard when %s', (_, s, path, want) => {
 		expect(welcomeDue(s, path)).toBe(want);
 	});

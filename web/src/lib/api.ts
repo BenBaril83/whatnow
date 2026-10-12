@@ -193,6 +193,71 @@ export interface ConnectionResult {
 	error?: string;
 }
 
+export type FieldKind = 'text' | 'secret' | 'list';
+
+/** A settings field an integration declares. Only a list has fields, its columns. */
+export interface Field {
+	key: string;
+	label: string;
+	kind: FieldKind;
+	help?: string;
+	required: boolean;
+	fields?: Field[];
+}
+
+/** A list row. Secrets show only whether they're set. */
+export interface IntegrationRow {
+	id: string;
+	values: Record<string, string>;
+	secrets: Record<string, boolean>;
+}
+
+/** A series, or any pulled item, the user chose never to see. */
+export interface Skip {
+	key: string;
+	title: string;
+}
+
+export interface Integration {
+	id: string;
+	name: string;
+	fields: Field[];
+	enabled: boolean;
+	/** Every required field is filled, so it can pull once enabled. */
+	ready: boolean;
+	values: Record<string, string>;
+	secrets: Record<string, boolean>;
+	lists: Record<string, IntegrationRow[]>;
+	skipped: Skip[];
+}
+
+/** What saving an integration sends. A blank secret keeps the saved one; a row with no id is new. */
+export interface IntegrationUpdate {
+	values: Record<string, string>;
+	lists: Record<string, { id: string; values: Record<string, string> }[]>;
+}
+
+export interface PulledEvent {
+	id: number;
+	title: string;
+	starts_at: string;
+	ends_at: string | null;
+	/** Set on an occurrence of a recurring event, which removing offers to skip for good. */
+	series: string;
+}
+
+/** What one source, such as a calendar, pulled. A failed source has an error and no events. */
+export interface PullSource {
+	label: string;
+	error?: string;
+	events: PulledEvent[];
+}
+
+export interface PullResult {
+	batch_id: number;
+	sources: PullSource[];
+}
+
 export class ApiError extends Error {
 	constructor(
 		readonly status: number,
@@ -253,6 +318,15 @@ export const api = {
 		request<void>('PUT', `/settings/keys/${provider}`, { key }),
 	testConnection: () => request<ConnectionResult>('POST', '/settings/test'),
 	deleteData: () => request<void>('DELETE', '/data'),
+	integrations: () => request<Integration[]>('GET', '/integrations'),
+	saveIntegration: (id: string, u: IntegrationUpdate) => request<Integration>('PUT', `/integrations/${id}`, u),
+	enableIntegration: (id: string, enabled: boolean) =>
+		request<Integration>('PUT', `/integrations/${id}/enabled`, { enabled }),
+	pull: (id: string) => request<PullResult>('POST', `/integrations/${id}/pull`),
+	skip: (id: string, key: string, title: string, event_id: number) =>
+		request<Mutation>('POST', `/integrations/${id}/skipped`, { key, title, event_id }),
+	unskip: (id: string, key: string) =>
+		request<Integration>('DELETE', `/integrations/${id}/skipped/${encodeURIComponent(key)}`),
 	clock: () => request<{ now: string }>('GET', '/clock')
 };
 

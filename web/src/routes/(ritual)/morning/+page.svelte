@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api, ApiError, paceLabels, type Review, type Tier } from '#lib/api.ts';
 	import Dots from '#lib/components/Dots.svelte';
+	import MorningIntegrations from '#lib/components/MorningIntegrations.svelte';
 	import Working from '#lib/components/Working.svelte';
 	import Tagline from '#lib/components/Tagline.svelte';
 	import TriageList from '#lib/components/TriageList.svelte';
@@ -98,6 +99,7 @@
 	<h1>What's on your plate?</h1>
 	<p class="muted center">Dump it all here, messy is fine. I'll sort it into tasks before planning.</p>
 	<textarea class="field" rows="8" bind:value={dump} aria-label="What's on your plate"></textarea>
+	<MorningIntegrations />
 	<div class="row">
 		{#if reconciling}<button class="btn" onclick={() => (step = 'reconcile')}>← Back</button>{/if}
 		<button class="link" onclick={() => ((dump = ''), (step = 'pace'))}>Skip</button>
