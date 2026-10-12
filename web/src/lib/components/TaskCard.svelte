@@ -3,6 +3,7 @@
 	import { dismiss } from '#lib/dismiss.ts';
 	import { editor } from '#lib/editor.svelte.ts';
 	import { linked } from '#lib/linked.svelte.ts';
+	import { linkify } from '#lib/linkify.ts';
 	import { links, type Card } from '#lib/plan.ts';
 	import { addDays } from '#lib/time.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
@@ -79,9 +80,13 @@
 				{#if listed && task.not_before}<span class="badge">from {short(task.not_before)}</span>{/if}
 			</span>
 			{#if task.feeling}<span class="feeling">"{task.feeling}"</span>{/if}
-			{#if task.notes}<span class="notes" class:shown={expanded}>{task.notes}</span>{/if}
+			{#if task.notes && !expanded}<span class="notes">{task.notes}</span>{/if}
 			{#if card.rationale}<span class="why" class:shown={expanded}>{card.rationale}</span>{/if}
 		</button>
+		<!-- Expanded notes sit outside the button, so their links work and their text can be copied. -->
+		{#if task.notes && expanded}
+			<p class="notes shown">{#each linkify(task.notes) as s, i (i)}{#if s.href}<a href={s.href} target="_blank" rel="noopener noreferrer">{s.text}</a>{:else}{s.text}{/if}{/each}</p>
+		{/if}
 		{#if task.status === 'open' && (chain.waitingOn.length || chain.unblocks.length)}
 			<div class="chain">
 				{#if chain.waitingOn.length}
@@ -234,6 +239,8 @@
 	}
 	.notes.shown {
 		display: block;
+		margin: 0;
+		overflow-wrap: anywhere;
 	}
 	.why {
 		display: none;
