@@ -93,6 +93,20 @@ func (s *Service) DeleteEvent(ctx context.Context, batch, id int64) error {
 	return err
 }
 
+// ForgetEvent deletes a pulled event and clears its key, so the deleted row isn't a tombstone. It's
+// for an event something else keeps out, such as a skipped series: bringing the series back brings
+// the event back. Undo restores the key.
+func (s *Service) ForgetEvent(ctx context.Context, batch, id int64) error {
+	_, err := s.changeEvent(ctx, batch, id, actionDelete, s.forget)
+	return err
+}
+
+// forget marks e deleted and drops its key.
+func (s *Service) forget(e *domain.Event) {
+	deleted := s.now().UTC()
+	e.DeletedAt, e.SourceKey = &deleted, ""
+}
+
 func (s *Service) changeEvent(ctx context.Context, batch, id int64, action string, change func(*domain.Event)) (domain.Event, error) {
 	var e domain.Event
 	err := s.inTx(ctx, func(tx *sql.Tx) error {

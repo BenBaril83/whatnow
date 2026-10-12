@@ -438,8 +438,10 @@ func (r *Runner) Pull(ctx context.Context, id string) (PullResult, error) {
 }
 
 // Skip stops the integration bringing in what sk names, and removes eventID, today's occurrence,
-// in a user batch it announces and returns. The skip itself isn't in the batch: undoing it brings
-// back today's occurrence, and settings bring back the series.
+// in a user batch it announces and returns. The occurrence is forgotten rather than tombstoned,
+// since the skip list keeps it out, so bringing the series back brings today's back too. The skip
+// itself isn't in the batch: undoing it brings back today's occurrence, and settings bring back
+// the series.
 func (r *Runner) Skip(ctx context.Context, id string, sk Skip, eventID int64) (int64, error) {
 	if _, err := r.find(id); err != nil {
 		return 0, err
@@ -452,7 +454,7 @@ func (r *Runner) Skip(ctx context.Context, id string, sk Skip, eventID int64) (i
 	if err != nil {
 		return 0, err
 	}
-	if err := r.svc.DeleteEvent(ctx, batch, eventID); err != nil {
+	if err := r.svc.ForgetEvent(ctx, batch, eventID); err != nil {
 		return 0, err
 	}
 	s, err := load(ctx, r.db, id)

@@ -71,11 +71,7 @@ func (s *Service) SyncEvents(ctx context.Context, batch int64, source string, fr
 			if _, ok := live[e.SourceKey]; ok {
 				continue
 			}
-			_, err := s.writeChange(ctx, tx, batch, e, actionDelete, func(e *domain.Event) {
-				deleted := s.now().UTC()
-				e.DeletedAt, e.SourceKey = &deleted, ""
-			})
-			if err != nil {
+			if _, err := s.writeChange(ctx, tx, batch, e, actionDelete, s.forget); err != nil {
 				return err
 			}
 		}

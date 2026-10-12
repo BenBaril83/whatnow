@@ -399,3 +399,21 @@ func TestSecretsNamesEverySavedSecret(t *testing.T) {
 		t.Error("the feed is still set")
 	}
 }
+
+func TestBringingASeriesBackRestoresTodayOnTheNextPull(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.fake.feeds["work"] = []integrations.Event{event("b|15", "b", "Blockout", 15), event("s|9", "s", "Standup", 9)}
+	e.setUp(t, [2]string{"Work", "work"})
+	blockout := e.pull(t).Sources[0].Events[0]
+	if _, err := e.runner.Skip(ctx, "fake", integrations.Skip{Key: "b", Title: "Blockout"}, blockout.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.runner.Unskip(ctx, "fake", "b"); err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := cmp.Diff([]string{"Work: Blockout Standup"}, pulled(e.pull(t))); diff != "" {
+		t.Errorf("pull after bring back (-want +got):\n%s", diff)
+	}
+}
