@@ -14,6 +14,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/cleanup"
 	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/integrations/gcal"
+	"github.com/jameynakama/whatnow/internal/integrations/jira"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
@@ -90,7 +91,7 @@ func Open(o Options) (*App, error) {
 		Now:     o.Now,
 		Loc:     o.Loc,
 		Integrations: integrations.NewRunner(db, svc, hub, o.Loc, o.Now,
-			gcal.New(nil),
+			gcal.New(nil), jira.New(nil),
 		),
 	}
 

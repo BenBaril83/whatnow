@@ -45,7 +45,7 @@ func (s *Server) enableIntegration(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, v)
 }
 
-// pullIntegration brings in today's events. A source that failed is part of a normal result, so
+// pullIntegration brings in today's events, or offers tickets. A source that failed is part of a normal result, so
 // it comes back as 200 with that source's error.
 func (s *Server) pullIntegration(w http.ResponseWriter, r *http.Request) {
 	res, err := s.Integrations.Pull(r.Context(), r.PathValue("id"))
@@ -54,6 +54,24 @@ func (s *Server) pullIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+// addTickets makes tasks of the tickets the user picked from a pull. The client sends back what
+// the pull returned, so Jira isn't asked twice.
+func (s *Server) addTickets(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Tickets []integrations.Ticket `json:"tickets"`
+	}
+	if err := decode(r, &body); err != nil {
+		writeError(w, err)
+		return
+	}
+	batch, tasks, err := s.Integrations.Add(r.Context(), r.PathValue("id"), body.Tickets)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, Mutation{BatchID: batch, Data: tasks})
 }
 
 func (s *Server) skipIntegration(w http.ResponseWriter, r *http.Request) {

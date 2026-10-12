@@ -17,6 +17,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/integrations/gcal"
+	"github.com/jameynakama/whatnow/internal/integrations/jira"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
@@ -41,6 +42,9 @@ type testAPI struct {
 	// feed is the calendar served at feedURL, for the Google Calendar integration.
 	feed    string
 	feedURL string
+	// search is what the fake Jira at jiraURL answers every search with.
+	search  string
+	jiraURL string
 }
 
 func newAPI(t *testing.T) *testAPI {
@@ -64,6 +68,9 @@ func newAPI(t *testing.T) *testAPI {
 	feeds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, api.feed) }))
 	t.Cleanup(feeds.Close)
 	api.feedURL = feeds.URL + "/private-token/basic.ics"
+	jiraSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, api.search) }))
+	t.Cleanup(jiraSrv.Close)
+	api.jiraURL = jiraSrv.URL
 	api.handler = httpapi.New(httpapi.Deps{
 		Service:   svc,
 		Hub:       api.hub,
@@ -82,7 +89,7 @@ func newAPI(t *testing.T) *testAPI {
 		Agent:   agent.New(svc, api.hub, plans, testLoc, now),
 		Static:  http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, "static") }),
 		Integrations: integrations.NewRunner(db, svc, api.hub, testLoc, now,
-			gcal.New(nil),
+			gcal.New(nil), jira.New(nil),
 		),
 	})
 	return api

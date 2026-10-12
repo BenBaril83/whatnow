@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/zalando/go-keyring"
 
+	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/integrations"
 )
@@ -36,11 +37,12 @@ func setUpCalendar(t *testing.T, api *testAPI) integrations.View {
 	return decodeAs[integrations.View](t, rec)
 }
 
-func TestIntegrationsListGoogleCalendarWithItsFields(t *testing.T) {
+func TestIntegrationsListEachWithItsFields(t *testing.T) {
 	keyring.MockInit()
 	api := newAPI(t)
 	views := decodeAs[[]integrations.View](t, api.do(http.MethodGet, "/api/v1/integrations", nil))
-	if len(views) != 1 || views[0].ID != "gcal" || views[0].Name != "Google Calendar" || views[0].Enabled {
+	if len(views) != 2 || views[0].ID != "gcal" || views[0].Name != "Google Calendar" || views[0].Enabled ||
+		views[0].Pulls != integrations.PullsEvents || views[1].ID != "jira" || views[1].Pulls != integrations.PullsTickets {
 		t.Fatalf("views = %+v", views)
 	}
 	cal := views[0].Fields[0]
@@ -134,5 +136,55 @@ func TestDeleteEverythingForgetsCalendarURLs(t *testing.T) {
 	views := decodeAs[[]integrations.View](t, api.do(http.MethodGet, "/api/v1/integrations", nil))
 	if views[0].Enabled || len(views[0].Lists["calendars"]) != 0 {
 		t.Errorf("after wipe = %+v", views[0])
+	}
+}
+
+const testSearch = `{"total": 2, "issues": [
+	{"key": "FLEX1-1", "fields": {"summary": "Mine", "description": "d", "assignee": {"name": "me"}}},
+	{"key": "FLEX1-2", "fields": {"summary": "Up for grabs", "description": null, "assignee": null}}
+]}`
+
+// setUpJira saves Jira pointed at the fake search and turns it on.
+func setUpJira(t *testing.T, api *testAPI) {
+	t.Helper()
+	rec := api.do(http.MethodPut, "/api/v1/integrations/jira", integrations.Update{Values: map[string]string{
+		"url": api.jiraURL, "token": "pat-token", "jql": "project = FLEX1",
+	}})
+	wantStatus(t, rec, http.StatusOK)
+	if strings.Contains(rec.Body.String(), "pat-token") {
+		t.Fatal("the saved view contains the token")
+	}
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/integrations/jira/enabled", map[string]bool{"enabled": true}), http.StatusOK)
+}
+
+func TestPickingJiraTickets(t *testing.T) {
+	keyring.MockInit()
+	api := newAPI(t)
+	api.search = testSearch
+	tk := integrations.Ticket{Key: "FLEX1-1", Title: "FLEX1-1 Mine", URL: api.jiraURL + "/browse/FLEX1-1"}
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/integrations/jira/add", map[string]any{"tickets": []integrations.Ticket{tk}}), http.StatusConflict)
+	setUpJira(t, api)
+
+	res := decodeAs[integrations.PullResult](t, api.do(http.MethodPost, "/api/v1/integrations/jira/pull", nil))
+	if len(res.Sources) != 1 || len(res.Sources[0].Tickets) != 2 || res.BatchID != 0 {
+		t.Fatalf("pull = %+v", res)
+	}
+
+	rec := api.do(http.MethodPost, "/api/v1/integrations/jira/add", map[string]any{"tickets": []integrations.Ticket{res.Sources[0].Tickets[0]}})
+	wantStatus(t, rec, http.StatusOK)
+	added := decodeAs[struct {
+		BatchID int64         `json:"batch_id"`
+		Data    []domain.Task `json:"data"`
+	}](t, rec)
+	if added.BatchID == 0 || len(added.Data) != 1 || added.Data[0].Title != "FLEX1-1 Mine" {
+		t.Fatalf("added = %+v", added)
+	}
+
+	rec = api.do(http.MethodPost, "/api/v1/integrations/jira/skipped", map[string]string{"key": "FLEX1-2", "title": "FLEX1-2 Up for grabs"})
+	wantStatus(t, rec, http.StatusOK)
+
+	res = decodeAs[integrations.PullResult](t, api.do(http.MethodPost, "/api/v1/integrations/jira/pull", nil))
+	if len(res.Sources[0].Tickets) != 0 {
+		t.Errorf("pull after add and skip = %+v", res.Sources[0].Tickets)
 	}
 }

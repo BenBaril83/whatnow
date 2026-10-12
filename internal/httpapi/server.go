@@ -94,6 +94,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("PUT /api/v1/integrations/{id}", s.saveIntegration)
 	mux.HandleFunc("PUT /api/v1/integrations/{id}/enabled", s.enableIntegration)
 	mux.HandleFunc("POST /api/v1/integrations/{id}/pull", s.pullIntegration)
+	mux.HandleFunc("POST /api/v1/integrations/{id}/add", s.addTickets)
 	mux.HandleFunc("POST /api/v1/integrations/{id}/skipped", s.skipIntegration)
 	mux.HandleFunc("DELETE /api/v1/integrations/{id}/skipped/{key}", s.unskipIntegration)
 	mux.HandleFunc("DELETE /api/v1/data", s.deleteData)
