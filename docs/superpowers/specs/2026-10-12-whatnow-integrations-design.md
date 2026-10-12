@@ -1,9 +1,10 @@
 # whatnow integrations: the contract and Google Calendar
 
 Integrations pull outside work into whatnow: today's meetings now, Jira tickets next. This spec
-designs the integration contract and its first integration, Google Calendar. Jira gets its own spec
-on top of this contract. The parent spec, `2026-10-05-whatnow-design.md`, promised that each
-integration declares the settings fields it needs; this is that contract.
+designs the integration contract and its first integration, Google Calendar. Jira is in
+`2026-10-12-whatnow-jira-design.md`, which adds tickets to the contract. The parent spec,
+`2026-10-05-whatnow-design.md`, promised that each integration declares the settings fields it needs;
+this is that contract.
 
 Integrations are Go packages compiled into the binary, not external plugins. No outside tool will
 ever speak a whatnow contract, so a process boundary would buy nothing.
@@ -59,7 +60,7 @@ type Field struct {
 - **`Config`** is the saved values with secrets resolved, so an integration never touches the
   keychain.
 - **`Source`** is what one part pulled (a list row, or the integration as a whole when it has no
-  list): its label, its `[]Event`, and its error in words fit for the user. Jira adds tasks here.
+  list): its label, its `[]Event`, and its error in words fit for the user. Jira adds tickets here.
 - **`Event`** is `{Key, Series, Title, StartsAt, EndsAt}`. `Series` is set for a recurring
   event and empty for a one-off; it decides whether removal asks.
 - **An integration is on** when its `enabled` flag is set and it's `Ready`: its required fields
@@ -202,8 +203,8 @@ two tabs across the top.
 
 ## TUI
 
-The morning gets a **Calendar** step between brain dump and pace, shown only when an integration is
-on.
+The morning gets a **Calendar** step between brain dump and pace, shown only when an event
+integration is on.
 
 - "Pull today's calendar?" `enter` pulls (spinner meanwhile), `tab` skips to pace.
 - The results are the morning's grouped list. `↑`/`↓` move, `x` removes. On a recurring event, `x`
