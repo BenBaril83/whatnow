@@ -15,7 +15,9 @@ ever speak a whatnow contract, so a process boundary would buy nothing.
 - **A pull covers today only**, in local time. A second pull brings today in line with the feed:
   moved meetings move, canceled ones disappear, and anything the user removed stays removed.
 - **Google Calendar reads each calendar's secret iCal address.** Google Calendar → Settings → the
-  calendar → Integrate calendar → Secret address in iCal format. No OAuth and no GCP project. The
+  calendar → Integrate calendar → Secret address in iCal format. No OAuth and no GCP project:
+  `calendar.readonly` is a sensitive scope, so a shipped client ID needs Google's verification or
+  lives with test mode's weekly token expiry, while the address is one paste for anyone. The
   feed is the calendar's whole history (often tens of MB), which is why pulls are on demand.
 - **Several calendars**, each a labeled row (Work, Personal). One pull fetches them all.
 - **Skipped:** all-day events, events the user declined, and series the user chose to always skip.
