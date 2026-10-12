@@ -39,9 +39,9 @@ The calendar writes what it pulls; Jira offers tickets and the user picks which 
   `PullsTickets`, and the view carries it as `pulls: "events" | "tickets"`. Screens use it to pick
   the results UI and the button's words (**Pull today** or **Pull**), and the TUI to decide which
   morning step an integration belongs to.
-- **`Source` gains `Tickets []Ticket` and `Total int`** beside `Events`; a source fills one or the
-  other. `Ticket` is `{Key, Title, Notes, URL}`. `Total` is how many the search matched, so a
-  capped list can say so.
+- **`Source` gains `Tickets []Ticket` and `More int`** beside `Events`; a source fills one or the
+  other. `Ticket` is `{Key, Title, Notes, URL}`. `More` is how many matched beyond those returned,
+  so a capped list can say so.
 - **The runner never writes tickets on pull.** It drops those whose key is a ref on a live task
   or is on the skip list, and returns the rest. A pull with no events writes nothing and opens no
   batch.
@@ -61,8 +61,8 @@ The calendar writes what it pulls; Jira offers tickets and the user picks which 
   someone needs it.
 - **One request per pull:** `GET {url}/rest/api/2/search` with `jql`,
   `fields=summary,description,assignee`, and `maxResults=50`, with a 30-second timeout. Jira's
-  `total` becomes the source's `Total`; past 50, the pick list ends with "Showing 50 of N — narrow
-  the search".
+  `total` past the 50 becomes the source's `More`, and the pick list ends with "N more matched —
+  narrow the search".
 - **Each issue becomes** `{Key, Title: "KEY summary", Notes: description, URL: {url}/browse/KEY}`.
   The title keeps the key first so it reads as in Jira; the key is also the task's ref, which links
   it and dedupes it. A null description is empty notes. The description is kept as Jira's wiki
@@ -118,7 +118,7 @@ step today shows when any integration is on and pulls them all; it narrows to ev
 
 **Go:**
 - `jira`, over `httptest`: an issue's fields mapped (key-first title, browse URL, null
-  description), the Bearer header, the assigned-first order, `Total`, and each error:
+  description), the Bearer header, the assigned-first order, `More`, and each error:
   unreachable, timeout, `401`, `400` with `errorMessages`, `500`. No error contains the token.
 - `integrations.Runner`, with a fake ticket integration: tickets whose key is a ref on a live
   task (open or done) are dropped, a deleted task's ticket is offered, skipped tickets are dropped,
@@ -128,7 +128,7 @@ step today shows when any integration is on and pulls them all; it narrows to ev
 - TUI: a golden file for the pick list, then tick and add, `x`, `tab`, a failed pull with `r`, and
   the calendar step hidden when only Jira is on.
 
-**Vitest:** ticking, what Add sends, and the "Showing 50 of N" line.
+**Vitest:** which tickets Add sends, and dropping a skipped ticket.
 
 **Playwright:** the test serves a fake Jira search from Node. One flow sets Jira up in settings,
 pulls from the morning, skips one ticket, adds another, and pulls again: neither comes back.
