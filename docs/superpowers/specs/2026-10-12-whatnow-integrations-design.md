@@ -98,10 +98,12 @@ which expands recurrences inside `[from, to)`.
 - **Fetching:** a 30-second timeout per calendar. Go's client asks for gzip, which shrinks the feed
   a lot if Google compresses it.
 - **All-day events** (a `DATE` start) are dropped.
-- **Declined events:** the feed's `X-WR-CALNAME` is the owner's email on a primary calendar; an
-  event whose attendee entry for that email has `PARTSTAT=DECLINED` is dropped. When the name
-  isn't an email, nothing is dropped for this reason. **Unverified:** check this against a real
-  feed in the first implementation task, and change the rule if Google's feed says otherwise.
+- **Declined events:** the feed's `X-WR-CALNAME` is the owner's email on a primary calendar, and
+  every event with guests lists the owner as an `ATTENDEE` (`mailto:` the same email) with a
+  `PARTSTAT`. An event whose owner entry is `PARTSTAT=DECLINED` is dropped. Tentative and
+  not-yet-answered events stay, as do events with no owner entry (the owner's own blocks). When
+  the name isn't an email, nothing is dropped for this reason. Attendee lines are folded, so match
+  after unfolding (gocal does).
 - **Errors name the row's label, never its URL**, and the URL is never logged: "Personal: Google
   said 404, check the URL", "Personal: couldn't read the calendar".
 
