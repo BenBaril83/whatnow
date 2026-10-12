@@ -45,7 +45,9 @@
 		}
 	}
 
+	// The old result goes first, so a pick list starts over rather than keeping what was added.
 	async function pull() {
+		result = null;
 		pulling = true;
 		try {
 			result = await api.pull(integration.id);

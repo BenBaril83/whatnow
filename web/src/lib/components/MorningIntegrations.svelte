@@ -18,7 +18,9 @@
 		);
 	});
 
+	// The old result goes first, so a pick list starts over rather than keeping what was added.
 	async function pull(id: string) {
+		delete results[id];
 		pulling[id] = true;
 		try {
 			results[id] = await api.pull(id);
