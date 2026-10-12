@@ -2,6 +2,7 @@ package integrations_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/zalando/go-keyring"
 
+	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/store"
@@ -30,8 +32,9 @@ type fake struct {
 	from, to time.Time
 }
 
-func (*fake) ID() string   { return "fake" }
-func (*fake) Name() string { return "Fake" }
+func (*fake) ID() string                { return "fake" }
+func (*fake) Name() string              { return "Fake" }
+func (*fake) Pulls() integrations.Pulls { return integrations.PullsEvents }
 func (*fake) Fields() []integrations.Field {
 	return []integrations.Field{
 		{Key: "team", Label: "Team", Kind: integrations.Text},
@@ -59,11 +62,34 @@ func (f *fake) Pull(_ context.Context, cfg integrations.Config, from, to time.Ti
 	return out
 }
 
+// board is a ticket integration with one required text field. Its pull returns tickets, or err.
+type board struct {
+	tickets []integrations.Ticket
+	more    int
+	err     error
+}
+
+func (*board) ID() string                { return "board" }
+func (*board) Name() string              { return "Board" }
+func (*board) Pulls() integrations.Pulls { return integrations.PullsTickets }
+func (*board) Fields() []integrations.Field {
+	return []integrations.Field{{Key: "jql", Label: "Search", Kind: integrations.Text, Required: true}}
+}
+func (b *board) Pull(context.Context, integrations.Config, time.Time, time.Time) []integrations.Source {
+	return []integrations.Source{{Label: "Board", Tickets: b.tickets, More: b.more, Err: b.err}}
+}
+
+func ticket(key string) integrations.Ticket {
+	return integrations.Ticket{Key: key, Title: key + " do it", Notes: "notes for " + key, URL: "https://jira.test/browse/" + key}
+}
+
 type env struct {
 	runner *integrations.Runner
 	svc    *service.Service
 	hub    *stream.Hub
 	fake   *fake
+	board  *board
+	db     *sql.DB
 }
 
 func newEnv(t *testing.T) env {
@@ -78,7 +104,8 @@ func newEnv(t *testing.T) env {
 	svc := service.New(db, clock)
 	hub := stream.NewHub()
 	f := &fake{feeds: map[string][]integrations.Event{}}
-	return env{runner: integrations.NewRunner(db, svc, hub, loc, clock, f), svc: svc, hub: hub, fake: f}
+	b := &board{}
+	return env{runner: integrations.NewRunner(db, svc, hub, loc, clock, f, b), svc: svc, hub: hub, fake: f, board: b, db: db}
 }
 
 func at(hour int) time.Time { return time.Date(2026, 10, 5, hour, 0, 0, 0, loc) }
@@ -106,7 +133,12 @@ func (e env) setUp(t *testing.T, calendars ...[2]string) integrations.View {
 
 func (e env) pull(t *testing.T) integrations.PullResult {
 	t.Helper()
-	res, err := e.runner.Pull(context.Background(), "fake")
+	return e.pullFrom(t, "fake")
+}
+
+func (e env) pullFrom(t *testing.T, id string) integrations.PullResult {
+	t.Helper()
+	res, err := e.runner.Pull(context.Background(), id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,5 +447,188 @@ func TestBringingASeriesBackRestoresTodayOnTheNextPull(t *testing.T) {
 
 	if diff := cmp.Diff([]string{"Work: Blockout Standup"}, pulled(e.pull(t))); diff != "" {
 		t.Errorf("pull after bring back (-want +got):\n%s", diff)
+	}
+}
+
+// setUpBoard saves the board's search and turns it on.
+func (e env) setUpBoard(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := e.runner.Save(ctx, "board", integrations.Update{Values: map[string]string{"jql": "project = X"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.runner.SetEnabled(ctx, "board", true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// offered lists the keys of a ticket pull.
+func offered(res integrations.PullResult) []string {
+	var keys []string
+	for _, s := range res.Sources {
+		for _, tk := range s.Tickets {
+			keys = append(keys, tk.Key)
+		}
+	}
+	return keys
+}
+
+// task makes a task with the given ref labels, done or not.
+func (e env) task(t *testing.T, title string, done bool, refs ...string) domain.Task {
+	t.Helper()
+	ctx := context.Background()
+	batch, err := e.svc.NewBatch(ctx, domain.ActorUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rs []domain.Ref
+	for _, r := range refs {
+		rs = append(rs, domain.Ref{Label: r})
+	}
+	tk, err := e.svc.CreateTask(ctx, batch, service.TaskFields{Title: title, Refs: rs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done {
+		if tk, err = e.svc.SetTaskStatus(ctx, batch, tk.ID, domain.StatusDone); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return tk
+}
+
+// lastBatch is the newest batch's ID, or 0.
+func (e env) lastBatch(t *testing.T) int64 {
+	t.Helper()
+	var id int64
+	if err := e.db.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM batches`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestViewsSayWhatEachIntegrationPulls(t *testing.T) {
+	e := newEnv(t)
+	views, err := e.runner.Views(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]integrations.Pulls{}
+	for _, v := range views {
+		got[v.ID] = v.Pulls
+	}
+	if diff := cmp.Diff(map[string]integrations.Pulls{"fake": "events", "board": "tickets"}, got); diff != "" {
+		t.Errorf("pulls (-want +got):\n%s", diff)
+	}
+}
+
+func TestATicketPullOffersWhatIsntOnTheListAndWritesNothing(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.setUpBoard(t)
+	e.task(t, "typed in a dump", false, "flex1-1")
+	e.task(t, "finished", true, "FLEX1-2")
+	gone := e.task(t, "deleted", false, "FLEX1-3")
+	batch, err := e.svc.NewBatch(ctx, domain.ActorUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.DeleteTask(ctx, batch, gone.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.runner.Skip(ctx, "board", integrations.Skip{Key: "FLEX1-4", Title: "nope"}, 0); err != nil {
+		t.Fatal(err)
+	}
+	e.board.tickets = []integrations.Ticket{ticket("FLEX1-1"), ticket("FLEX1-2"), ticket("FLEX1-3"), ticket("FLEX1-4"), ticket("FLEX1-5")}
+	e.board.more = 12
+	before := e.lastBatch(t)
+
+	res := e.pullFrom(t, "board")
+
+	if diff := cmp.Diff([]string{"FLEX1-3", "FLEX1-5"}, offered(res)); diff != "" {
+		t.Errorf("offered (-want +got):\n%s", diff)
+	}
+	if res.BatchID != 0 || res.Sources[0].More != 12 || res.Sources[0].Events == nil {
+		t.Errorf("result = %+v", res)
+	}
+	if e.lastBatch(t) != before {
+		t.Error("a ticket pull opened a batch")
+	}
+}
+
+func TestATicketPullCarriesItsError(t *testing.T) {
+	e := newEnv(t)
+	e.setUpBoard(t)
+	e.board.err = errors.New("Jira rejected the token")
+	res := e.pullFrom(t, "board")
+	if res.Sources[0].Error != "Jira rejected the token" || res.Sources[0].Tickets == nil {
+		t.Errorf("result = %+v", res)
+	}
+}
+
+func TestAddMakesTasksInOneBatchThatOneUndoRemoves(t *testing.T) {
+	e := newEnv(t)
+	e.setUpBoard(t)
+	ctx := context.Background()
+	e.task(t, "already", false, "FLEX1-1")
+
+	batch, tasks, err := e.runner.Add(ctx, "board", []integrations.Ticket{ticket("FLEX1-1"), ticket("FLEX1-2"), ticket("FLEX1-2"), ticket("FLEX1-3")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 2 || batch == 0 {
+		t.Fatalf("batch %d, tasks %+v", batch, tasks)
+	}
+	got := tasks[0]
+	want := domain.Ref{Label: "FLEX1-2", URL: "https://jira.test/browse/FLEX1-2"}
+	if got.Title != "FLEX1-2 do it" || got.Notes != "notes for FLEX1-2" || len(got.Refs) != 1 || got.Refs[0] != want ||
+		got.Size != nil || got.Energy != nil || got.CreatedBy != domain.ActorUser {
+		t.Errorf("task = %+v", got)
+	}
+
+	if _, tasks, err = e.runner.Add(ctx, "board", []integrations.Ticket{ticket("FLEX1-2")}); err != nil || len(tasks) != 0 {
+		t.Errorf("adding again: tasks %+v, err %v", tasks, err)
+	}
+
+	if err := e.svc.Undo(ctx, batch); err != nil {
+		t.Fatal(err)
+	}
+	all, err := e.svc.ListTasks(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 1 {
+		t.Errorf("after undo, tasks = %+v", all)
+	}
+}
+
+func TestAddNeedsTheIntegrationOnAndAKeyAndTitle(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	if _, _, err := e.runner.Add(ctx, "board", []integrations.Ticket{ticket("FLEX1-1")}); !errors.Is(err, service.ErrConflict) {
+		t.Errorf("off: err = %v", err)
+	}
+	e.setUpBoard(t)
+	if _, _, err := e.runner.Add(ctx, "board", []integrations.Ticket{{Key: " ", Title: "x"}}); !errors.Is(err, service.ErrInvalid) {
+		t.Errorf("no key: err = %v", err)
+	}
+	if _, _, err := e.runner.Add(ctx, "board", []integrations.Ticket{{Key: "FLEX1-1", Title: ""}}); !errors.Is(err, service.ErrInvalid) {
+		t.Errorf("no title: err = %v", err)
+	}
+}
+
+func TestSkippingATicketRemovesNoEvent(t *testing.T) {
+	e := newEnv(t)
+	before := e.lastBatch(t)
+	batch, err := e.runner.Skip(context.Background(), "board", integrations.Skip{Key: "FLEX1-9", Title: "FLEX1-9 never"}, 0)
+	if err != nil || batch != 0 || e.lastBatch(t) != before {
+		t.Errorf("batch %d, err %v", batch, err)
+	}
+	v, err := e.runner.View(context.Background(), "board")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]integrations.Skip{{Key: "FLEX1-9", Title: "FLEX1-9 never"}}, v.Skipped); diff != "" {
+		t.Errorf("skipped (-want +got):\n%s", diff)
 	}
 }

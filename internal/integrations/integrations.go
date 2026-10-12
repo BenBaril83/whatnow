@@ -12,9 +12,21 @@ type Integration interface {
 	ID() string
 	Name() string
 	Fields() []Field
+	// Pulls says whether Pull brings events, which it writes, or tickets, which the user picks from.
+	Pulls() Pulls
 	// Pull fetches what starts in [from, to), one Source for each part it pulls, such as a calendar.
 	Pull(ctx context.Context, cfg Config, from, to time.Time) []Source
 }
+
+// Pulls is what an integration brings in.
+type Pulls string
+
+const (
+	// PullsEvents writes today's events as they're pulled.
+	PullsEvents Pulls = "events"
+	// PullsTickets offers tickets, and only the ones the user picks become tasks, through Add.
+	PullsTickets Pulls = "tickets"
+)
 
 type Kind string
 
@@ -57,6 +69,9 @@ type Source struct {
 	Label  string
 	Events []Event
 	Err    error
+	// Tickets is what a ticket integration pulled, and More how many matched beyond them.
+	Tickets []Ticket
+	More    int
 }
 
 // Event is one pulled event. Key is its identity in the feed and stays the same when it moves.
@@ -67,4 +82,12 @@ type Event struct {
 	Title    string
 	StartsAt time.Time
 	EndsAt   *time.Time
+}
+
+// Ticket is one pulled ticket. Key is its identity, kept as the ref of the task it becomes.
+type Ticket struct {
+	Key   string `json:"key"`
+	Title string `json:"title"`
+	Notes string `json:"notes"`
+	URL   string `json:"url"`
 }

@@ -36,6 +36,8 @@ func New(client *http.Client) *Calendar {
 func (*Calendar) ID() string   { return "gcal" }
 func (*Calendar) Name() string { return "Google Calendar" }
 
+func (*Calendar) Pulls() integrations.Pulls { return integrations.PullsEvents }
+
 func (*Calendar) Fields() []integrations.Field {
 	return []integrations.Field{{
 		Key:      "calendars",

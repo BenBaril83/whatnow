@@ -41,6 +41,8 @@ type View struct {
 	Secrets map[string]bool      `json:"secrets"`
 	Lists   map[string][]RowView `json:"lists"`
 	Skipped []Skip               `json:"skipped"`
+	// Pulls says whether a pull writes events or offers tickets to pick.
+	Pulls Pulls `json:"pulls"`
 }
 
 type RowView struct {
@@ -101,6 +103,7 @@ func (r *Runner) view(ctx context.Context, in Integration) (View, error) {
 	v := View{
 		ID: in.ID(), Name: in.Name(), Fields: in.Fields(), Enabled: s.Enabled, Ready: true,
 		Values: map[string]string{}, Secrets: map[string]bool{}, Lists: map[string][]RowView{}, Skipped: s.Skipped,
+		Pulls: in.Pulls(),
 	}
 	if v.Skipped == nil {
 		v.Skipped = []Skip{}
@@ -341,6 +344,9 @@ type SourceResult struct {
 	Label  string        `json:"label"`
 	Error  string        `json:"error,omitempty"`
 	Events []PulledEvent `json:"events"`
+	// Tickets is what a ticket integration offers, and More how many matched beyond them.
+	Tickets []Ticket `json:"tickets"`
+	More    int      `json:"more"`
 }
 
 type PulledEvent struct {
@@ -379,6 +385,9 @@ func (r *Runner) Pull(ctx context.Context, id string) (PullResult, error) {
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, r.loc)
 	to := from.AddDate(0, 0, 1)
 	sources := in.Pull(ctx, cfg, from, to)
+	if in.Pulls() == PullsTickets {
+		return r.offer(ctx, s, sources)
+	}
 
 	skipped := map[string]bool{}
 	for _, sk := range s.Skipped {
@@ -419,7 +428,7 @@ func (r *Runner) Pull(ctx context.Context, id string) (PullResult, error) {
 
 	res := PullResult{BatchID: batch, Sources: make([]SourceResult, len(sources))}
 	for i, src := range sources {
-		res.Sources[i] = SourceResult{Label: src.Label, Events: []PulledEvent{}}
+		res.Sources[i] = SourceResult{Label: src.Label, Events: []PulledEvent{}, Tickets: []Ticket{}}
 		if src.Err != nil {
 			res.Sources[i].Error = src.Err.Error()
 		}
@@ -441,7 +450,7 @@ func (r *Runner) Pull(ctx context.Context, id string) (PullResult, error) {
 // in a user batch it announces and returns. The occurrence is forgotten rather than tombstoned,
 // since the skip list keeps it out, so bringing the series back brings today's back too. The skip
 // itself isn't in the batch: undoing it brings back today's occurrence, and settings bring back
-// the series.
+// the series. An eventID of 0, as for a ticket, removes nothing and returns batch 0.
 func (r *Runner) Skip(ctx context.Context, id string, sk Skip, eventID int64) (int64, error) {
 	if _, err := r.find(id); err != nil {
 		return 0, err
@@ -450,12 +459,15 @@ func (r *Runner) Skip(ctx context.Context, id string, sk Skip, eventID int64) (i
 	if sk.Key == "" {
 		return 0, fmt.Errorf("%w: key is required", service.ErrInvalid)
 	}
-	batch, err := r.svc.NewBatch(ctx, domain.ActorUser)
-	if err != nil {
-		return 0, err
-	}
-	if err := r.svc.ForgetEvent(ctx, batch, eventID); err != nil {
-		return 0, err
+	var batch int64
+	if eventID != 0 {
+		var err error
+		if batch, err = r.svc.NewBatch(ctx, domain.ActorUser); err != nil {
+			return 0, err
+		}
+		if err := r.svc.ForgetEvent(ctx, batch, eventID); err != nil {
+			return 0, err
+		}
 	}
 	s, err := load(ctx, r.db, id)
 	if err != nil {
@@ -466,6 +478,9 @@ func (r *Runner) Skip(ctx context.Context, id string, sk Skip, eventID int64) (i
 	}
 	if err := store(ctx, r.db, id, s); err != nil {
 		return 0, err
+	}
+	if batch == 0 {
+		return 0, nil
 	}
 	return batch, r.publish(ctx, batch)
 }
@@ -485,6 +500,103 @@ func (r *Runner) Unskip(ctx context.Context, id, key string) (View, error) {
 		return View{}, err
 	}
 	return r.view(ctx, in)
+}
+
+// offer returns a ticket pull without saving it, leaving out tickets already on the list or
+// skipped.
+func (r *Runner) offer(ctx context.Context, s saved, sources []Source) (PullResult, error) {
+	have, err := r.haveTickets(ctx, s)
+	if err != nil {
+		return PullResult{}, err
+	}
+	res := PullResult{Sources: make([]SourceResult, len(sources))}
+	for i, src := range sources {
+		sr := SourceResult{Label: src.Label, Events: []PulledEvent{}, Tickets: []Ticket{}, More: src.More}
+		if src.Err != nil {
+			sr.Error = src.Err.Error()
+		}
+		for _, tk := range src.Tickets {
+			if !have[strings.ToUpper(tk.Key)] {
+				sr.Tickets = append(sr.Tickets, tk)
+			}
+		}
+		res.Sources[i] = sr
+	}
+	return res, nil
+}
+
+// haveTickets is every key, upper-cased, that a live task has as a ref or the user skipped. A
+// deleted task doesn't count, so its ticket can be offered again.
+func (r *Runner) haveTickets(ctx context.Context, s saved) (map[string]bool, error) {
+	tasks, err := r.svc.ListTasks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	have := map[string]bool{}
+	for _, t := range tasks {
+		for _, ref := range t.Refs {
+			have[strings.ToUpper(ref.Label)] = true
+		}
+	}
+	for _, sk := range s.Skipped {
+		have[strings.ToUpper(sk.Key)] = true
+	}
+	return have, nil
+}
+
+// Add makes a task of each ticket, in one user batch it announces and returns. Tickets already
+// on the list, skipped, or repeated are left out, so adding twice adds once; when none are left,
+// no batch is opened.
+func (r *Runner) Add(ctx context.Context, id string, tickets []Ticket) (int64, []domain.Task, error) {
+	in, err := r.find(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	v, err := r.view(ctx, in)
+	if err != nil {
+		return 0, nil, err
+	}
+	if !v.On() {
+		return 0, nil, fmt.Errorf("%w: %s is off or not set up", service.ErrConflict, in.Name())
+	}
+	for _, tk := range tickets {
+		if strings.TrimSpace(tk.Key) == "" || strings.TrimSpace(tk.Title) == "" {
+			return 0, nil, fmt.Errorf("%w: a ticket needs a key and a title", service.ErrInvalid)
+		}
+	}
+	s, err := load(ctx, r.db, id)
+	if err != nil {
+		return 0, nil, err
+	}
+	have, err := r.haveTickets(ctx, s)
+	if err != nil {
+		return 0, nil, err
+	}
+	tasks := []domain.Task{}
+	var batch int64
+	for _, tk := range tickets {
+		key := strings.TrimSpace(tk.Key)
+		if have[strings.ToUpper(key)] {
+			continue
+		}
+		have[strings.ToUpper(key)] = true
+		if batch == 0 {
+			if batch, err = r.svc.NewBatch(ctx, domain.ActorUser); err != nil {
+				return 0, nil, err
+			}
+		}
+		t, err := r.svc.CreateTask(ctx, batch, service.TaskFields{
+			Title: tk.Title, Notes: tk.Notes, Refs: []domain.Ref{{Label: key, URL: tk.URL}},
+		})
+		if err != nil {
+			return 0, nil, err
+		}
+		tasks = append(tasks, t)
+	}
+	if batch == 0 {
+		return 0, tasks, nil
+	}
+	return batch, tasks, r.publish(ctx, batch)
 }
 
 func (r *Runner) publish(ctx context.Context, batch int64) error {
