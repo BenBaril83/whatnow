@@ -52,21 +52,29 @@ func (s *Service) CreateEvent(ctx context.Context, batch int64, f EventFields) (
 		if _, err := batchActor(ctx, tx, batch); err != nil {
 			return err
 		}
-		now := s.now().UTC()
-		e = domain.Event{RawText: f.RawText, CreatedAt: now, UpdatedAt: now}
+		e = domain.Event{RawText: f.RawText}
 		f.applyTo(&e)
-		res, err := tx.ExecContext(ctx,
-			`INSERT INTO events (title, starts_at, ends_at, raw_text, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			e.Title, formatTime(e.StartsAt), formatNullTime(e.EndsAt), e.RawText, formatTime(e.CreatedAt), formatTime(e.UpdatedAt))
-		if err != nil {
-			return err
-		}
-		if e.ID, err = res.LastInsertId(); err != nil {
-			return err
-		}
-		return record(ctx, tx, batch, actionCreate, entityEvent, e.ID, nil, e)
+		return s.insertEvent(ctx, tx, batch, &e)
 	})
 	return e, err
+}
+
+// insertEvent adds e and records its creation, setting its ID and timestamps.
+func (s *Service) insertEvent(ctx context.Context, tx *sql.Tx, batch int64, e *domain.Event) error {
+	now := s.now().UTC()
+	e.CreatedAt, e.UpdatedAt = now, now
+	res, err := tx.ExecContext(ctx,
+		`INSERT INTO events (title, starts_at, ends_at, raw_text, source, source_key, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.Title, formatTime(e.StartsAt), formatNullTime(e.EndsAt), e.RawText, nullString(e.Source),
+		nullString(e.SourceKey), formatTime(e.CreatedAt), formatTime(e.UpdatedAt))
+	if err != nil {
+		return err
+	}
+	if e.ID, err = res.LastInsertId(); err != nil {
+		return err
+	}
+	return record(ctx, tx, batch, actionCreate, entityEvent, e.ID, nil, *e)
 }
 
 func (s *Service) UpdateEvent(ctx context.Context, batch, id int64, f EventFields) (domain.Event, error) {
@@ -95,15 +103,21 @@ func (s *Service) changeEvent(ctx context.Context, batch, id int64, action strin
 		if err != nil {
 			return err
 		}
-		e = before
-		change(&e)
-		e.UpdatedAt = s.now().UTC()
-		if err := writeEvent(ctx, tx, e); err != nil {
-			return err
-		}
-		return record(ctx, tx, batch, action, entityEvent, id, before, e)
+		e, err = s.writeChange(ctx, tx, batch, before, action, change)
+		return err
 	})
 	return e, err
+}
+
+// writeChange applies change to a copy of before, saves it, and records it.
+func (s *Service) writeChange(ctx context.Context, tx *sql.Tx, batch int64, before domain.Event, action string, change func(*domain.Event)) (domain.Event, error) {
+	e := before
+	change(&e)
+	e.UpdatedAt = s.now().UTC()
+	if err := writeEvent(ctx, tx, e); err != nil {
+		return e, err
+	}
+	return e, record(ctx, tx, batch, action, entityEvent, e.ID, before, e)
 }
 
 func (s *Service) GetEvent(ctx context.Context, id int64) (domain.Event, error) {
@@ -139,15 +153,16 @@ func liveEvent(ctx context.Context, q querier, id int64) (domain.Event, error) {
 	return e, err
 }
 
-const eventColumns = `id, title, starts_at, ends_at, raw_text, created_at, updated_at, deleted_at`
+const eventColumns = `id, title, starts_at, ends_at, raw_text, source, source_key, created_at, updated_at, deleted_at`
 
 func scanEvent(row scanner) (domain.Event, error) {
 	var e domain.Event
 	var startsAt, createdAt, updatedAt string
-	var endsAt, deletedAt sql.NullString
-	if err := row.Scan(&e.ID, &e.Title, &startsAt, &endsAt, &e.RawText, &createdAt, &updatedAt, &deletedAt); err != nil {
+	var endsAt, source, sourceKey, deletedAt sql.NullString
+	if err := row.Scan(&e.ID, &e.Title, &startsAt, &endsAt, &e.RawText, &source, &sourceKey, &createdAt, &updatedAt, &deletedAt); err != nil {
 		return e, err
 	}
+	e.Source, e.SourceKey = source.String, sourceKey.String
 	var err error
 	if e.StartsAt, err = parseTime(startsAt); err != nil {
 		return e, err
@@ -168,9 +183,9 @@ func scanEvent(row scanner) (domain.Event, error) {
 // writeEvent overwrites every column of an existing event. Undo uses it to restore a snapshot.
 func writeEvent(ctx context.Context, tx *sql.Tx, e domain.Event) error {
 	_, err := tx.ExecContext(ctx,
-		`UPDATE events SET title = ?, starts_at = ?, ends_at = ?, raw_text = ?, created_at = ?, updated_at = ?,
-		 deleted_at = ? WHERE id = ?`,
-		e.Title, formatTime(e.StartsAt), formatNullTime(e.EndsAt), e.RawText, formatTime(e.CreatedAt),
-		formatTime(e.UpdatedAt), formatNullTime(e.DeletedAt), e.ID)
+		`UPDATE events SET title = ?, starts_at = ?, ends_at = ?, raw_text = ?, source = ?, source_key = ?,
+		 created_at = ?, updated_at = ?, deleted_at = ? WHERE id = ?`,
+		e.Title, formatTime(e.StartsAt), formatNullTime(e.EndsAt), e.RawText, nullString(e.Source),
+		nullString(e.SourceKey), formatTime(e.CreatedAt), formatTime(e.UpdatedAt), formatNullTime(e.DeletedAt), e.ID)
 	return err
 }

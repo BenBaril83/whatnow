@@ -181,6 +181,9 @@ func parseNullTime(n sql.NullString) (*time.Time, error) {
 	return &t, nil
 }
 
+// nullString stores an empty string as NULL.
+func nullString(s string) sql.NullString { return sql.NullString{String: s, Valid: s != ""} }
+
 func toNull[T ~string](p *T) sql.NullString {
 	if p == nil {
 		return sql.NullString{}

@@ -61,13 +61,27 @@ func revert(ctx context.Context, tx *sql.Tx, a domain.Activity, now time.Time) e
 		}
 		return writeTask(ctx, tx, t)
 	case entityEvent:
+		// A pulled event's key goes too, so the deleted row isn't a tombstone and the next pull
+		// brings the event back.
 		if a.Before == nil {
-			_, err := tx.ExecContext(ctx, `UPDATE events SET deleted_at = ? WHERE id = ?`, formatTime(now), a.EntityID)
+			_, err := tx.ExecContext(ctx, `UPDATE events SET deleted_at = ?, source_key = NULL WHERE id = ?`, formatTime(now), a.EntityID)
 			return err
 		}
 		var e domain.Event
 		if err := json.Unmarshal(a.Before, &e); err != nil {
 			return err
+		}
+		// A pruned event's key may belong to a row a later pull made for the same meeting.
+		if e.SourceKey != "" {
+			var taken int
+			err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM events WHERE source = ? AND source_key = ? AND id != ?`,
+				e.Source, e.SourceKey, e.ID).Scan(&taken)
+			if err != nil {
+				return err
+			}
+			if taken > 0 {
+				return fmt.Errorf("%w: %s was pulled again since", ErrConflict, e.Title)
+			}
 		}
 		return writeEvent(ctx, tx, e)
 	case entityDay:

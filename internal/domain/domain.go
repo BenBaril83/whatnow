@@ -94,6 +94,10 @@ type Event struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `json:"deleted_at"`
+	// Source is the integration the event was pulled from, and SourceKey its identity there. Both
+	// are empty for an event made in whatnow.
+	Source    string `json:"source"`
+	SourceKey string `json:"source_key"`
 }
 
 // Activity is one recorded change. Before is null for a creation and After is null for a removal.
