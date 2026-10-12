@@ -45,8 +45,8 @@ func (s *Server) enableIntegration(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, v)
 }
 
-// pullIntegration brings in today's events, or offers tickets. A source that failed is part of a normal result, so
-// it comes back as 200 with that source's error.
+// pullIntegration brings in today's events, or offers tickets. A source that failed is part of a
+// normal result, so it comes back as 200 with that source's error.
 func (s *Server) pullIntegration(w http.ResponseWriter, r *http.Request) {
 	res, err := s.Integrations.Pull(r.Context(), r.PathValue("id"))
 	if err != nil {
