@@ -71,7 +71,11 @@ The calendar writes what it pulls; Jira offers tickets and the user picks which 
   one above only lets through assigned tickets that are the user's own, so this lists theirs first.
 - **Errors never contain the token:** no response or a timeout is "Can't reach Jira — on the
   VPN?"; `401` is "Jira rejected the token"; `400` is Jira's `errorMessages` joined, which is how a
-  bad search explains itself; anything else is "Jira answered <status>".
+  bad search explains itself; anything else is "Jira answered <status>". An address with no scheme
+  or host is "that address isn't a URL, such as https://jira.example.com", since it would otherwise
+  read as a network failure. A `200` that isn't JSON, such as a sign-in page in front of the API,
+  is "couldn't read Jira's answer — is the address right?" rather than an empty list.
+- **A skip has no batch,** so its toast offers no Undo; bringing a ticket back is in settings.
 
 **A picked ticket's task:** `title` is the ticket's title, `notes` its description, `refs` one
 `{label: key, url}`, `created_by` the user. Size and energy stay blank, so the planner leaves it
