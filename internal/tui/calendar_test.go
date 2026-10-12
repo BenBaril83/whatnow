@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -192,5 +193,26 @@ func TestTheCursorStaysOnTheListAndRPullsAgain(t *testing.T) {
 	}
 	if m = send(m, key("enter")); m.morning.step != stepCalendar {
 		t.Error("a key mid-pull moved on")
+	}
+}
+
+func TestABusyCalendarScrollsToTheCursor(t *testing.T) {
+	f := newFixture(t)
+	f.calendars(t)
+	m := f.calendarAt(t)
+	var events []integrations.PulledEvent
+	for i := range 20 {
+		events = append(events, integrations.PulledEvent{ID: int64(i + 1), Title: fmt.Sprintf("meeting %02d", i), StartsAt: f.clock.t})
+	}
+	m = send(m, tea.WindowSizeMsg{Width: 80, Height: 24},
+		pulledMsg{[]pulledFrom{{"gcal", integrations.PullResult{Sources: []integrations.SourceResult{{Label: "Work", Events: events}}}}}})
+	for range events {
+		m = send(m, key("down"))
+	}
+	v := m.View()
+	for _, want := range []string{"meeting 19", "enter next"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("missing %q:\n%s", want, v)
+		}
 	}
 }

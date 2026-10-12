@@ -184,8 +184,9 @@ func (m Model) onCalendarKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// calendarLines is the calendar step: the offer to pull, then each source's events or error.
-func (m Model) calendarLines(w int) (lines []string, hint string) {
+// calendarLines is the calendar step in at most room lines: the offer to pull, then each source's
+// events or error, scrolled so the cursor's event is in view.
+func (m Model) calendarLines(w, room int) (lines []string, hint string) {
 	c := m.morning.calendar
 	if c.pulling {
 		return []string{m.spin.View() + softStyle.Render(" Pulling today's calendar…")}, ""
@@ -193,24 +194,28 @@ func (m Model) calendarLines(w int) (lines []string, hint string) {
 	if c.pulled == nil {
 		return []string{"Pull today's calendar?"}, "enter pull · tab skip"
 	}
-	lines = []string{"Today's calendar", ""}
-	i := 0
+	var body []string
+	i, cursor := 0, 0
 	for _, p := range c.pulled {
 		for _, s := range p.result.Sources {
 			if s.Error != "" {
-				lines = append(lines, nowStyle.Render(s.Label+": "+s.Error))
+				body = append(body, nowStyle.Render(s.Label+": "+s.Error))
 				continue
 			}
-			lines = append(lines, lipgloss.NewStyle().Bold(true).Render(s.Label+" · "+count(len(s.Events), "event", "events")))
+			body = append(body, lipgloss.NewStyle().Bold(true).Render(s.Label+" · "+count(len(s.Events), "event", "events")))
 			for _, e := range s.Events {
-				lines = append(lines, eventLine(e, i == c.at, m.app.Loc, w))
+				if i == c.at {
+					cursor = len(body)
+				}
+				body = append(body, eventLine(e, i == c.at, m.app.Loc, w))
 				if i == c.at && c.asking {
-					lines = append(lines, cursorStyle.Render("    t today · a always · esc cancel"))
+					body = append(body, cursorStyle.Render("    t today · a always · esc cancel"))
 				}
 				i++
 			}
 		}
 	}
+	lines = append([]string{"Today's calendar", ""}, scrolled(body, cursor, room-2)...)
 	return lines, "↑↓ move · x remove · r pull again · enter next"
 }
 

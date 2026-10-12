@@ -320,7 +320,8 @@ func (m Model) morningView() string {
 		hint = "enter new line · tab next · esc skip"
 	case stepCalendar:
 		var more []string
-		more, hint = m.calendarLines(inner)
+		// Everything else in the card, as for reconcile: the toast, the hint, and the frame.
+		more, hint = m.calendarLines(inner, m.height-len(lines)-7)
 		lines = append(lines, more...)
 	case stepPace:
 		if mo.notice != "" {
@@ -358,6 +359,11 @@ func triageLines(rows []triageRow, at, w, room int) []string {
 			lines = append(lines, softStyle.Render("    "+r.reason))
 		}
 	}
+	return scrolled(lines, cursor, room)
+}
+
+// scrolled is at most room of lines, scrolled so the cursor's line and the one below it are in view.
+func scrolled(lines []string, cursor, room int) []string {
 	room = max(room, 2)
 	top := min(max(cursor+2-room, 0), max(len(lines)-room, 0))
 	return lines[top:min(top+room, len(lines))]
