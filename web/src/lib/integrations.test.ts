@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Field, Integration, PullResult } from './api';
-import { formFrom, isOn, newRow, withoutEvent } from './integrations';
+import { formFrom, isOn, newRow, picked, withoutEvent, withoutTicket } from './integrations';
 
 const calendars: Field = {
 	key: 'calendars',
@@ -16,6 +16,7 @@ const calendars: Field = {
 const gcal: Integration = {
 	id: 'gcal',
 	name: 'Google Calendar',
+	pulls: 'events',
 	fields: [{ key: 'team', label: 'Team', kind: 'text', required: false }, { key: 'token', label: 'Token', kind: 'secret', required: false }, calendars],
 	enabled: true,
 	ready: true,
@@ -63,13 +64,29 @@ describe('withoutEvent', () => {
 		const result: PullResult = {
 			batch_id: 1,
 			sources: [
-				{ label: 'Work', events: [ev(1), ev(2)] },
-				{ label: 'Personal', error: "couldn't reach Google", events: [] }
+				{ label: 'Work', events: [ev(1), ev(2)], tickets: [], more: 0 },
+				{ label: 'Personal', error: "couldn't reach Google", events: [], tickets: [], more: 0 }
 			]
 		};
 		expect(withoutEvent(result, 2).sources).toEqual([
-			{ label: 'Work', events: [ev(1)] },
-			{ label: 'Personal', error: "couldn't reach Google", events: [] }
+			{ label: 'Work', events: [ev(1)], tickets: [], more: 0 },
+			{ label: 'Personal', error: "couldn't reach Google", events: [], tickets: [], more: 0 }
 		]);
+	});
+});
+
+describe('tickets', () => {
+	const tk = (key: string) => ({ key, title: `${key} t`, notes: '', url: `https://j/browse/${key}` });
+	const result: PullResult = {
+		batch_id: 0,
+		sources: [{ label: 'Jira', events: [], tickets: [tk('A-1'), tk('A-2'), tk('A-3')], more: 0 }]
+	};
+
+	it('Should pick the ticked tickets in the order shown', () => {
+		expect(picked(result, new Set(['A-3', 'A-1']))).toEqual([tk('A-1'), tk('A-3')]);
+	});
+
+	it('Should drop a skipped ticket from the result', () => {
+		expect(withoutTicket(result, 'A-2').sources[0].tickets).toEqual([tk('A-1'), tk('A-3')]);
 	});
 });

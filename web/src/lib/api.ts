@@ -229,6 +229,8 @@ export interface Integration {
 	secrets: Record<string, boolean>;
 	lists: Record<string, IntegrationRow[]>;
 	skipped: Skip[];
+	/** Whether a pull writes events or offers tickets to pick. */
+	pulls: 'events' | 'tickets';
 }
 
 /** What saving an integration sends. A blank secret keeps the saved one; a row with no id is new. */
@@ -246,11 +248,22 @@ export interface PulledEvent {
 	series: string;
 }
 
-/** What one source, such as a calendar, pulled. A failed source has an error and no events. */
+/** A pulled ticket, which becomes a task only when picked. */
+export interface Ticket {
+	key: string;
+	title: string;
+	notes: string;
+	url: string;
+}
+
+/** What one source, such as a calendar, pulled. A failed source has an error and nothing else. */
 export interface PullSource {
 	label: string;
 	error?: string;
 	events: PulledEvent[];
+	tickets: Ticket[];
+	/** How many more tickets matched than were returned. */
+	more: number;
 }
 
 export interface PullResult {
@@ -323,7 +336,8 @@ export const api = {
 	enableIntegration: (id: string, enabled: boolean) =>
 		request<Integration>('PUT', `/integrations/${id}/enabled`, { enabled }),
 	pull: (id: string) => request<PullResult>('POST', `/integrations/${id}/pull`),
-	skip: (id: string, key: string, title: string, event_id: number) =>
+	addTickets: (id: string, tickets: Ticket[]) => request<Mutation>('POST', `/integrations/${id}/add`, { tickets }),
+	skip: (id: string, key: string, title: string, event_id?: number) =>
 		request<Mutation>('POST', `/integrations/${id}/skipped`, { key, title, event_id }),
 	unskip: (id: string, key: string) =>
 		request<Integration>('DELETE', `/integrations/${id}/skipped/${encodeURIComponent(key)}`),

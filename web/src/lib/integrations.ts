@@ -1,4 +1,4 @@
-import type { Field, Integration, IntegrationUpdate, PullResult } from './api';
+import type { Field, Integration, IntegrationUpdate, PullResult, Ticket } from './api';
 
 /**
  * A settings form's copy of an integration's fields, in the shape saving sends. Secrets start
@@ -38,5 +38,18 @@ export function withoutEvent(result: PullResult, id: number): PullResult {
 	return {
 		...result,
 		sources: result.sources.map((s) => ({ ...s, events: s.events.filter((e) => e.id !== id) }))
+	};
+}
+
+/** The ticked tickets, in the order the pull listed them. */
+export function picked(result: PullResult, ticked: Set<string>): Ticket[] {
+	return result.sources.flatMap((s) => s.tickets.filter((t) => ticked.has(t.key)));
+}
+
+/** The result without one ticket, after it was skipped. */
+export function withoutTicket(result: PullResult, key: string): PullResult {
+	return {
+		...result,
+		sources: result.sources.map((s) => ({ ...s, tickets: s.tickets.filter((t) => t.key !== key) }))
 	};
 }

@@ -3,6 +3,7 @@
 	import { formFrom, isOn, newRow } from '#lib/integrations.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import PullResults from './PullResults.svelte';
+	import TicketPicker from './TicketPicker.svelte';
 
 	interface Props {
 		integration: Integration;
@@ -131,11 +132,15 @@
 			<div class="actions">
 				<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
 				<button type="button" class="btn" disabled={!isOn(integration) || pulling} onclick={pull}>
-					{pulling ? 'Pulling…' : 'Pull today'}
+					{pulling ? 'Pulling…' : integration.pulls === 'tickets' ? 'Pull' : 'Pull today'}
 				</button>
 			</div>
 		</form>
-		{#if result}<PullResults id={integration.id} bind:result retry={pull} />{/if}
+		{#if result && integration.pulls === 'tickets'}
+			<TicketPicker id={integration.id} bind:result retry={pull} />
+		{:else if result}
+			<PullResults id={integration.id} bind:result retry={pull} />
+		{/if}
 	{/if}
 </section>
 

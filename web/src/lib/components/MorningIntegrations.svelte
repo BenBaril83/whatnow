@@ -4,6 +4,7 @@
 	import { isOn } from '#lib/integrations.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import PullResults from './PullResults.svelte';
+	import TicketPicker from './TicketPicker.svelte';
 
 	/** The integrations that can pull. With none, the row doesn't show. */
 	let on = $state<Integration[]>([]);
@@ -36,7 +37,9 @@
 			<button class="chip" disabled={pulling[i.id]} onclick={() => pull(i.id)}>
 				{pulling[i.id] ? 'Pulling…' : `↻ ${i.name}`}
 			</button>
-			{#if results[i.id]}
+			{#if results[i.id] && i.pulls === 'tickets'}
+				<TicketPicker id={i.id} bind:result={results[i.id]} retry={() => pull(i.id)} />
+			{:else if results[i.id]}
 				<PullResults id={i.id} bind:result={results[i.id]} retry={() => pull(i.id)} />
 			{/if}
 		{/each}
@@ -53,7 +56,8 @@
 	h2 {
 		margin: 0;
 	}
-	.integrations :global(.sources) {
+	.integrations :global(.sources),
+	.integrations :global(.tickets) {
 		width: 100%;
 	}
 	.chip {
