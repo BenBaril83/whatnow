@@ -25,10 +25,13 @@ test('Jira tickets are picked in the morning, and neither a pick nor a skip come
 		const card = page.locator('.card', { hasText: 'Jira' });
 		await card.getByRole('button', { name: /Jira/ }).click();
 		await card.getByLabel('Address').fill(url);
-		await card.getByLabel('Personal access token').fill('pat');
+		const token = card.getByLabel('Personal access token');
+		await expect(token).toHaveAttribute('placeholder', '');
+		await token.fill('pat');
 		await card.getByLabel('Search (JQL)').fill('project = FLEX1');
 		await card.getByRole('button', { name: 'Save' }).click();
-		await expect(card.getByLabel('Personal access token')).toHaveValue('');
+		await expect(token).toHaveValue('');
+		await expect(token).toHaveAttribute('placeholder', 'Leave blank to keep');
 		await card.getByRole('switch').check();
 		await expect(card.getByRole('button', { name: 'Pull', exact: true })).toBeEnabled();
 

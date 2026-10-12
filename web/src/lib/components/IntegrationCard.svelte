@@ -114,7 +114,7 @@
 							class="field"
 							type={f.kind === 'secret' ? 'password' : 'text'}
 							autocomplete="off"
-							placeholder={f.kind === 'secret' ? 'Leave blank to keep' : ''}
+							placeholder={f.kind === 'secret' && integration.secrets[f.key] ? 'Leave blank to keep' : ''}
 							bind:value={form.values[f.key]}
 						/>
 						{#if f.help}<span class="muted hint">{f.help}</span>{/if}
