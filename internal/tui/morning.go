@@ -26,6 +26,7 @@ const (
 	stepGreet
 	stepReconcile
 	stepDump
+	stepCalendar
 	stepPace
 	stepMaking
 	stepReveal
@@ -46,6 +47,7 @@ type morning struct {
 	dump     textarea.Model
 	pace     domain.Pace
 	rowsKept []triageRow // the choices to keep when the review is fetched again after a conflict
+	calendar calendar
 }
 
 // triageRow is one unfinished task from the last day and what happens to it.
@@ -127,7 +129,7 @@ func newDump() textarea.Model {
 // beginMorning starts the ritual from the good-morning card by looking back at the last day.
 func (m Model) beginMorning() (tea.Model, tea.Cmd) {
 	m.morning = morning{step: stepGreet, dump: newDump(), pace: 3}
-	return m, tea.Batch(m.reviewMorning(), m.spin.Tick)
+	return m, tea.Batch(m.reviewMorning(), m.loadIntegrations(), m.spin.Tick)
 }
 
 func (m Model) reviewMorning() tea.Cmd {
@@ -254,14 +256,16 @@ func (m Model) onMorningKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		mo.notice = ""
 		switch k.String() {
 		case "tab":
-			return m.toPace()
+			return m.afterDump()
 		case "esc":
 			mo.dump.Reset()
-			return m.toPace()
+			return m.afterDump()
 		}
 		var cmd tea.Cmd
 		mo.dump, cmd = mo.dump.Update(k)
 		return m, cmd
+	case stepCalendar:
+		return m.onCalendarKey(k)
 	case stepPace:
 		switch k.String() {
 		case "left":
@@ -314,6 +318,10 @@ func (m Model) morningView() string {
 	case stepDump:
 		lines = append(lines, "What's on your plate?", "", mo.dump.View())
 		hint = "enter new line · tab next · esc skip"
+	case stepCalendar:
+		var more []string
+		more, hint = m.calendarLines(inner)
+		lines = append(lines, more...)
 	case stepPace:
 		if mo.notice != "" {
 			lines = append(lines, toastStyle.Render(mo.notice), "")

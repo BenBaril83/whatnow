@@ -174,6 +174,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.load()
 	case reviewedMsg, reviewFailedMsg, startedMsg, startFailedMsg, conflictMsg:
 		return m.onMorningMsg(msg)
+	case integrationsMsg, pulledMsg, pullFailedMsg, removedMsg:
+		return m.onCalendarMsg(msg)
 	case cheerTickMsg:
 		return m.onCheerTick(msg)
 	case spinner.TickMsg:
@@ -245,7 +247,7 @@ func (m Model) onHub(msg stream.Message) (tea.Model, tea.Cmd) {
 
 // spinning says something is in flight: what now, a chat reply, or the server's own model work.
 func (m Model) spinning() bool {
-	return m.asking || m.sending || m.morning.step == stepGreet || m.morning.step == stepMaking || m.working[stream.WorkReplan] > 0 || m.working[stream.WorkCleanup] > 0
+	return m.asking || m.sending || m.morning.step == stepGreet || m.morning.step == stepMaking || m.morning.calendar.pulling || m.working[stream.WorkReplan] > 0 || m.working[stream.WorkCleanup] > 0
 }
 
 func (m Model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
