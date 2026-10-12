@@ -90,7 +90,8 @@ than duplicating. A meeting on both Work and Personal shares a UID, so it lands 
 
 - **A tombstone is a deleted row that still has its key.** The user's × leaves the key. A prune
   clears it, and so does undoing the pull that created the row, so a meeting that comes back, or
-  a pull that's undone and pulled again, brings the event back.
+  a pull that's undone and pulled again, brings the event back. Always skip clears it too, since
+  the skip list keeps the series out; bringing the series back brings today's occurrence back.
 - **When any source fails, the pull removes nothing.** Rows don't record which calendar they came
   from (a meeting on two calendars is one row), so a failed calendar's events can't be told from
   canceled ones. Creates and updates from the other sources still apply.
