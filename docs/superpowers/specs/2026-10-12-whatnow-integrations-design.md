@@ -25,45 +25,50 @@ ever speak a whatnow contract, so a process boundary would buy nothing.
 
 ## The contract
 
-`internal/integrations` holds the contract and a fixed registry
-(`[]Integration{gcal.New()}`). Each integration lives in its own package under it and knows nothing
-about whatnow's storage.
+`internal/integrations` holds the contract and `Runner`, which keeps each integration's settings
+and syncs what it pulls. `app.Open` hands the runner its integrations (`gcal.New(nil)`), since a
+registry inside the package would import every integration and each imports the contract. Each
+integration lives in its own package under it and knows nothing about whatnow's storage.
 
 ```go
 type Integration interface {
 	ID() string   // "gcal"
 	Name() string // "Google Calendar"
 	Fields() []Field
-	Pull(ctx context.Context, cfg Config, from, to time.Time) (Pulled, error)
+	// Pull fetches what starts in [from, to), one Source for each part it pulls, such as a calendar.
+	Pull(ctx context.Context, cfg Config, from, to time.Time) []Source
 }
 
 type Field struct {
-	Key    string
-	Label  string
-	Kind   Kind    // text, secret, or list
-	Help   string  // one line under the field, such as where to find the URL
-	Fields []Field // a list's columns; only list uses it
+	Key      string
+	Label    string
+	Kind     Kind    // text, secret, or list
+	Help     string  // one line under the field, such as where to find the URL
+	Required bool    // a required list needs a row; a row needs its required columns to save
+	Fields   []Field // a list's columns; only list uses it
 }
 ```
 
-- **`text`** is stored in the settings document. **`secret`** is stored in the keychain and never
+- **`text`** is stored in the database. **`secret`** is stored in the keychain and never
   leaves the server. **`list`** is repeatable rows of `text` and `secret` columns. Lists don't
   nest.
 - **List rows get a server-generated ID**, so a row's secret has a stable keychain entry
-  (`gcal/<rowID>/url`) when its label is renamed.
+  (`integration/gcal/<rowID>/url`) when its label is renamed.
 - **`Config`** is the saved values with secrets resolved, so an integration never touches the
   keychain.
-- **`Pulled`** holds a result per source (a list row, or the integration as a whole when it has no
-  list): its label, its `[]PulledEvent`, and its error. Jira adds tasks here.
-- **`PulledEvent`** is `{Key, Series, Title, StartsAt, EndsAt}`. `Series` is set for a recurring
+- **`Source`** is what one part pulled (a list row, or the integration as a whole when it has no
+  list): its label, its `[]Event`, and its error in words fit for the user. Jira adds tasks here.
+- **`Event`** is `{Key, Series, Title, StartsAt, EndsAt}`. `Series` is set for a recurring
   event and empty for a one-off; it decides whether removal asks.
-- **An integration is on** when its `enabled` flag is set and its required fields are filled.
-  Turning it off keeps its saved values.
-- **The skip list is generic:** per integration, a list of `{key, title}`. Sync drops anything
-  whose series key is on it. Jira can use it to ignore a ticket.
+- **An integration is on** when its `enabled` flag is set and it's `Ready`: its required fields
+  are filled. Turning it off keeps its saved values.
+- **The skip list is generic:** per integration, a list of `{key, title}`. A pull drops anything
+  whose key or series is on it. Jira can use it to ignore a ticket.
 
-Integration settings live in the settings document under `integrations.<id>`: `enabled`, the text
-values, list rows (IDs, labels, which secrets are set), and the skip list.
+Integration settings live in their own table, `integrations (id, body)`, one JSON row each:
+`enabled`, the text values, list rows (IDs and text columns), and the skip list. They stay out of
+the settings document because the General page saves that document whole, and a stale copy would
+overwrite a skip made since.
 
 ## Data and sync
 
@@ -74,39 +79,52 @@ Events the user or agent made leave both null.
 `RECURRENCE-ID` for a moved occurrence). A moved occurrence keeps its key, so it updates rather
 than duplicating. A meeting on both Work and Personal shares a UID, so it lands once.
 
-**`service.SyncEvents(ctx, batch, source, from, to, events)`** applies a pull in one batch:
+**`service.SyncEvents(ctx, batch, source, from, to, events, prune)`** applies a pull in one batch:
 
 | Feed has it? | Row | Result |
 |---|---|---|
 | yes | none | create |
 | yes | live | update title and times to the feed's; the feed wins over a hand edit |
 | yes | soft-deleted | leave it; the deleted row is the tombstone that keeps a removal |
-| no | live, this source, starts in the window | soft-delete: canceled, or moved to another day |
+| no | live, this source, starts in the window | soft-delete and clear its key: canceled, or moved to another day |
 
-- **A source that failed deletes nothing.** Its rows are left as they were; the others apply.
-- **The pull is an ordinary user batch**, so it undoes like any other, and the hub publishes it.
-  A pull after the day's plan exists replans through the existing edit trigger. A morning pull
-  lands before the plan, which then sees the events.
+- **A tombstone is a deleted row that still has its key.** The user's × leaves the key. A prune
+  clears it, and so does undoing the pull that created the row, so a meeting that comes back, or
+  a pull that's undone and pulled again, brings the event back.
+- **When any source fails, the pull removes nothing.** Rows don't record which calendar they came
+  from (a meeting on two calendars is one row), so a failed calendar's events can't be told from
+  canceled ones. Creates and updates from the other sources still apply.
+- **The pull is an ordinary user batch**, so it undoes like any other, and the hub publishes it,
+  which refreshes open screens. A morning pull lands before the plan, which then sees the events.
+  A pull later in the day doesn't replan on its own, since no event change does; Replan picks the
+  new events up.
 
 ## Google Calendar
 
-`internal/integrations/gcal` fetches each row's URL and parses it with `github.com/apognu/gocal`,
-which expands recurrences inside `[from, to)`.
+`internal/integrations/gcal` fetches each row's URL, parses it with `github.com/emersion/go-ical`,
+and expands recurrences with `github.com/teambition/rrule-go`. It reads date-times itself, caching
+each `TZID`'s location: loading a zone reads its file from disk, and doing that per event made a
+real 20 MB feed take 5 to 8 seconds instead of a quarter of one. (`apognu/gocal` was rejected: it
+has the same cost, mishandles `BYDAY=2TU`, and misses an occurrence moved out of the window.)
 
 - **One field:** `calendars`, a list of `{label: text, url: secret}`, with the help line naming
   where Google keeps the secret address.
 - **Fetching:** a 30-second timeout per calendar. Go's client asks for gzip, and Google serves it,
   so a 20 MB feed is under 2 MB over the wire. Don't set `Accept-Encoding` by hand, or Go stops
   decompressing.
-- **All-day events** (a `DATE` start) are dropped.
+- **All-day events** (a `DATE` start) and canceled ones (`STATUS:CANCELLED`) are dropped.
+- **A moved or canceled occurrence** is its own `VEVENT` with a `RECURRENCE-ID`. It replaces the
+  series' occurrence at that start wherever it moved to, even out of the window.
+- **One malformed event**, such as an unknown `TZID`, is skipped rather than failing the calendar.
 - **Declined events:** the feed's `X-WR-CALNAME` is the owner's email on a primary calendar, and
   every event with guests lists the owner as an `ATTENDEE` (`mailto:` the same email) with a
   `PARTSTAT`. An event whose owner entry is `PARTSTAT=DECLINED` is dropped. Tentative and
   not-yet-answered events stay, as do events with no owner entry (the owner's own blocks). When
-  the name isn't an email, nothing is dropped for this reason. Attendee lines are folded, so match
-  after unfolding (gocal does).
-- **Errors name the row's label, never its URL**, and the URL is never logged: "Personal: Google
-  said 404, check the URL", "Personal: couldn't read the calendar".
+  the name isn't an email, nothing is dropped for this reason. Attendee lines are folded; the
+  decoder unfolds them.
+- **Errors name the row's label, never its URL**, and never wrap the HTTP client's error, which
+  holds the URL: "Google said 404, check the address", "couldn't reach Google", "Google took too
+  long to answer", "couldn't read the calendar".
 
 ## API
 
@@ -114,14 +132,15 @@ All under `/api/v1`:
 
 | Route | Does |
 |---|---|
-| `GET /integrations` | Each integration's declared fields, `enabled`, saved values, and skip list. A secret reads as set or unset, never its value. |
-| `PUT /integrations/{id}` | Saves `enabled` and the values. A blank secret keeps the saved one. A removed list row's secret is deleted from the keychain. |
-| `POST /integrations/{id}/pull` | Pulls today. Returns the batch ID and, per source, its label, its pulled events (with their whatnow IDs), or its error. `409` when the integration is off. |
-| `POST /integrations/{id}/skipped` | Adds `{key, title}` to the skip list and deletes today's occurrences of that series, in one batch. |
-| `DELETE /integrations/{id}/skipped/{key}` | Brings a series back. The next pull imports it again. |
+| `GET /integrations` | Each integration's declared fields, `enabled`, `ready`, saved values, and skip list. A secret reads as set or unset, never its value. |
+| `PUT /integrations/{id}` | Saves the values. A blank secret keeps the saved one. A row with no ID is new; a removed row's secret is deleted from the keychain. |
+| `PUT /integrations/{id}/enabled` | Turns it on or off, apart from the values, so the toggle never saves half-typed edits. |
+| `POST /integrations/{id}/pull` | Pulls today. Returns the batch ID and, per source, its label, its pulled events (with their whatnow IDs and series), or its error. `409` when the integration isn't on. |
+| `POST /integrations/{id}/skipped` | Takes `{key, title, event_id}`: deletes today's occurrence in a batch it returns, and adds the series to the skip list. Undoing the batch brings back today's occurrence; the series stays skipped. |
+| `DELETE /integrations/{id}/skipped/{key}` | Brings a series back, with the key path-escaped. The next pull imports it again. |
 
 `DELETE /data` also deletes every integration secret from the keychain, logged rather than failed
-like the provider keys.
+like the provider keys. It lists them before wiping, since the rows say which there are.
 
 ## Web
 
@@ -160,7 +179,7 @@ two tabs across the top.
 │ ▸Integrations│  │  Calendars                             │  │
 │              │  │   Work      •••••••• saved     remove  │  │
 │              │  │   Personal  •••••••• saved     remove  │  │
-│              │  │   + Add calendar                       │  │
+│              │  │   + Add                                │  │
 │              │  │  ⓘ Google Calendar → Settings → …      │  │
 │              │  │  Skipped: Blockout (bring back)        │  │
 │              │  │  [Save]   [Pull today]                 │  │
@@ -173,7 +192,8 @@ two tabs across the top.
 - **The toggle saves at once.** The fields save with the card's own **Save**.
 - **Fields render from `Fields()`:** `text` as an input, `secret` as a masked input reading "saved"
   when set (as API keys do), `list` as rows with **+ Add** and **remove**. `Help` sits under its
-  field.
+  field. The add button says only "Add", since a field's label is plural and there's no singular
+  to borrow.
 - **Pull today** is disabled until the card is saved and on, and shows the same grouped results
   as the morning, × included.
 
@@ -193,18 +213,23 @@ and the TUI's only pull is the morning step.
 ## Testing
 
 **Go:**
-- `gcal`, against fixture feeds served by `httptest`: a recurring event with a moved occurrence, an
-  `EXDATE`, an all-day event, a declined event, a DST change inside the window, the same UID on two
-  calendars, a 404, and an unparseable body. No error message contains the URL.
-- `service.SyncEvents`, table-driven: create, update, a tombstone that stays deleted, cancellation
-  by absence, a skipped series, a failed source deleting nothing, and undoing the pull batch.
-- `httpapi`: secrets masked on read, a blank secret keeping the saved one, a removed row's secret
-  deleted, pull when off is `409`, skip deleting today's occurrences in one batch, bring back, and
-  `DELETE /data` wiping integration secrets.
-- TUI: golden files for the calendar step's results and the recurring `x` prompt.
+- `gcal`, against fixture feeds: a series with a moved occurrence, a canceled one, and an `EXDATE`
+  line listing two dates; an all-day event; declined, tentative, and unanswered events; a DST
+  change; a monthly `BYDAY=2TU` rule; one malformed event; and, over `httptest`, a 404, a body
+  that isn't a calendar, an unreachable host, and a timeout. No error message contains the URL.
+- `service.SyncEvents`: create, update in place, nothing written when nothing changed, a tombstone
+  that stays deleted, pruning only its own source and window, no prune when told not to, undoing
+  a pull then pulling again, and undoing a prune.
+- `integrations.Runner`, with a fake integration: secrets shown only as set, a blank secret kept, a
+  removed row's secret deleted, bad input rejected, the same event on two sources landing once, a
+  failed source removing nothing, and skip, undo, and bring back.
+- `httpapi`: the fields listed, a pull end to end, a failed feed in the result, skip and bring back
+  with a key that needs escaping, `409` when off, and `DELETE /data` wiping calendar URLs.
+- TUI: a golden file for the calendar step with the recurring `x` prompt, a whole morning that
+  always-skips a series, and just today, esc, tab, a failed pull, and `r`.
 
-**Vitest, for logic modules only:** grouping pull results by source, and building the `PUT` body
-from field values (blank secrets left out, row IDs kept).
+**Vitest, for logic modules only:** the form starting secrets blank, a new row with no ID, when an
+integration is on, and removing an event from a pull result.
 
-**Playwright:** the e2e build serves a fixture feed. One flow sets up a calendar in settings, pulls
+**Playwright:** the test serves a fixture feed from Node, dated today. One flow sets up a calendar in settings, pulls
 from the morning, and always-skips a recurring event, then pulls again and the event stays gone.
