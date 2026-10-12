@@ -81,17 +81,18 @@ func serve(addr, dbPath string) error {
 
 func newServer(a *app.App, addr string) *http.Server {
 	handler := httpapi.New(httpapi.Deps{
-		Service:   a.Service,
-		Hub:       a.Hub,
-		DB:        a.DB,
-		Loc:       a.Loc,
-		Now:       a.Now,
-		OnCapture: a.Cleanup.Enqueue,
-		Clean:     a.Cleanup.Clean,
-		NewClient: newClient,
-		Planner:   a.Planner,
-		Agent:     a.Agent,
-		Static:    web.Handler(),
+		Service:      a.Service,
+		Hub:          a.Hub,
+		DB:           a.DB,
+		Loc:          a.Loc,
+		Now:          a.Now,
+		OnCapture:    a.Cleanup.Enqueue,
+		Clean:        a.Cleanup.Clean,
+		NewClient:    newClient,
+		Planner:      a.Planner,
+		Agent:        a.Agent,
+		Integrations: a.Integrations,
+		Static:       web.Handler(),
 	})
 	// No WriteTimeout: it would cut off the long-lived SSE stream.
 	return &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}

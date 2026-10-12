@@ -12,6 +12,8 @@ import (
 
 	"github.com/jameynakama/whatnow/internal/agent"
 	"github.com/jameynakama/whatnow/internal/cleanup"
+	"github.com/jameynakama/whatnow/internal/integrations"
+	"github.com/jameynakama/whatnow/internal/integrations/gcal"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
@@ -41,6 +43,8 @@ type App struct {
 	Agent   *agent.Agent
 	Now     func() time.Time
 	Loc     *time.Location
+	// Integrations pull outside work in, such as calendar events, when the user asks.
+	Integrations *integrations.Runner
 
 	stop    context.CancelFunc
 	running sync.WaitGroup
@@ -85,6 +89,9 @@ func Open(o Options) (*App, error) {
 		Agent:   agent.New(svc, hub, plans, o.Loc, o.Now),
 		Now:     o.Now,
 		Loc:     o.Loc,
+		Integrations: integrations.NewRunner(db, svc, hub, o.Loc, o.Now,
+			gcal.New(nil),
+		),
 	}
 
 	ctx, stop := context.WithCancel(context.Background())

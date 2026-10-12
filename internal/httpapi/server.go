@@ -17,6 +17,7 @@ import (
 
 	"github.com/jameynakama/whatnow/internal/agent"
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
@@ -42,7 +43,8 @@ type Deps struct {
 	Planner   *planner.Planner
 	Agent     *agent.Agent
 	// Static serves the web client for every GET outside the API.
-	Static http.Handler
+	Static       http.Handler
+	Integrations *integrations.Runner
 }
 
 type Server struct {
@@ -88,6 +90,12 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("PUT /api/v1/settings/keys/{provider}", s.putKey)
 	mux.HandleFunc("DELETE /api/v1/settings/keys/{provider}", s.deleteKey)
 	mux.HandleFunc("POST /api/v1/settings/test", s.testConnection)
+	mux.HandleFunc("GET /api/v1/integrations", s.listIntegrations)
+	mux.HandleFunc("PUT /api/v1/integrations/{id}", s.saveIntegration)
+	mux.HandleFunc("PUT /api/v1/integrations/{id}/enabled", s.enableIntegration)
+	mux.HandleFunc("POST /api/v1/integrations/{id}/pull", s.pullIntegration)
+	mux.HandleFunc("POST /api/v1/integrations/{id}/skipped", s.skipIntegration)
+	mux.HandleFunc("DELETE /api/v1/integrations/{id}/skipped/{key}", s.unskipIntegration)
 	mux.HandleFunc("DELETE /api/v1/data", s.deleteData)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
 	mux.Handle("GET /", d.Static)

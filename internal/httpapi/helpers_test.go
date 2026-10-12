@@ -15,6 +15,8 @@ import (
 	"github.com/jameynakama/whatnow/internal/cleanup"
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/httpapi"
+	"github.com/jameynakama/whatnow/internal/integrations"
+	"github.com/jameynakama/whatnow/internal/integrations/gcal"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
 	"github.com/jameynakama/whatnow/internal/service"
@@ -36,6 +38,9 @@ type testAPI struct {
 	model llm.Client
 	// models are the ones the connection test checks.
 	models settings.ProviderConfig
+	// feed is the calendar served at feedURL, for the Google Calendar integration.
+	feed    string
+	feedURL string
 }
 
 func newAPI(t *testing.T) *testAPI {
@@ -56,6 +61,9 @@ func newAPI(t *testing.T) *testAPI {
 	}
 	plans := planner.New(svc, api.hub, active, testLoc, now)
 	runner := cleanup.New(svc, api.hub, active, testLoc, now)
+	feeds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, api.feed) }))
+	t.Cleanup(feeds.Close)
+	api.feedURL = feeds.URL + "/private-token/basic.ics"
 	api.handler = httpapi.New(httpapi.Deps{
 		Service:   svc,
 		Hub:       api.hub,
@@ -73,6 +81,9 @@ func newAPI(t *testing.T) *testAPI {
 		Planner: plans,
 		Agent:   agent.New(svc, api.hub, plans, testLoc, now),
 		Static:  http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, "static") }),
+		Integrations: integrations.NewRunner(db, svc, api.hub, testLoc, now,
+			gcal.New(nil),
+		),
 	})
 	return api
 }

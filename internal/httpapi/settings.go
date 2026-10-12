@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
@@ -111,10 +112,16 @@ func (s *Server) testConnection(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ConnectionResult{OK: true})
 }
 
-// deleteData wipes every row and both saved keys, then tells every open tab to start over.
-// Environment keys can't be removed and are found again on the next setup. An unreachable
-// keychain is logged rather than failed, as in settings.Key: the rows are already gone.
+// deleteData wipes every row, both saved keys, and the integrations' secrets, then tells every
+// open tab to start over. Environment keys can't be removed and are found again on the next setup.
+// An unreachable keychain is logged rather than failed, as in settings.Key: the rows are already
+// gone. The secrets are listed first, since the rows say which there are.
 func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
+	secrets, err := s.Integrations.Secrets(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
 	if err := store.Wipe(r.Context(), s.DB); err != nil {
 		writeError(w, err)
 		return
@@ -123,6 +130,9 @@ func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
 		if err := settings.DeleteKey(p); err != nil {
 			log.Printf("delete %s key: %v", p, err)
 		}
+	}
+	if err := integrations.DeleteSecrets(secrets); err != nil {
+		log.Printf("delete integration secrets: %v", err)
 	}
 	s.Hub.Publish(stream.Message{Type: "data.reset"})
 	w.WriteHeader(http.StatusNoContent)
