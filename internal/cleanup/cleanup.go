@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -173,28 +174,53 @@ func (r *Runner) apply(ctx context.Context, task domain.Task, res result) (int64
 	return batch, nil
 }
 
+// write applies the reply. A task whose ticket key an open task already has joins that task
+// instead of being made again, and the note is deleted when it's the one that joined.
 func (r *Runner) write(ctx context.Context, batch int64, task domain.Task, res result) error {
 	if !res.Original.Keep && len(res.Events) == 0 {
 		return errors.New("reply would delete the note without turning it into events")
 	}
+	tickets, err := r.openTickets(ctx, task.ID)
+	if err != nil {
+		return err
+	}
 	ids := map[string]int64{}
+	joined := false
 	if res.Original.Keep {
-		if _, err := r.svc.UpdateTask(ctx, batch, task.ID, res.Original.fields()); err != nil {
+		id, err := r.join(ctx, batch, tickets, res.Original.taskOut)
+		if err != nil {
 			return err
 		}
-		ids["original"] = task.ID
+		if id != 0 {
+			joined = true
+		} else {
+			if _, err := r.svc.UpdateTask(ctx, batch, task.ID, res.Original.fields()); err != nil {
+				return err
+			}
+			id = task.ID
+			tickets.add(res.Original.Refs, id)
+		}
+		ids["original"] = id
 	}
 	for _, n := range res.NewTasks {
 		if n.Ref == "original" || strings.HasPrefix(n.Ref, "#") || ids[n.Ref] != 0 {
 			return fmt.Errorf("new task ref %q is reserved or used twice", n.Ref)
 		}
-		f := n.fields()
-		f.RawText = task.RawText
-		created, err := r.svc.CreateTask(ctx, batch, f)
+		id, err := r.join(ctx, batch, tickets, n.taskOut)
 		if err != nil {
 			return err
 		}
-		ids[n.Ref] = created.ID
+		if id == 0 {
+			f := n.fields()
+			f.RawText = task.RawText
+			created, err := r.svc.CreateTask(ctx, batch, f)
+			if err != nil {
+				return err
+			}
+			id = created.ID
+			tickets.add(n.Refs, id)
+		}
+		ids[n.Ref] = id
 	}
 	for _, e := range res.Events {
 		f, err := e.fields(r.loc)
@@ -215,12 +241,65 @@ func (r *Runner) write(ctx context.Context, batch int64, task domain.Task, res r
 		if err != nil {
 			return err
 		}
+		if waiting == first {
+			// Both sides joined the same existing task.
+			continue
+		}
 		if err := r.svc.AddBlocker(ctx, batch, domain.Blocker{TaskID: waiting, BlockedByID: first}); err != nil {
 			return err
 		}
 	}
-	if !res.Original.Keep {
+	if !res.Original.Keep || joined {
 		return r.svc.DeleteTask(ctx, batch, task.ID)
 	}
 	return nil
+}
+
+// ticketKey matches a ticket key such as FLEX1-666. Only these join tasks: a ref like "pubsub doc"
+// is too loose to say two tasks are the same.
+var ticketKey = regexp.MustCompile(`^[A-Z][A-Z0-9_]+-[0-9]+$`)
+
+// tickets maps each open task's ticket keys, upper-cased, to its ID.
+type tickets map[string]int64
+
+func (tk tickets) add(refs []domain.Ref, id int64) {
+	for _, ref := range refs {
+		if key := strings.ToUpper(strings.TrimSpace(ref.Label)); ticketKey.MatchString(key) {
+			tk[key] = id
+		}
+	}
+}
+
+// openTickets maps the ticket keys of every open task but the note being cleaned. A done task
+// doesn't count: a note about its ticket means the work came back.
+func (r *Runner) openTickets(ctx context.Context, noteID int64) (tickets, error) {
+	tasks, err := r.svc.ListTasks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tk := tickets{}
+	for _, t := range tasks {
+		if t.ID != noteID && t.Status == domain.StatusOpen {
+			tk.add(t.Refs, t.ID)
+		}
+	}
+	return tk, nil
+}
+
+// join finds the open task that already has one of out's ticket keys, and adds out's feeling to
+// it. It returns that task's ID, or 0 when out is new.
+func (r *Runner) join(ctx context.Context, batch int64, tk tickets, out taskOut) (int64, error) {
+	for _, ref := range out.Refs {
+		id, ok := tk[strings.ToUpper(strings.TrimSpace(ref.Label))]
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(out.Feeling) != "" {
+			if _, err := r.svc.AppendFeeling(ctx, batch, id, out.Feeling); err != nil {
+				return id, err
+			}
+		}
+		return id, nil
+	}
+	return 0, nil
 }

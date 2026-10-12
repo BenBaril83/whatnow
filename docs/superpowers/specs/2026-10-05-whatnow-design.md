@@ -138,6 +138,10 @@ Style can change how the assistant sounds. It cannot change what the assistant d
    blockers, refs, size, energy, and feeling, and it splits one input into several items when it
    should. For example, "do FLEX1-666 today, it feels difficult and needs pubsub research first;
    also review FLEX1-420" becomes three tasks, with the pubsub research blocking FLEX1-666.
+   A task whose ticket key (such as `FLEX1-666`) an open task already has joins that task instead
+   of being made again: its feeling is added there, blockers point there, and a note that joined
+   is deleted. Only ticket keys join; a looser match would need the model's judgment, and a wrong
+   guess would quietly swallow a note. A done task doesn't count, since its work came back.
 3. The result is applied as one batch. SSE sends `batch.applied`, and the UI shows a "here's what I
    did [undo]" toast.
 4. If there's no key, or the provider fails, the raw card stays as it is and remains fully usable.

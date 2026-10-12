@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/jameynakama/whatnow/internal/cleanup"
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/llm"
@@ -389,5 +391,127 @@ func TestRefusesToDeleteANoteThatHasNoEvents(t *testing.T) {
 	}
 	if tasks, _ := f.svc.ListTasks(context.Background()); len(tasks) != 1 {
 		t.Errorf("the note vanished: %+v", tasks)
+	}
+}
+
+// ticketTask makes a task with one ref, as a Jira pick or an earlier note would have.
+func (f *fixture) ticketTask(t *testing.T, title, ref string, status domain.Status) domain.Task {
+	t.Helper()
+	ctx := context.Background()
+	batch, err := f.svc.NewBatch(ctx, domain.ActorUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := f.svc.CreateTask(ctx, batch, service.TaskFields{Title: title, Refs: []domain.Ref{{Label: ref}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != domain.StatusOpen {
+		if task, err = f.svc.SetTaskStatus(ctx, batch, task.ID, status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return task
+}
+
+func titles(t *testing.T, svc *service.Service) []string {
+	t.Helper()
+	tasks, err := svc.ListTasks(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, task := range tasks {
+		out = append(out, task.Title)
+	}
+	return out
+}
+
+func TestANoteAboutAnOpenTicketJoinsItsTask(t *testing.T) {
+	f := newFixture(t, reply(t, flexReply))
+	ctx := context.Background()
+	picked := f.ticketTask(t, "FLEX1-666 Subscribe to PubSub", "flex1-666", domain.StatusOpen)
+	captured := f.capture(t, flexNote)
+
+	batch, err := f.runner.Clean(ctx, captured)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{"FLEX1-666 Subscribe to PubSub", "Research pubsub", "Review FLEX1-420"}
+	if diff := cmp.Diff(want, titles(t, f.svc)); diff != "" {
+		t.Errorf("tasks (-want +got):\n%s", diff)
+	}
+	got, err := f.svc.GetTask(ctx, picked.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Feeling != "feels difficult" {
+		t.Errorf("feeling = %q", got.Feeling)
+	}
+	tasks, _ := f.svc.ListTasks(ctx)
+	blockers, _ := f.svc.ListBlockers(ctx)
+	if len(blockers) != 1 || blockers[0] != (domain.Blocker{TaskID: picked.ID, BlockedByID: tasks[1].ID}) {
+		t.Errorf("blockers = %+v", blockers)
+	}
+
+	if err := f.svc.Undo(ctx, batch); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]string{picked.Title, captured.Title}, titles(t, f.svc)); diff != "" {
+		t.Errorf("after undo (-want +got):\n%s", diff)
+	}
+	if got, _ := f.svc.GetTask(ctx, picked.ID); got.Feeling != "" {
+		t.Errorf("after undo, feeling = %q", got.Feeling)
+	}
+}
+
+func TestASplitOutTicketJoinsItsTask(t *testing.T) {
+	f := newFixture(t, reply(t, map[string]any{
+		"original": flexReply["original"],
+		"new_tasks": []any{
+			task(map[string]any{"ref": "n1", "title": "Review FLEX1-420", "feeling": "dreading it", "refs": []any{map[string]any{"label": "FLEX1-420", "url": ""}}}),
+		},
+		"events":   []any{},
+		"blockers": []any{},
+	}))
+	review := f.ticketTask(t, "FLEX1-420 Review", "FLEX1-420", domain.StatusOpen)
+	captured := f.capture(t, flexNote)
+
+	if _, err := f.runner.Clean(context.Background(), captured); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]string{"FLEX1-420 Review", "Do FLEX1-666"}, titles(t, f.svc)); diff != "" {
+		t.Errorf("tasks (-want +got):\n%s", diff)
+	}
+	if got, _ := f.svc.GetTask(context.Background(), review.ID); got.Feeling != "dreading it" {
+		t.Errorf("feeling = %q", got.Feeling)
+	}
+}
+
+func TestOnlyAnOpenTaskWithTheSameTicketKeyJoins(t *testing.T) {
+	for name, existing := range map[string]struct {
+		ref    string
+		status domain.Status
+	}{
+		"done ticket": {"FLEX1-666", domain.StatusDone},
+		"not a key":   {"pubsub doc", domain.StatusOpen},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t, reply(t, map[string]any{
+				"original":  task(map[string]any{"keep": true, "title": "Note", "refs": []any{map[string]any{"label": existing.ref, "url": ""}}}),
+				"new_tasks": []any{},
+				"events":    []any{},
+				"blockers":  []any{},
+			}))
+			f.ticketTask(t, "Earlier", existing.ref, existing.status)
+			captured := f.capture(t, "a note")
+			if _, err := f.runner.Clean(context.Background(), captured); err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff([]string{"Earlier", "Note"}, titles(t, f.svc)); diff != "" {
+				t.Errorf("tasks (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
