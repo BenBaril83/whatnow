@@ -23,6 +23,12 @@ describe('Toasts', () => {
 		expect(t.items).toMatchObject([{ text: 'Done', batch: 9 }]);
 	});
 
+	it('Should offer no undo for a write that changed nothing undoable', async () => {
+		const t = new Toasts();
+		expect(await t.track('Skipping FLEX1-2 from now on', async () => ({ batch_id: 0 }))).toBe(true);
+		expect(t.items[0].batch).toBeUndefined();
+	});
+
 	it('Should show the error, with no undo, for a write that failed', async () => {
 		const t = new Toasts();
 		const worked = await t.track('Done', async () => {

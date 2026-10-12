@@ -105,3 +105,12 @@ func TestPullGivesUpOnASlowJira(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestPullSaysWhenTheAddressIsntAURL(t *testing.T) {
+	for _, addr := range []string{"intranet.example.com/jira", "https://"} {
+		src := pull(t, cfg(addr))
+		if src.Err == nil || src.Err.Error() != "that address isn't a URL, such as https://jira.example.com" {
+			t.Errorf("%s: err = %v", addr, src.Err)
+		}
+	}
+}

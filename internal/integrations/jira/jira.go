@@ -71,8 +71,8 @@ func (j *Jira) search(ctx context.Context, cfg integrations.Config) ([]integrati
 	base := strings.TrimRight(cfg.Values["url"], "/")
 	q := url.Values{"jql": {cfg.Values["jql"]}, "fields": {"summary,description,assignee"}, "maxResults": {fmt.Sprint(maxResults)}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/rest/api/2/search?"+q.Encode(), nil)
-	if err != nil {
-		return nil, 0, errors.New("that address isn't a URL")
+	if err != nil || req.URL.Scheme == "" || req.URL.Host == "" {
+		return nil, 0, errors.New("that address isn't a URL, such as https://jira.example.com")
 	}
 	req.Header.Set("Authorization", "Bearer "+cfg.Values["token"])
 	req.Header.Set("Accept", "application/json")

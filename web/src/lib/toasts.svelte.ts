@@ -61,7 +61,7 @@ export class Toasts {
 		this.#run(id, timer.left);
 	}
 
-	show(text: string, batch: number): void {
+	show(text: string, batch?: number): void {
 		this.#add({ text, batch });
 	}
 
@@ -90,10 +90,13 @@ export class Toasts {
 		this.items = this.items.filter((t) => t.id !== id);
 	}
 
-	/** Runs a write and offers its undo, or shows why it failed. Returns whether it worked. */
+	/**
+	 * Runs a write and offers its undo, or shows why it failed. Returns whether it worked. A write
+	 * with batch 0, such as a skip, changed nothing undo can revert, so it gets no Undo.
+	 */
 	async track(text: string, write: () => Promise<Mutation>): Promise<boolean> {
 		try {
-			this.show(text, (await write()).batch_id);
+			this.show(text, (await write()).batch_id || undefined);
 			return true;
 		} catch (err) {
 			this.error(err);
