@@ -9,9 +9,11 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/charmbracelet/x/exp/teatest v0.0.0-20261004011457-ad85c59fdf4e
+	github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608
 	github.com/google/go-cmp v0.7.0
 	github.com/muesli/termenv v0.16.0
 	github.com/openai/openai-go/v3 v3.71.2
+	github.com/teambition/rrule-go v1.8.2
 	github.com/zalando/go-keyring v0.2.8
 	modernc.org/sqlite v1.60.1
 )
