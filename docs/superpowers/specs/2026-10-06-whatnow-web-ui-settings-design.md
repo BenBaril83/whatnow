@@ -105,10 +105,13 @@ Today.
      continuing on a broken connection.
 4. **About you** (optional): style and about me, with the same counters and explanations as
    Settings. **Skip** or **Next**, which saves them.
-5. **Nudges:** one line on each of the three kinds, then **Turn on nudges**, which asks for
+5. **Integrations** (optional): the same cards as Settings → Integrations, each saving with its own
+   toggle and **Save**, and a line saying to save each one set up. **Skip** or **Next** just move
+   on. It comes before Nudges, whose **Next** is the one that saves `onboarded`.
+6. **Nudges:** one line on each of the three kinds, then **Turn on nudges**, which asks for
    permission, or **Not now**. The toggles stay on either way, so without permission nudges show
-   in the page.
-6. **Ready:** saves `onboarded` and shows **Start my day**, which opens `/morning`.
+   in the page. **Next** saves `onboarded`.
+7. **Ready:** shows **Start my day**, which opens `/morning`.
 
 Each step saves as it goes, so leaving partway keeps what was entered. A reload after step 2 has
 saved a provider lands on Today rather than back in onboarding; Settings has the rest. This avoids

@@ -12,6 +12,10 @@ test('onboarding walks a fresh install through to the morning', async ({ page })
 	await expect(page.getByText('Connected.')).toBeVisible();
 	await next.click();
 	await page.getByRole('button', { name: 'Skip' }).click();
+	await expect(page.getByRole('heading', { name: 'Bring in your work' })).toBeVisible();
+	await expect(page.getByRole('button', { name: /Google Calendar/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /Jira/ })).toBeVisible();
+	await page.getByRole('button', { name: 'Skip' }).click();
 	await next.click();
 	await expect(page.getByRole('heading', { name: "You're set" })).toBeVisible();
 	await page.getByRole('button', { name: 'Start my day' }).click();

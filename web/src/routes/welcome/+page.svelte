@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { api, type ConnectionResult, type Provider, type SettingsView } from '#lib/api.ts';
+	import { api, type ConnectionResult, type Integration, type Provider, type SettingsView } from '#lib/api.ts';
 	import AboutYou from '#lib/components/AboutYou.svelte';
 	import Dots from '#lib/components/Dots.svelte';
+	import IntegrationCard from '#lib/components/IntegrationCard.svelte';
 	import NotifyPermission from '#lib/components/NotifyPermission.svelte';
 	import { live } from '#lib/live.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
-	const steps = ['provider', 'key', 'test', 'you', 'nudges', 'ready'] as const;
+	const steps = ['provider', 'key', 'test', 'you', 'integrations', 'nudges', 'ready'] as const;
 	let at = $state(0);
 	const step = $derived(steps[at]);
 
@@ -18,6 +19,7 @@
 	let ownKey = $state(false);
 	let busy = $state(false);
 	let result = $state<ConnectionResult | null>(null);
+	let integrations = $state<Integration[]>([]);
 
 	onMount(() => {
 		api.settings().then(
@@ -25,6 +27,10 @@
 				v.settings.provider ||= 'anthropic';
 				view = v;
 			},
+			(err) => toasts.error(err)
+		);
+		api.integrations().then(
+			(l) => (integrations = l),
 			(err) => toasts.error(err)
 		);
 	});
@@ -174,6 +180,16 @@
 				<h1>About you</h1>
 				<p>Optional. Both can change later in Settings.</p>
 				<AboutYou bind:style={view.settings.style} bind:aboutMe={view.settings.about_me} />
+			{:else if step === 'integrations'}
+				<h1>Bring in your work</h1>
+				<p>
+					Optional. Pull today's meetings and your tickets into the morning. Both can change later in
+					Settings → Integrations.
+				</p>
+				{#each integrations as integration, i (integration.id)}
+					<IntegrationCard bind:integration={integrations[i]} />
+				{/each}
+				<p class="muted">Save each one you set up.</p>
 			{:else if step === 'nudges'}
 				<h1>Nudges</h1>
 				<ul>
@@ -208,6 +224,9 @@
 			{:else if step === 'you'}
 				<button class="btn" onclick={() => at++}>Skip</button>
 				<button class="btn primary" disabled={busy} onclick={saveYou}>Next</button>
+			{:else if step === 'integrations'}
+				<button class="btn" onclick={() => at++}>Skip</button>
+				<button class="btn primary" onclick={() => at++}>Next</button>
 			{:else if step === 'nudges'}
 				<button class="btn primary" onclick={finish}>Next</button>
 			{:else}
