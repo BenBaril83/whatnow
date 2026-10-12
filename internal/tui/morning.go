@@ -27,6 +27,7 @@ const (
 	stepReconcile
 	stepDump
 	stepCalendar
+	stepJira
 	stepPace
 	stepMaking
 	stepReveal
@@ -48,6 +49,7 @@ type morning struct {
 	pace     domain.Pace
 	rowsKept []triageRow // the choices to keep when the review is fetched again after a conflict
 	calendar calendar
+	tickets  tickets
 }
 
 // triageRow is one unfinished task from the last day and what happens to it.
@@ -266,6 +268,8 @@ func (m Model) onMorningKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case stepCalendar:
 		return m.onCalendarKey(k)
+	case stepJira:
+		return m.onJiraKey(k)
 	case stepPace:
 		switch k.String() {
 		case "left":
@@ -322,6 +326,10 @@ func (m Model) morningView() string {
 		var more []string
 		// Everything else in the card, as for reconcile: the toast, the hint, and the frame.
 		more, hint = m.calendarLines(inner, m.height-len(lines)-7)
+		lines = append(lines, more...)
+	case stepJira:
+		var more []string
+		more, hint = m.jiraLines(inner, m.height-len(lines)-7)
 		lines = append(lines, more...)
 	case stepPace:
 		if mo.notice != "" {

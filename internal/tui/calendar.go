@@ -12,7 +12,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/integrations"
 )
 
-// calendar is the morning's step that pulls today's events from the integrations that are on.
+// calendar is the morning's step that pulls today's events from the event integrations that are on.
 type calendar struct {
 	on      []integrations.View
 	pulling bool
@@ -106,7 +106,14 @@ func (m Model) onCalendarMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	c := &m.morning.calendar
 	switch msg := msg.(type) {
 	case integrationsMsg:
-		c.on = msg.on
+		c.on, m.morning.tickets.on = nil, nil
+		for _, v := range msg.on {
+			if v.Pulls == integrations.PullsTickets {
+				m.morning.tickets.on = append(m.morning.tickets.on, v)
+			} else {
+				c.on = append(c.on, v)
+			}
+		}
 	case pulledMsg:
 		c.pulling, c.pulled, c.at, c.asking = false, msg.pulled, 0, false
 	case pullFailedMsg:
@@ -125,10 +132,10 @@ func (m Model) onCalendarMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// afterDump goes to the calendar step when an integration can pull, or straight to pace.
+// afterDump goes to the calendar step when an event integration can pull, or on past it.
 func (m Model) afterDump() (tea.Model, tea.Cmd) {
 	if len(m.morning.calendar.on) == 0 {
-		return m.toPace()
+		return m.afterCalendar()
 	}
 	m.morning.dump.Blur()
 	m.morning.step = stepCalendar
@@ -146,7 +153,7 @@ func (m Model) onCalendarKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			c.pulling = true
 			return m, tea.Batch(m.pullAll(), m.spin.Tick)
 		case "tab":
-			return m.toPace()
+			return m.afterCalendar()
 		}
 		return m, nil
 	}
@@ -179,8 +186,18 @@ func (m Model) onCalendarKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		c.pulling = true
 		return m, tea.Batch(m.pullAll(), m.spin.Tick)
 	case "enter", "tab":
+		return m.afterCalendar()
+	}
+	return m, nil
+}
+
+// afterCalendar goes to the Jira step when a ticket integration can pull, or on to pace.
+func (m Model) afterCalendar() (tea.Model, tea.Cmd) {
+	if len(m.morning.tickets.on) == 0 {
 		return m.toPace()
 	}
+	m.morning.dump.Blur()
+	m.morning.step = stepJira
 	return m, nil
 }
 

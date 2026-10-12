@@ -12,7 +12,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/go-cmp/cmp"
-	"github.com/zalando/go-keyring"
 
 	"github.com/jameynakama/whatnow/internal/integrations"
 )
@@ -27,7 +26,6 @@ const calendarFeed = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n" +
 // one that's gone, and turns it on.
 func (f *fixture) calendars(t *testing.T) {
 	t.Helper()
-	keyring.MockInit()
 	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "gone") {
 			http.NotFound(w, r)

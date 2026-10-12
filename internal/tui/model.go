@@ -176,6 +176,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onMorningMsg(msg)
 	case integrationsMsg, pulledMsg, pullFailedMsg, removedMsg:
 		return m.onCalendarMsg(msg)
+	case ticketsPulledMsg, ticketsFailedMsg, ticketSkippedMsg, ticketsAddedMsg:
+		return m.onJiraMsg(msg)
 	case cheerTickMsg:
 		return m.onCheerTick(msg)
 	case spinner.TickMsg:

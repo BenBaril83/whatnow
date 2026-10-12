@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalando/go-keyring"
+
 	"github.com/jameynakama/whatnow/internal/app"
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/llm"
@@ -34,6 +36,8 @@ func newFixture(t *testing.T) *fixture {
 // newFixtureWith is newFixture with its own model client.
 func newFixtureWith(t *testing.T, newClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)) *fixture {
 	t.Helper()
+	// Integration secrets live in the keychain, which a test never touches.
+	keyring.MockInit()
 	c := &clock{t: time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)}
 	a, err := app.Open(app.Options{
 		DBPath:    filepath.Join(t.TempDir(), "test.db"),
