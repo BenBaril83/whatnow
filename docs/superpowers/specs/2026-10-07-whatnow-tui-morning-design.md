@@ -2,7 +2,8 @@
 
 The TUI starts the day itself, instead of sending the user to the browser. It's the same ritual as
 the web's `/morning` (`2026-10-06-whatnow-web-ui-rituals-design.md`): reconcile, brain dump, pace and
-mood, plan reveal. It shows one step at a time, in the TUI's sticker cards. Wrap-up stays in the
+mood, plan reveal. When an integration is on, a calendar step sits between the dump and pace
+(`2026-10-12-whatnow-integrations-design.md`). It shows one step at a time, in the TUI's sticker cards. Wrap-up stays in the
 browser for now.
 
 ## Starting the day

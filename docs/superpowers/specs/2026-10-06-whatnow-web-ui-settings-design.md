@@ -31,7 +31,8 @@ fields existed pick up the defaults.
 
 ### The page
 
-`/settings` is one page with four sections and one **Save**:
+`/settings` is the General section of the settings sidebar (Integrations is the other, in
+`2026-10-12-whatnow-integrations-design.md`), with four sections and one **Save**:
 
 - **Connection:** provider, key, main and light models, base URL, and **Test connection**, as
   they are now.
@@ -53,8 +54,8 @@ page refetches the key sources, so the key-status note stays accurate and typed 
 
 A red-bordered **Danger zone** at the bottom of `/settings`.
 
-- One line lists what will be deleted: every task, event, day, plan, chat, and summary, the settings, and the
-  saved keys.
+- One line lists what will be deleted: every task, event, day, plan, chat, and summary, the settings, the
+  saved keys, and the integrations' saved addresses.
 - The **Delete everything** button stays disabled until the field next to it reads
   `delete everything`.
 - `DELETE /api/v1/data`:
