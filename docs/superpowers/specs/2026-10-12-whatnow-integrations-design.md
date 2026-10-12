@@ -95,8 +95,9 @@ which expands recurrences inside `[from, to)`.
 
 - **One field:** `calendars`, a list of `{label: text, url: secret}`, with the help line naming
   where Google keeps the secret address.
-- **Fetching:** a 30-second timeout per calendar. Go's client asks for gzip, which shrinks the feed
-  a lot if Google compresses it.
+- **Fetching:** a 30-second timeout per calendar. Go's client asks for gzip, and Google serves it,
+  so a 20 MB feed is under 2 MB over the wire. Don't set `Accept-Encoding` by hand, or Go stops
+  decompressing.
 - **All-day events** (a `DATE` start) are dropped.
 - **Declined events:** the feed's `X-WR-CALNAME` is the owner's email on a primary calendar, and
   every event with guests lists the owner as an `ATTENDEE` (`mailto:` the same email) with a
