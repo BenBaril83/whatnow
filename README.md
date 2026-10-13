@@ -10,6 +10,8 @@ about them, and plans a day that fits your energy. When you're stuck, ask it *wh
 It runs locally: one Go binary with a web UI and a terminal UI, and your data in SQLite on your
 machine. You bring your own model API key.
 
+![Today: the day strip, tasks in must, should, and could tiers, and the chat pane](docs/screenshots/today.png)
+
 For a feel of a whole day, from the morning brain dump to the wrap-up, read [demo.md](demo.md).
 
 ## What it does
@@ -31,6 +33,19 @@ You can shape it in settings. *Assistant style* sets its voice ("playful and fri
 odd koan"). *About me* tells the planner how you work ("my focus peaks before lunch", "meetings
 drain me"). *Theme* swaps the look: the default sticker style, plain 90s, Neon Nights, Terminal,
 Paper, or Vaporwave.
+
+## A day, in pictures
+
+All of these come from one made-up Thursday run against a live model, with the *About me* above
+set to "focus peaks before lunch, cooked after 3pm, meetings drain me".
+
+| | |
+|---|---|
+| ![The morning brain dump](docs/screenshots/morning-dump.png) **Good morning:** dump it all, messy is fine. | ![The morning plan in three tiers](docs/screenshots/morning-plan.png) **The plan:** the dreaded report goes first, while focus is high. |
+| ![A what-now pick with its reason](docs/screenshots/what-now.png) ***What now?*** 11 minutes before standup, so not the report. | ![Chat breaking the report into tasks](docs/screenshots/chat.png) **Chat:** break the report into steps, then add them as tasks, with undo. |
+| ![Wrap-up triage of the leftovers](docs/screenshots/wrap-triage.png) **Wrap up:** each leftover comes with a suggestion. | ![The goodnight reflection](docs/screenshots/goodnight.png) **Goodnight:** a reflection that reads your note for tomorrow. |
+
+![The six themes side by side](docs/screenshots/themes.png)
 
 ## Install
 
