@@ -49,8 +49,23 @@ set to "focus peaks before lunch, cooked after 3pm, meetings drain me".
 
 ## Install
 
-whatnow builds from source for now. You need Go 1.27+, Node 24, and
-[just](https://github.com/casey/just).
+You'll need an API key for Anthropic, OpenAI, or an OpenAI-compatible provider to run it (see
+[Models](#models)).
+
+On a Mac, download the latest release:
+
+```sh
+curl -fLo whatnow https://github.com/jameynakama/whatnow/releases/latest/download/whatnow-darwin-arm64
+chmod +x whatnow && sudo mv whatnow /usr/local/bin/
+```
+
+On an Intel Mac, swap `arm64` for `amd64`. The binary isn't signed, so downloading it through a
+browser gets it blocked by Gatekeeper. `curl` doesn't, and `xattr -d com.apple.quarantine whatnow`
+undoes a browser download.
+
+### From source
+
+You need [Go](https://go.dev/dl/) 1.27+, Node 24, and [just](https://github.com/casey/just).
 
 ```sh
 git clone https://github.com/jameynakama/whatnow

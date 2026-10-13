@@ -26,6 +26,17 @@ build: web
 install: web
     go install ./cmd/whatnow
 
+# Builds stripped Mac binaries and publishes them as a GitHub release: `just release v0.1.0`.
+# The tag lands on main as GitHub has it, so push first.
+release version: web
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf dist && mkdir dist
+    for arch in arm64 amd64; do
+        GOOS=darwin GOARCH=$arch go build -trimpath -ldflags="-s -w" -o dist/whatnow-darwin-$arch ./cmd/whatnow
+    done
+    gh release create {{version}} dist/whatnow-darwin-* --title {{version}} --generate-notes
+
 # Positional arguments keep quoted paths with spaces intact.
 [positional-arguments]
 serve *args:

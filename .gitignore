@@ -6,3 +6,4 @@ internal/web/dist/*
 /whatnow-e2e
 /.demo/
 tui.log
+/dist/
