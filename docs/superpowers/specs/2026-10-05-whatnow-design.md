@@ -40,8 +40,9 @@ it into tasks and events.
 
 A single Go binary: `whatnow serve`, plus bare `whatnow` (the terminal companion, which serves too), with a SvelteKit frontend built by `adapter-static` and
 embedded with `go:embed`. SQLite through `modernc.org/sqlite`, which is pure Go with no cgo. In
-development, the Vite dev server proxies `/api` to Go. Distribution is a Homebrew tap built with
-goreleaser.
+development, the Vite dev server proxies `/api` to Go. Distribution is unsigned Mac binaries on
+GitHub releases, built and uploaded by `just release`. Binaries are never committed: each build
+would stay in git history and every clone would download it.
 
 ## LLM providers
 
