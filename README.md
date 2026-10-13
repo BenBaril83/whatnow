@@ -23,10 +23,14 @@ For a feel of a whole day, from the morning brain dump to the wrap-up, read [dem
   follows.
 - **Nudges:** before events, when they end, and as the day winds down, in the web UI.
 - **Wrap up:** see what you got done, triage what's left, and leave a note for tomorrow.
+- **Integrations:** pull today's meetings from Google Calendar (by each calendar's secret iCal
+  address, no OAuth) and pick Jira tickets to add as tasks (by your own JQL search). Pulls happen
+  only when you ask, from the morning brain dump or from settings.
 
 You can shape it in settings. *Assistant style* sets its voice ("playful and friendly, with the
 odd koan"). *About me* tells the planner how you work ("my focus peaks before lunch", "meetings
-drain me").
+drain me"). *Theme* swaps the look: the default sticker style, plain 90s, Neon Nights, Terminal,
+Paper, or Vaporwave.
 
 ## Install
 
@@ -60,7 +64,18 @@ Both take `-addr` (default `127.0.0.1:7777`) and `-db` (default
 `~/Library/Application Support/whatnow/whatnow.db`).
 
 Open the web UI once to set up a model. After that, use either UI, or both at once, since they
-stay in sync. Wrap-up is in the web UI for now. In the terminal, press `?` for the keys.
+stay in sync. In the terminal, press `?` for the keys.
+
+### The terminal UI
+
+The TUI is a companion meant to sit in a spare pane all day, not a full replacement. It does the
+morning ritual (including calendar and Jira pulls), today's list, *what now?*, pace, undo, quick
+add, and chat. These are web-only:
+
+- first-run setup and all settings, including integrations and themes
+- the wrap-up ritual (the TUI shows the day's-done card once you've wrapped)
+- nudges
+- editing a task's details, and the all-tasks list
 
 ## Development
 
