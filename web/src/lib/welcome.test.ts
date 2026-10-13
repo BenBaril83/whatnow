@@ -11,6 +11,7 @@ const fresh: Settings = {
 	end_of_day: '17:30',
 	nudges: { before_event: true, event_end: true, late_day: true },
 	alert_lead_minutes: 10,
+	theme: '',
 	onboarded: false
 };
 

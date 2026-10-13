@@ -4,6 +4,7 @@
 	import AboutYou from '#lib/components/AboutYou.svelte';
 	import DangerZone from '#lib/components/DangerZone.svelte';
 	import NotifyPermission from '#lib/components/NotifyPermission.svelte';
+	import ThemePicker from '#lib/components/ThemePicker.svelte';
 	import { live } from '#lib/live.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
@@ -142,6 +143,7 @@
 				<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
 			</div>
 		</form>
+		<ThemePicker bind:theme={view.settings.theme} />
 		<DangerZone />
 	{:else}
 		<p class="muted">Loading…</p>

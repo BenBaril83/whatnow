@@ -83,6 +83,7 @@ func TestValidate(t *testing.T) {
 		"end of day not HH:MM":          func(s *settings.Settings) { s.EndOfDay = "5pm" },
 		"no alert lead time":            func(s *settings.Settings) { s.AlertLeadMinutes = 0 },
 		"alert lead over an hour":       func(s *settings.Settings) { s.AlertLeadMinutes = 61 },
+		"unknown theme":                 func(s *settings.Settings) { s.Theme = "geocities" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -98,6 +99,7 @@ func TestValidate(t *testing.T) {
 	atLimit.Style = strings.Repeat("é", 500) // 1000 bytes, 500 characters
 	atLimit.OpenAI.BaseURL = "http://localhost:11434/v1"
 	atLimit.AlertLeadMinutes = 60
+	atLimit.Theme = settings.ThemeVaporwave
 	if err := atLimit.Validate(); err != nil {
 		t.Errorf("settings at the limits rejected: %v", err)
 	}

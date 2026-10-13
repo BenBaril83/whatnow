@@ -41,3 +41,26 @@ test('settings survive a reload, and delete everything starts over', async ({ pa
 	await page.getByRole('button', { name: 'Delete everything' }).click();
 	await expect(page).toHaveURL(/\/welcome$/);
 });
+
+test('a picked theme applies at once and survives a reload and a later save', async ({ page, request }) => {
+	await setUp(request);
+	await page.goto('/settings');
+	const html = page.locator('html');
+
+	await Promise.all([
+		page.waitForResponse((r) => r.url().endsWith('/api/v1/settings') && r.request().method() === 'PUT'),
+		page.getByLabel('Dream of the 90s (plain)').check()
+	]);
+	await expect(html).toHaveAttribute('data-theme', 'plain');
+
+	await page.getByLabel('Event alerts, minutes before').fill('25');
+	await Promise.all([
+		page.waitForResponse((r) => r.url().endsWith('/api/v1/settings') && r.request().method() === 'PUT'),
+		page.getByRole('button', { name: 'Save' }).click()
+	]);
+	await page.reload();
+	await expect(html).toHaveAttribute('data-theme', 'plain');
+
+	await page.getByLabel('Sticker').check();
+	await expect(html).not.toHaveAttribute('data-theme');
+});

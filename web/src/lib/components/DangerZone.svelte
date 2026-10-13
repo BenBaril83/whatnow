@@ -36,7 +36,7 @@
 <style>
 	.danger {
 		border-color: var(--danger);
-		box-shadow: 3px 3px 0 var(--danger);
+		box-shadow: var(--shadow-danger);
 		padding: 20px;
 		display: flex;
 		flex-direction: column;

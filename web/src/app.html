@@ -4,6 +4,13 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<script>
+			// The saved theme, set before the first paint. lib/theme.ts keeps this copy in step.
+			try {
+				const theme = localStorage.getItem('whatnow-theme');
+				if (theme) document.documentElement.dataset.theme = theme;
+			} catch {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

@@ -1,6 +1,8 @@
 /* The sticker look: chunky ink outlines, flat offset shadows, bright tier fills. Components use
-   these tokens, never raw colors. */
-:root {
+   these tokens, never raw colors. Themes in themes.css override them. Every [data-theme] element
+   starts from these too, so a theme preview can sit inside a page wearing another theme. */
+:root,
+[data-theme] {
 	--paper: #fff8e7;
 	--paper-deep: #f1eadb;
 	--card: #ffffff;
@@ -15,10 +17,12 @@
 	--now: #ff4d6d;
 	--event: #e3ffd8;
 	--danger: #ff4d6d;
+	--backdrop: var(--paper);
 
 	--line: 2px solid var(--ink);
 	--shadow: 3px 3px 0 var(--ink);
 	--shadow-sm: 2px 2px 0 var(--ink);
+	--shadow-danger: 3px 3px 0 var(--danger);
 	--radius: 12px;
 	--radius-sm: 8px;
 	--pill: 999px;
@@ -35,7 +39,7 @@
 
 body {
 	margin: 0;
-	background: var(--paper);
+	background: var(--backdrop);
 	color: var(--ink);
 	font-family: var(--font);
 	font-size: 15px;

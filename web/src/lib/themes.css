@@ -1,0 +1,232 @@
+/* The looks Settings offers besides the sticker look. Each block overrides tokens.css; the rules
+   after it cover what a token can't say. Load this after tokens.css. */
+
+/* Dream of the 90s: a plain page, black serif text, blue links, gray bevelled buttons. Nothing
+   colored, nothing moving. */
+[data-theme='plain'] {
+	--paper: #ffffff;
+	--paper-deep: #eeeeee;
+	--card: #ffffff;
+	--ink: #000000;
+	--ink-soft: #555555;
+	--must: #ffffff;
+	--should: #ffffff;
+	--could: #ffffff;
+	--chip: #eeeeee;
+	--primary: #0000ee;
+	--on-primary: #ffffff;
+	--now: #cc0000;
+	--event: #ffffff;
+	--danger: #cc0000;
+
+	--line: 1px solid #808080;
+	--shadow: none;
+	--shadow-sm: none;
+	--shadow-danger: none;
+	--radius: 0;
+	--radius-sm: 0;
+	--pill: 0;
+
+	--font: 'Times New Roman', Times, serif;
+	--heavy: 700;
+}
+
+[data-theme='plain'] a {
+	color: #0000ee;
+	font-weight: normal;
+	text-decoration: underline;
+}
+
+[data-theme='plain'] a:visited {
+	color: #551a8b;
+}
+
+[data-theme='plain'] .label {
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+[data-theme='plain'] .btn,
+[data-theme='plain'] .btn.primary {
+	background: #c0c0c0;
+	color: #000000;
+	border: 2px outset #e0e0e0;
+	font-weight: normal;
+}
+
+[data-theme='plain'] .btn:active {
+	border-style: inset;
+	transform: none;
+}
+
+/* Neon Nights: the sticker look after dark, cyan outlines with hot pink shadows. */
+[data-theme='neon'] {
+	color-scheme: dark;
+	--paper: #0d0b1e;
+	--paper-deep: #17142e;
+	--card: #1b1838;
+	--ink: #f2eeff;
+	--ink-soft: #a49cd0;
+	--must: #4a1236;
+	--should: #10305a;
+	--could: #1b1838;
+	--chip: #6b2cff;
+	--primary: #00f0ff;
+	--on-primary: #0d0b1e;
+	--now: #ff2e88;
+	--event: #0f3d2a;
+	--danger: #ff4d6d;
+
+	--line: 2px solid #7df9ff;
+	--shadow: 3px 3px 0 #ff2e88;
+	--shadow-sm: 2px 2px 0 #ff2e88;
+}
+
+/* Terminal: green on black, monospace, square, like the TUI. */
+[data-theme='terminal'] {
+	color-scheme: dark;
+	--paper: #000000;
+	--paper-deep: #0a140c;
+	--card: #000000;
+	--ink: #33ff66;
+	--ink-soft: #1fa344;
+	--must: #0b2a12;
+	--should: #000000;
+	--could: #000000;
+	--chip: #000000;
+	--primary: #33ff66;
+	--on-primary: #000000;
+	--now: #ffb000;
+	--event: #000000;
+	--danger: #ff5555;
+
+	--line: 1px solid var(--ink);
+	--shadow: none;
+	--shadow-sm: none;
+	--shadow-danger: none;
+	--radius: 0;
+	--radius-sm: 0;
+	--pill: 0;
+
+	--font: 'SF Mono', Menlo, ui-monospace, monospace;
+	--heavy: 700;
+}
+
+[data-theme='terminal'] body {
+	text-shadow: 0 0 4px rgb(51 255 102 / 0.35);
+}
+
+/* Paper: a quiet notebook. Pencil gray on cream, hairlines, no fills. */
+[data-theme='paper'] {
+	--paper: #f7f4ec;
+	--paper-deep: #ece7da;
+	--card: #fbf9f3;
+	--ink: #3b3b3b;
+	--ink-soft: #8a857a;
+	--must: #fbf9f3;
+	--should: #fbf9f3;
+	--could: #fbf9f3;
+	--chip: #efe9da;
+	--primary: #3b3b3b;
+	--on-primary: #fbf9f3;
+	--now: #b5523b;
+	--event: #fbf9f3;
+	--danger: #b5523b;
+
+	--line: 1px solid #cfc8b8;
+	--shadow: none;
+	--shadow-sm: none;
+	--shadow-danger: none;
+	--radius: 4px;
+	--radius-sm: 3px;
+
+	--font: 'Iowan Old Style', Palatino, Georgia, serif;
+	--heavy: 600;
+}
+
+/* Vaporwave: a sunset gradient, pastel stickers, chrome headings. */
+[data-theme='vaporwave'] {
+	--paper: #ffe6f7;
+	--paper-deep: #f5d0ff;
+	--card: #fff0fb;
+	--ink: #2d0a4e;
+	--ink-soft: #4b1f73;
+	--must: #ff9fe0;
+	--should: #9ff3ff;
+	--could: #fff0fb;
+	--chip: #fffb96;
+	--primary: #b967ff;
+	--on-primary: #ffffff;
+	--now: #ff2e88;
+	--event: #b9ffdf;
+	--danger: #ff2e88;
+	--backdrop: linear-gradient(180deg, #ff71ce 0%, #b967ff 55%, #01cdfe 100%) fixed;
+
+	--shadow: 4px 4px 0 #01cdfe;
+	--shadow-sm: 2px 2px 0 #01cdfe;
+
+	--font: 'Comic Sans MS', 'Chalkboard SE', cursive;
+}
+
+[data-theme='vaporwave'] h1 {
+	background: linear-gradient(180deg, #ffffff 0%, #b967ff 50%, #2d0a4e 51%, #01cdfe 100%);
+	background-clip: text;
+	color: transparent;
+	font-style: italic;
+	letter-spacing: 0.08em;
+}
+
+/* Plain and Terminal type their thinking dots instead of hopping them: . .. ...
+   p.working outranks Working.svelte's scoped rules. */
+[data-theme='plain'] p.working .dots span,
+[data-theme='terminal'] p.working .dots span {
+	width: auto;
+	height: auto;
+	border: none;
+	background: none;
+	animation: none;
+}
+
+[data-theme='plain'] p.working .dots,
+[data-theme='terminal'] p.working .dots {
+	gap: 0;
+}
+
+[data-theme='plain'] p.working .dots span::before,
+[data-theme='terminal'] p.working .dots span::before {
+	content: '.';
+}
+
+[data-theme='plain'] p.working .dots span:nth-child(2),
+[data-theme='terminal'] p.working .dots span:nth-child(2) {
+	animation: typed-two 1.2s steps(1) infinite;
+}
+
+[data-theme='plain'] p.working .dots span:nth-child(3),
+[data-theme='terminal'] p.working .dots span:nth-child(3) {
+	animation: typed-three 1.2s steps(1) infinite;
+}
+
+@keyframes typed-two {
+	0% {
+		visibility: hidden;
+	}
+	33% {
+		visibility: visible;
+	}
+}
+
+@keyframes typed-three {
+	0% {
+		visibility: hidden;
+	}
+	66% {
+		visibility: visible;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-theme] p.working .dots span:nth-child(n) {
+		animation: none;
+	}
+}

@@ -24,6 +24,26 @@ const (
 
 func (p Provider) Valid() bool { return p == Anthropic || p == OpenAI }
 
+// Theme is the web UI's look. Empty is the default sticker look.
+type Theme string
+
+const (
+	ThemeSticker   Theme = ""
+	ThemePlain     Theme = "plain"
+	ThemeNeon      Theme = "neon"
+	ThemeTerminal  Theme = "terminal"
+	ThemePaper     Theme = "paper"
+	ThemeVaporwave Theme = "vaporwave"
+)
+
+func (t Theme) Valid() bool {
+	switch t {
+	case ThemeSticker, ThemePlain, ThemeNeon, ThemeTerminal, ThemePaper, ThemeVaporwave:
+		return true
+	}
+	return false
+}
+
 // ProviderConfig picks the models for one provider. Main runs the agent, plans, and "what now?";
 // light runs cleanup and day summaries.
 type ProviderConfig struct {
@@ -43,7 +63,8 @@ type Settings struct {
 	EndOfDay string `json:"end_of_day"`
 	Nudges   Nudges `json:"nudges"`
 	// AlertLeadMinutes is how long before an event its nudge comes.
-	AlertLeadMinutes int `json:"alert_lead_minutes"`
+	AlertLeadMinutes int   `json:"alert_lead_minutes"`
+	Theme            Theme `json:"theme"`
 	// Onboarded is set once first-run setup is finished or skipped.
 	Onboarded bool `json:"onboarded"`
 }
@@ -107,6 +128,9 @@ func (s Settings) Validate() error {
 	}
 	if _, err := time.Parse(ClockLayout, s.EndOfDay); err != nil {
 		return fmt.Errorf("%w: end of day %q must be HH:MM", ErrInvalid, s.EndOfDay)
+	}
+	if !s.Theme.Valid() {
+		return fmt.Errorf("%w: theme %q", ErrInvalid, s.Theme)
 	}
 	if s.AlertLeadMinutes < 1 || s.AlertLeadMinutes > MaxAlertLead {
 		return fmt.Errorf("%w: alert lead time is %d minutes, it must be 1 to %d", ErrInvalid, s.AlertLeadMinutes, MaxAlertLead)

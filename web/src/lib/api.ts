@@ -174,8 +174,11 @@ export interface Settings {
 	end_of_day: string;
 	nudges: NudgeToggles;
 	alert_lead_minutes: number;
+	theme: Theme;
 	onboarded: boolean;
 }
+
+export type Theme = '' | 'plain' | 'neon' | 'terminal' | 'paper' | 'vaporwave';
 
 export interface NudgeToggles {
 	before_event: boolean;
