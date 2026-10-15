@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -174,7 +175,7 @@ func (m Model) jiraLines(w, room int) (lines []string, hint string) {
 		return []string{m.spin.View() + softStyle.Render(" Pulling your tickets…")}, ""
 	}
 	if t.pulled == nil {
-		return []string{"Pull your Jira tickets?"}, "enter pull · tab skip"
+		return []string{"Pull from " + names(t.on) + "?"}, "enter pull · tab skip"
 	}
 	var body []string
 	i, cursor := 0, 0
@@ -203,6 +204,18 @@ func (m Model) jiraLines(w, room int) (lines []string, hint string) {
 	}
 	lines = append([]string{"Pick today's tickets", ""}, scrolled(body, cursor, room-2)...)
 	return lines, "space pick · x skip · r pull · enter add · tab skip"
+}
+
+// names reads as "Jira", "Jira and Review Queue", or "A, B and C".
+func names(views []integrations.View) string {
+	var out []string
+	for _, v := range views {
+		out = append(out, v.Name)
+	}
+	if len(out) < 2 {
+		return strings.Join(out, "")
+	}
+	return strings.Join(out[:len(out)-1], ", ") + " and " + out[len(out)-1]
 }
 
 func ticketLine(tk integrations.Ticket, ticked, current bool, w int) string {

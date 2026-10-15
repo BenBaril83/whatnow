@@ -72,7 +72,7 @@ func TestTheMorningPicksJiraTickets(t *testing.T) {
 	tm.Send(key("enter"))
 	waitFor(t, tm, "What's on your plate?")
 	tm.Send(tea.KeyMsg{Type: tea.KeyTab})
-	waitFor(t, tm, "Pull your Jira tickets?")
+	waitFor(t, tm, "Pull from Jira?")
 	tm.Send(key("enter"))
 	waitFor(t, tm, "Jira · 2 tickets")
 	tm.Send(key(" "))
@@ -81,6 +81,23 @@ func TestTheMorningPicksJiraTickets(t *testing.T) {
 	quit(t, tm)
 	if diff := cmp.Diff([]string{"FLEX1-1 Mine"}, f.taskTitles(t)); diff != "" {
 		t.Errorf("tasks (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheOfferNamesEachTicketIntegration(t *testing.T) {
+	f := newFixture(t)
+	f.jira(t, false)
+	ctx := context.Background()
+	if _, err := f.app.Integrations.Save(ctx, "reviewqueue", integrations.Update{Values: map[string]string{"url": "http://localhost:5173"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.app.Integrations.SetEnabled(ctx, "reviewqueue", true); err != nil {
+		t.Fatal(err)
+	}
+	m := f.morningAt(t)
+	m = send(m, m.loadIntegrations()(), key("esc"))
+	if lines, _ := m.jiraLines(80, 20); lines[0] != "Pull from Jira and Review Queue?" {
+		t.Errorf("offer = %q", lines[0])
 	}
 }
 
