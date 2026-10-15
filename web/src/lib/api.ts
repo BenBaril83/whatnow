@@ -257,7 +257,7 @@ export interface Ticket {
 	title: string;
 	notes: string;
 	url: string;
-	/** Asked for again, such as a re-requested review, so a done task with its key doesn't hide it. */
+	/** Asked for again, such as a re-requested review, so a done or dropped task with its key doesn't hide it. */
 	rereview?: boolean;
 }
 

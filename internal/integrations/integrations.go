@@ -90,7 +90,7 @@ type Ticket struct {
 	Title string `json:"title"`
 	Notes string `json:"notes"`
 	URL   string `json:"url"`
-	// Rereview means the source is asking for this again, so a done task with its key doesn't
-	// hide it, such as a pull request whose review was requested again.
+	// Rereview means the source is asking for this again, so a done or dropped task with its key
+	// doesn't hide it, such as a pull request whose review was requested again.
 	Rereview bool `json:"rereview,omitempty"`
 }

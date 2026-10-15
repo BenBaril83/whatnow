@@ -106,7 +106,9 @@ domain modules are pure and already run under Node.
     organization scan behind a running Review Queue is the likelier cause
   - any non-`2xx` with an `error`: that text, which covers the demo `409` and GitHub's rate limits
   - a non-`2xx` without one: "Review Queue answered <status>"
-  - a `200` that isn't JSON: "couldn't read Review Queue's answer — is the address right?"
+  - a `200` that isn't JSON: "couldn't read Review Queue's answer — is the address right, and is
+    Review Queue up to date?". A Review Queue without this endpoint answers any `/api` path with
+    its app page, so this is also what an outdated one looks like
   - an address with no scheme or host: "that address isn't a URL, such as http://localhost:5173"
   - a `min_score` that isn't a whole number: "minimum score must be a whole number"
 

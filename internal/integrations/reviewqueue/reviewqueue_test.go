@@ -115,7 +115,7 @@ func TestPullErrorsSayWhatToDo(t *testing.T) {
 		"demo source":      {status: http.StatusConflict, body: `{"error": "Set Review Queue's source to GitHub first."}`, want: "Set Review Queue's source to GitHub first."},
 		"github failed":    {status: http.StatusBadGateway, body: `{"error": "GitHub rate limit reached."}`, want: "GitHub rate limit reached."},
 		"no error message": {status: http.StatusNotFound, body: "Cannot GET /api/queue", want: "Review Queue answered 404"},
-		"not json":         {status: http.StatusOK, body: "<!doctype html>", want: "couldn't read Review Queue's answer — is the address right?"},
+		"not json":         {status: http.StatusOK, body: "<!doctype html>", want: "couldn't read Review Queue's answer — is the address right, and is Review Queue up to date?"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

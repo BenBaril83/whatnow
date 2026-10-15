@@ -116,7 +116,7 @@ func (q *ReviewQueue) queue(ctx context.Context, cfg integrations.Config) ([]int
 	}
 	var res queueResult
 	if err := json.Unmarshal(body, &res); err != nil {
-		return nil, 0, errors.New("couldn't read Review Queue's answer — is the address right?")
+		return nil, 0, errors.New("couldn't read Review Queue's answer — is the address right, and is Review Queue up to date?")
 	}
 	tickets := []integrations.Ticket{}
 	more := 0
