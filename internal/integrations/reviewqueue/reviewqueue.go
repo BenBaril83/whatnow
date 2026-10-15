@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"strconv"
@@ -73,7 +74,9 @@ type queueResult struct {
 // queue returns the pulls scoring at least the minimum, in Review Queue's order, and how many
 // more there were past the cap. Its errors never wrap the client's.
 func (q *ReviewQueue) queue(ctx context.Context, cfg integrations.Config) ([]integrations.Ticket, int, error) {
-	minScore := 0
+	// A blank minimum keeps every score, including the negative ones Review Queue gives drafts and
+	// PRs that already have their reviewers.
+	minScore := math.MinInt
 	if s := strings.TrimSpace(cfg.Values["min_score"]); s != "" {
 		n, err := strconv.Atoi(s)
 		if err != nil {

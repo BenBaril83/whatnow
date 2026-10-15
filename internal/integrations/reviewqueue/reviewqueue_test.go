@@ -82,6 +82,13 @@ func TestMinScoreCutsTheLowerPulls(t *testing.T) {
 	}
 }
 
+func TestABlankMinimumKeepsNegativeScores(t *testing.T) {
+	srv, _ := server(t, http.StatusOK, `{"pulls": [{"id": "acme/x#1", "title": "Already has reviewers", "score": -50, "reasons": []}]}`)
+	if src := pull(t, cfg(srv.URL, "")); src.Err != nil || len(src.Tickets) != 1 {
+		t.Errorf("err %v, tickets %+v", src.Err, src.Tickets)
+	}
+}
+
 func TestALongQueueIsCappedAndCountsTheRest(t *testing.T) {
 	var pulls []string
 	for i := range maxResults + 3 {
