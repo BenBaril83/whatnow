@@ -24,6 +24,13 @@
 	let expanded = $state(false);
 	const task = $derived(card.task);
 	const chain = $derived(links(task.id, today.blockers, today.tasks));
+	const movable = $derived(!listed && !!today.today?.plan && !today.today.day?.wrapped_at);
+	const moves: { to: Tier | null; label: string }[] = [
+		{ to: 'must', label: 'Must' },
+		{ to: 'should', label: 'Should' },
+		{ to: 'could', label: 'Could' },
+		{ to: null, label: 'Unplanned' }
+	];
 	const showingLinks = $derived(linked.source === task.id);
 	const titles = (tasks: { title: string }[]) => tasks.map((t) => t.title).join(', ');
 	const toggleLinks = () => linked.toggle(task.id, [...chain.waitingOn, ...chain.unblocks].map((t) => t.id));
@@ -42,6 +49,10 @@
 	function drop() {
 		menuOpen = false;
 		toasts.track(`Dropped: ${task.title}`, () => api.setStatus(task.id, 'dropped'));
+	}
+	function move(to: Tier | null, label: string) {
+		menuOpen = false;
+		toasts.track(`Moved to ${label}: ${task.title}`, () => api.move(task.id, to));
 	}
 	function edit() {
 		menuOpen = false;
@@ -125,6 +136,14 @@
 				<button onclick={edit}>Edit</button>
 				<button onclick={push}>Push to tomorrow</button>
 				<button onclick={drop}>Drop</button>
+				{#if movable}
+					<details class="sub">
+						<summary>Move ›</summary>
+						{#each moves as m (m.label)}
+							<button disabled={m.to === (tier ?? null)} onclick={() => move(m.to, m.label)}>{m.label}</button>
+						{/each}
+					</details>
+				{/if}
 			</div>
 		</details>
 	{/if}
@@ -276,7 +295,24 @@
 		padding: 6px 8px;
 		border-radius: var(--radius-sm);
 	}
-	.menu button:hover {
+	.menu button:hover:not(:disabled) {
 		background: var(--chip);
+	}
+	.menu button:disabled {
+		opacity: 0.4;
+	}
+	.sub summary {
+		list-style: none;
+		cursor: pointer;
+		padding: 6px 8px;
+		border-radius: var(--radius-sm);
+	}
+	.sub summary:hover {
+		background: var(--chip);
+	}
+	.sub button {
+		display: block;
+		width: 100%;
+		padding-left: 20px;
 	}
 </style>

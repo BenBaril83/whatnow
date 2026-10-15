@@ -310,6 +310,8 @@ export const api = {
 	setStatus: (id: number, status: Status) =>
 		request<Mutation>('POST', `/tasks/${id}/status`, { status }),
 	push: (id: number, until: string) => request<Mutation>('POST', `/tasks/${id}/push`, { until }),
+	/** Puts a task in a tier of today's plan, or out of it with null. There's no undo. */
+	move: (id: number, tier: Tier | null) => request<Mutation>('POST', `/tasks/${id}/move`, { tier }),
 	undo: (batch: number) => request<void>('POST', `/batches/${batch}/undo`),
 	setPace: (pace: number) => request<Mutation>('PUT', '/today/pace', { pace, note: '' }),
 	replan: () => request<Plan>('POST', '/today/replan'),

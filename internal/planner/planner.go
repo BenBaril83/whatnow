@@ -59,6 +59,7 @@ type state struct {
 	last     *domain.Day
 	day      *domain.Day
 	plan     *domain.Plan
+	moves    []string // today's moves by hand, oldest first, as their plans' reasons
 	facts    facts.Facts
 	settings settings.Settings
 	model    llm.Client
@@ -83,6 +84,9 @@ func (p *Planner) gather(ctx context.Context, withModel bool) (state, error) {
 		if err == nil {
 			st.plan = &plan
 		} else if !errors.Is(err, service.ErrNotFound) {
+			return st, err
+		}
+		if st.moves, err = p.svc.PlanReasons(ctx, day.ID, domain.TriggerMove); err != nil {
 			return st, err
 		}
 	case !errors.Is(err, service.ErrNotFound):
@@ -149,7 +153,7 @@ func (st state) context() string {
 	return b.String()
 }
 
-// live renders pace and mood, the facts, and the current plan.
+// live renders pace and mood, the facts, the current plan, and what was moved by hand.
 func (st state) live() string {
 	var b strings.Builder
 	if st.day != nil {
@@ -186,6 +190,12 @@ func (st state) live() string {
 	}
 	if len(unplanned) > 0 {
 		fmt.Fprintf(&b, "unplanned: %s\n", strings.Join(unplanned, ", "))
+	}
+	if len(st.moves) > 0 {
+		b.WriteString("\nMoved by hand today, oldest first:\n")
+		for _, m := range st.moves {
+			fmt.Fprintf(&b, "- %s\n", m)
+		}
 	}
 	return b.String()
 }

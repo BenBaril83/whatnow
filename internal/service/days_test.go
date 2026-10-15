@@ -134,6 +134,31 @@ func TestPlansAreVersionedPerDay(t *testing.T) {
 	}
 }
 
+func TestPlanReasonsListsOneTriggersReasonsOldestFirst(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	day, _ := svc.StartDay(ctx, "2026-10-05", 3, "")
+	other, _ := svc.StartDay(ctx, "2026-10-06", 3, "")
+	for _, p := range []domain.Plan{
+		{DayID: day.ID, Trigger: domain.TriggerMove, Reason: "first"},
+		{DayID: day.ID, Trigger: domain.TriggerEdit, Reason: "an edit"},
+		{DayID: other.ID, Trigger: domain.TriggerMove, Reason: "another day"},
+		{DayID: day.ID, Trigger: domain.TriggerMove, Reason: "second"},
+	} {
+		if _, err := svc.SavePlan(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := svc.PlanReasons(ctx, day.ID, domain.TriggerMove)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]string{"first", "second"}, got); diff != "" {
+		t.Errorf("reasons (-want +got):\n%s", diff)
+	}
+}
+
 func TestSavePlanRejectsBadTierOrTrigger(t *testing.T) {
 	svc, _ := newService(t)
 	ctx := context.Background()

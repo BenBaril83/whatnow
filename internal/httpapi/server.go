@@ -66,6 +66,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("POST /api/v1/tasks/{id}/status", s.setTaskStatus)
 	mux.HandleFunc("DELETE /api/v1/tasks/{id}", s.deleteTask)
 	mux.HandleFunc("POST /api/v1/tasks/{id}/push", s.pushTask)
+	mux.HandleFunc("POST /api/v1/tasks/{id}/move", s.moveTask)
 	mux.HandleFunc("GET /api/v1/blockers", s.listBlockers)
 	mux.HandleFunc("POST /api/v1/tasks/{id}/blockers", s.addBlocker)
 	mux.HandleFunc("DELETE /api/v1/tasks/{id}/blockers/{blockedBy}", s.removeBlocker)

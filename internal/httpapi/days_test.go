@@ -127,6 +127,28 @@ func TestPushTask(t *testing.T) {
 	wantStatus(t, api.do(http.MethodPost, path, map[string]string{"until": "monday"}), http.StatusBadRequest)
 }
 
+func TestMoveTask(t *testing.T) {
+	api := newAPI(t)
+	task := decodeAs[taskMutation](t, api.do(http.MethodPost, "/api/v1/tasks", map[string]any{"title": "rfc"}))
+	path := fmt.Sprintf("/api/v1/tasks/%d/move", task.Data.ID)
+	wantStatus(t, api.do(http.MethodPost, path, map[string]any{"tier": "must"}), http.StatusConflict)
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/start", map[string]any{"pace": 3}), http.StatusCreated)
+
+	got := decodeAs[struct {
+		BatchID int64       `json:"batch_id"`
+		Data    domain.Plan `json:"data"`
+	}](t, api.do(http.MethodPost, path, map[string]any{"tier": "must"}))
+	if got.BatchID != 0 || got.Data.Trigger != domain.TriggerMove || len(got.Data.Entries) != 1 || got.Data.Entries[0].Tier != domain.TierMust {
+		t.Errorf("moved: %+v", got)
+	}
+	wantStatus(t, api.do(http.MethodPost, path, map[string]any{"tier": nil}), http.StatusOK)
+	today := decodeAs[planner.Today](t, api.do(http.MethodGet, "/api/v1/today", nil))
+	if len(today.Unplanned) != 1 || today.Unplanned[0] != task.Data.ID {
+		t.Errorf("after moving to unplanned, unplanned = %v", today.Unplanned)
+	}
+	wantStatus(t, api.do(http.MethodPost, path, map[string]any{"tier": "later"}), http.StatusBadRequest)
+}
+
 func TestReplanSlotsInTheTray(t *testing.T) {
 	api := newAPI(t)
 	wantStatus(t, api.do(http.MethodPost, "/api/v1/today/replan", nil), http.StatusConflict)

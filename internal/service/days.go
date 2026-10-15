@@ -217,6 +217,24 @@ func (s *Service) LatestPlan(ctx context.Context, dayID int64) (domain.Plan, err
 	return p, err
 }
 
+// PlanReasons returns the reasons of a day's plans that one trigger made, oldest first.
+func (s *Service) PlanReasons(ctx context.Context, dayID int64, trigger domain.Trigger) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT reason FROM plans WHERE day_id = ? AND triggered_by = ? ORDER BY version`, dayID, trigger)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var reasons []string
+	for rows.Next() {
+		var r string
+		if err := rows.Scan(&r); err != nil {
+			return nil, err
+		}
+		reasons = append(reasons, r)
+	}
+	return reasons, rows.Err()
+}
+
 // DaysBetween returns the days started on dates in [from, to), oldest first.
 func (s *Service) DaysBetween(ctx context.Context, from, to domain.Date) ([]domain.Day, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+dayColumns+` FROM days WHERE date >= ? AND date < ? ORDER BY date`, from, to)

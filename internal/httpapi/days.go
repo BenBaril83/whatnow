@@ -109,6 +109,29 @@ func (s *Server) replan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, plan)
 }
 
+// moveTask puts a task in a tier of today's plan, or out of it when tier is null. The plan
+// version it saves is in no batch, so there is nothing to undo.
+func (s *Server) moveTask(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	var body struct {
+		Tier domain.Tier `json:"tier"`
+	}
+	if err := decode(r, &body); err != nil {
+		writeError(w, err)
+		return
+	}
+	plan, err := s.Planner.Move(r.Context(), id, body.Tier)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, Mutation{Data: plan})
+}
+
 // captureDump saves a brain dump as one captured card and cleans it up right away, so the tasks
 // in it land in the plan rather than the tray. If cleanup fails, the raw card stays and goes to the
 // background runner like any other capture.

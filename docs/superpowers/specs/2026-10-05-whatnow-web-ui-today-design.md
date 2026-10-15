@@ -139,6 +139,10 @@ fails, the text goes back in the box. Capture works with no provider set up.
 - Every ⋯ and pace menu closes on a click outside it or on Escape.
 - Each card has a checkbox, which completes it, and a ⋯ menu with **push to tomorrow** and
   **drop**. Every action shows an undo toast. If completing fails, the checkbox unticks.
+- The ⋯ menu's **Move ›** opens the tiers and the tray in one column, the card's own greyed out.
+  Picking one moves the card there. It saves a new plan version
+  with no model call, so it has no undo. Later replans see each move by hand and weigh it, but
+  can still move the task again.
 - A fallback plan carries a small "rough plan, model was out" tag.
 
 **Unplanned tray:** dashed cards with the same actions as plan cards.

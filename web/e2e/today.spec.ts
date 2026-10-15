@@ -105,3 +105,21 @@ test("an event's × removes it from the strip, and Undo brings it back", async (
 	await page.getByRole('button', { name: 'Undo' }).click();
 	await expect(strip.getByText('Dentist')).toBeVisible();
 });
+
+test('Move puts a card in another tier, or the tray', async ({ page }) => {
+	await page.goto('/');
+	const must = page.locator('section').filter({ has: page.getByRole('heading', { name: 'must' }) });
+	const card = page.locator('article').filter({ hasText: 'call mom' });
+
+	await card.getByLabel('More actions').click();
+	await card.getByText('Move ›').click();
+	await expect(card.getByRole('button', { name: 'Should' })).toBeDisabled();
+	await card.getByRole('button', { name: 'Must' }).click();
+	await expect(page.getByRole('status').filter({ hasText: 'Moved to Must: call mom' })).toBeVisible();
+	await expect(must.getByText('call mom')).toBeVisible();
+
+	await card.getByLabel('More actions').click();
+	await card.getByText('Move ›').click();
+	await card.getByRole('button', { name: 'Unplanned' }).click();
+	await expect(page.locator('section').filter({ has: page.getByRole('heading', { name: 'Unplanned' }) }).getByText('call mom')).toBeVisible();
+});

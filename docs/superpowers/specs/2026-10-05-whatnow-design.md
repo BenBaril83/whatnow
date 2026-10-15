@@ -87,8 +87,8 @@ would violate those terms once the app is distributed to others.
 - **Event:** `title`, `starts_at`, optional `ends_at`, `raw_text`, soft delete. Events are anything
   at a fixed time.
 - **Day:** `date`, `pace`, optional `mood_note`, `started_at`, `wrapped_at`.
-- **Plan:** belongs to a day and is versioned. It records its trigger (morning, pace, edit, or
-  agent). It holds entries of (task, tier, one-line rationale) plus an opening message in the
+- **Plan:** belongs to a day and is versioned. It records its trigger (morning, pace, edit, agent,
+  user, or move, a task moved by hand). It holds entries of (task, tier, one-line rationale) plus an opening message in the
   persona's voice.
 - **Activity:** `actor`, `action`, `entity`, before and after snapshots, and `batch_id`. Writes made
   in one agent turn or one cleanup run share a batch.

@@ -163,10 +163,12 @@ const (
 	TriggerAgent   Trigger = "agent"
 	// TriggerUser is a replan the user asked for from Today.
 	TriggerUser Trigger = "user"
+	// TriggerMove is the user moving one task to another tier, or out of the plan, by hand.
+	TriggerMove Trigger = "move"
 )
 
 func (t Trigger) Valid() bool {
-	return t == TriggerMorning || t == TriggerPace || t == TriggerEdit || t == TriggerAgent || t == TriggerUser
+	return t == TriggerMorning || t == TriggerPace || t == TriggerEdit || t == TriggerAgent || t == TriggerUser || t == TriggerMove
 }
 
 type PlanEntry struct {

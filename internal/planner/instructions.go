@@ -15,7 +15,8 @@ Make today's plan from the eligible tasks in the context. Reply only with JSON t
 - Within a tier, list tasks in the order you'd suggest doing them.
 - rationale: one short line the user will see, saying why the task sits where it does.
 - opening: two or three sentences in your voice. In the morning, start the day and acknowledge what's on their mind if they said. When replanning, say briefly what changed. Don't list the tasks; the plan shows them.
-- When there's a current plan, keep it unless the change gives you a reason to move something. A plan that holds still is easier to trust.`
+- When there's a current plan, keep it unless the change gives you a reason to move something. A plan that holds still is easier to trust.
+- Tasks they moved by hand show where they think those belong. Weigh that heavily, but you can still move one when the day has changed since.`
 
 const whatNowInstructions = Persona + `
 
