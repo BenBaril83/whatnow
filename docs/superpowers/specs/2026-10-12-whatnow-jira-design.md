@@ -43,8 +43,9 @@ The calendar writes what it pulls; Jira offers tickets and the user picks which 
   other. `Ticket` is `{Key, Title, Notes, URL}`. `More` is how many matched beyond those returned,
   so a capped list can say so.
 - **The runner never writes tickets on pull.** It drops those whose key is a ref on a live task
-  or is on the skip list, and returns the rest. A pull with no events writes nothing and opens no
-  batch.
+  or is on the skip list, and returns the rest. A ticket marked `Rereview` gets past a done or
+  dropped task (`2026-10-15-whatnow-review-queue-design.md`); Jira never marks one. A pull with no
+  events writes nothing and opens no batch.
 - **`Runner.Add(ctx, id, tickets)`** creates one task per ticket in one user batch, so one undo
   removes them all, and the hub's `batch.applied` refreshes open screens. It drops tickets already
   on the list again, so a double click adds nothing twice. It requires the integration to be on.
@@ -113,7 +114,7 @@ pick list, Add included.
 A **Jira** step follows the calendar step, shown only when a ticket integration is on. The calendar
 step today shows when any integration is on and pulls them all; it narrows to event integrations.
 
-- "Pull your Jira tickets?" `enter` pulls (spinner meanwhile), `tab` moves on to pace.
+- "Pull from Jira?" (naming every ticket integration that's on) `enter` pulls (spinner meanwhile), `tab` moves on to pace.
 - The pick list: `↑`/`↓` move, `space` ticks, `x` skips a ticket for good, `enter` adds the
   ticked tickets and moves on, `tab` moves on without adding. A long list scrolls to the cursor.
 - A failed pull shows a red line; `r` retries.
