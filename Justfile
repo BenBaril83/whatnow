@@ -26,9 +26,7 @@ build: web
 install: web
     go install ./cmd/whatnow
 
-# Builds stripped Mac binaries, publishes them as a GitHub release, and points the Homebrew formula
-# in jameynakama/homebrew-tap at them: `just release v0.1.0`. The tag lands on main as GitHub has
-# it, so push first.
+# Builds stripped Mac binaries, publishes them as a GitHub release, and points the Homebrew formula in jameynakama/homebrew-tap at them: `just release v0.1.0`. The tag lands on main as GitHub has it, so push first.
 release version: web
     #!/usr/bin/env bash
     set -euo pipefail
