@@ -632,3 +632,33 @@ func TestSkippingATicketRemovesNoEvent(t *testing.T) {
 		t.Errorf("skipped (-want +got):\n%s", diff)
 	}
 }
+
+func TestARereviewComesBackPastADoneTaskButNotAnOpenOne(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.setUpBoard(t)
+	e.task(t, "reviewed once", true, "acme/search#1")
+	e.task(t, "reviewing now", false, "acme/search#2")
+	e.task(t, "reviewed, not asked again", true, "acme/search#3")
+	again := func(key string) integrations.Ticket {
+		tk := ticket(key)
+		tk.Rereview = true
+		return tk
+	}
+	e.board.tickets = []integrations.Ticket{again("acme/search#1"), again("acme/search#2"), ticket("acme/search#3")}
+
+	if diff := cmp.Diff([]string{"acme/search#1"}, offered(e.pullFrom(t, "board"))); diff != "" {
+		t.Errorf("offered (-want +got):\n%s", diff)
+	}
+
+	_, tasks, err := e.runner.Add(ctx, "board", e.board.tickets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 1 || tasks[0].Refs[0].Label != "acme/search#1" {
+		t.Errorf("added %+v", tasks)
+	}
+	if _, tasks, err = e.runner.Add(ctx, "board", e.board.tickets); err != nil || len(tasks) != 0 {
+		t.Errorf("adding again: tasks %+v, err %v", tasks, err)
+	}
+}

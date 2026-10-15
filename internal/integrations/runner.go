@@ -505,7 +505,7 @@ func (r *Runner) Unskip(ctx context.Context, id, key string) (View, error) {
 // offer returns a ticket pull without saving it, leaving out tickets already on the list or
 // skipped.
 func (r *Runner) offer(ctx context.Context, s saved, sources []Source) (PullResult, error) {
-	have, err := r.haveTickets(ctx, s)
+	have, err := r.listed(ctx, s)
 	if err != nil {
 		return PullResult{}, err
 	}
@@ -516,7 +516,7 @@ func (r *Runner) offer(ctx context.Context, s saved, sources []Source) (PullResu
 			sr.Error = src.Err.Error()
 		}
 		for _, tk := range src.Tickets {
-			if !have[strings.ToUpper(tk.Key)] {
+			if !have.hides(tk) {
 				sr.Tickets = append(sr.Tickets, tk)
 			}
 		}
@@ -525,23 +525,38 @@ func (r *Runner) offer(ctx context.Context, s saved, sources []Source) (PullResu
 	return res, nil
 }
 
-// haveTickets is every key, upper-cased, that a live task has as a ref or the user skipped. A
-// deleted task doesn't count, so its ticket can be offered again.
-func (r *Runner) haveTickets(ctx context.Context, s saved) (map[string]bool, error) {
+// onList is the ticket keys, upper-cased, already on the list: open holds those on an open task or
+// skipped, and closed those only on a done or dropped task. A deleted task doesn't count, so its
+// ticket can be offered again.
+type onList struct {
+	open, closed map[string]bool
+}
+
+// hides says whether a ticket is already on the list. A closed task doesn't hide a rereview.
+func (l onList) hides(tk Ticket) bool {
+	key := strings.ToUpper(strings.TrimSpace(tk.Key))
+	return l.open[key] || (l.closed[key] && !tk.Rereview)
+}
+
+func (r *Runner) listed(ctx context.Context, s saved) (onList, error) {
 	tasks, err := r.svc.ListTasks(ctx)
 	if err != nil {
-		return nil, err
+		return onList{}, err
 	}
-	have := map[string]bool{}
+	l := onList{open: map[string]bool{}, closed: map[string]bool{}}
 	for _, t := range tasks {
 		for _, ref := range t.Refs {
-			have[strings.ToUpper(ref.Label)] = true
+			if t.Status == domain.StatusOpen {
+				l.open[strings.ToUpper(ref.Label)] = true
+			} else {
+				l.closed[strings.ToUpper(ref.Label)] = true
+			}
 		}
 	}
 	for _, sk := range s.Skipped {
-		have[strings.ToUpper(sk.Key)] = true
+		l.open[strings.ToUpper(sk.Key)] = true
 	}
-	return have, nil
+	return l, nil
 }
 
 // Add makes a task of each ticket, in one user batch it announces and returns. Tickets already
@@ -568,7 +583,7 @@ func (r *Runner) Add(ctx context.Context, id string, tickets []Ticket) (int64, [
 	if err != nil {
 		return 0, nil, err
 	}
-	have, err := r.haveTickets(ctx, s)
+	have, err := r.listed(ctx, s)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -576,10 +591,10 @@ func (r *Runner) Add(ctx context.Context, id string, tickets []Ticket) (int64, [
 	var batch int64
 	for _, tk := range tickets {
 		key := strings.TrimSpace(tk.Key)
-		if have[strings.ToUpper(key)] {
+		if have.hides(tk) {
 			continue
 		}
-		have[strings.ToUpper(key)] = true
+		have.open[strings.ToUpper(key)] = true
 		if batch == 0 {
 			if batch, err = r.svc.NewBatch(ctx, domain.ActorUser); err != nil {
 				return 0, nil, err
