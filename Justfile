@@ -26,16 +26,29 @@ build: web
 install: web
     go install ./cmd/whatnow
 
-# Builds stripped Mac binaries and publishes them as a GitHub release: `just release v0.1.0`.
-# The tag lands on main as GitHub has it, so push first.
+# Builds stripped Mac binaries, publishes them as a GitHub release, and points the Homebrew formula
+# in jameynakama/homebrew-tap at them: `just release v0.1.0`. The tag lands on main as GitHub has
+# it, so push first.
 release version: web
     #!/usr/bin/env bash
     set -euo pipefail
+    v={{version}}
     rm -rf dist && mkdir dist
     for arch in arm64 amd64; do
-        GOOS=darwin GOARCH=$arch go build -trimpath -ldflags="-s -w" -o dist/whatnow-darwin-$arch ./cmd/whatnow
+        GOOS=darwin GOARCH=$arch go build -trimpath -ldflags="-s -w -X main.Version=${v#v}" -o dist/whatnow-darwin-$arch ./cmd/whatnow
     done
-    gh release create {{version}} dist/whatnow-darwin-* --title {{version}} --generate-notes
+    gh release create $v dist/whatnow-darwin-* --title $v --generate-notes
+    tap=$(mktemp -d)
+    trap 'rm -rf "$tap"' EXIT
+    gh repo clone jameynakama/homebrew-tap "$tap" -- --depth 1 --quiet
+    mkdir -p "$tap/Formula"
+    sed -e "s/@VERSION@/${v#v}/g" \
+        -e "s/@SHA_ARM64@/$(shasum -a 256 dist/whatnow-darwin-arm64 | cut -d' ' -f1)/" \
+        -e "s/@SHA_AMD64@/$(shasum -a 256 dist/whatnow-darwin-amd64 | cut -d' ' -f1)/" \
+        packaging/whatnow.rb > "$tap/Formula/whatnow.rb"
+    git -C "$tap" add Formula/whatnow.rb
+    git -C "$tap" commit --quiet -m "whatnow $v"
+    git -C "$tap" push --quiet
 
 # Positional arguments keep quoted paths with spaces intact.
 [positional-arguments]

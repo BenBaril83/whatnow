@@ -52,7 +52,15 @@ set to "focus peaks before lunch, cooked after 3pm, meetings drain me".
 You'll need an API key for Anthropic, OpenAI, or an OpenAI-compatible provider to run it (see
 [Models](#models)).
 
-On a Mac, download the latest release:
+On a Mac, with [Homebrew](https://brew.sh):
+
+```sh
+brew install jameynakama/tap/whatnow
+```
+
+### Without Homebrew
+
+Download the latest release:
 
 ```sh
 curl -fLo whatnow https://github.com/jameynakama/whatnow/releases/latest/download/whatnow-darwin-arm64
@@ -88,6 +96,10 @@ Consumer subscriptions (Claude Pro or Max, ChatGPT plans) can't power whatnow. I
 whatnow          # the terminal UI, which also serves the web UI at http://127.0.0.1:7777
 whatnow serve    # the web UI only
 ```
+
+Installed with Homebrew, `brew services start whatnow` keeps the web UI running in the background
+and starts it at login. Its log is in `$(brew --prefix)/var/log/whatnow.log`. `whatnow` then opens the
+terminal UI against that server.
 
 Both take `-addr` (default `127.0.0.1:7777`) and `-db` (default
 `<user config dir>/whatnow/whatnow.db`, which on macOS is

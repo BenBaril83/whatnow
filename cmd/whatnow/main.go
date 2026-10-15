@@ -23,12 +23,15 @@ import (
 	"github.com/jameynakama/whatnow/internal/web"
 )
 
+// Version is stamped in at release with -ldflags "-X main.Version=...".
+var Version = "dev"
+
 // newClient makes the model client. The e2e build swaps in the fake.
 var newClient = settings.NewClient
 
 const defaultAddr = "127.0.0.1:7777"
 
-const usage = "usage: whatnow [-addr 127.0.0.1:7777] [-db PATH]        the terminal view, serving the web UI if nothing else is\n       whatnow serve [-addr 127.0.0.1:7777] [-db PATH]  the web UI only\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]    same as bare whatnow"
+const usage = "usage: whatnow [-addr 127.0.0.1:7777] [-db PATH]        the terminal view, serving the web UI if nothing else is\n       whatnow serve [-addr 127.0.0.1:7777] [-db PATH]  the web UI only\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]    same as bare whatnow\n       whatnow version"
 
 func main() {
 	cmd, args := command(os.Args[1:])
@@ -44,6 +47,8 @@ func main() {
 	case "tui":
 		flags.Parse(args)
 		err = runTUI(*addr, *dbPath)
+	case "version":
+		fmt.Println(Version)
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)

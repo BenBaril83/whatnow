@@ -41,8 +41,11 @@ it into tasks and events.
 A single Go binary: `whatnow serve`, plus bare `whatnow` (the terminal companion, which serves too), with a SvelteKit frontend built by `adapter-static` and
 embedded with `go:embed`. SQLite through `modernc.org/sqlite`, which is pure Go with no cgo. In
 development, the Vite dev server proxies `/api` to Go. Distribution is unsigned Mac binaries on
-GitHub releases, built and uploaded by `just release`. Binaries are never committed: each build
-would stay in git history and every clone would download it.
+GitHub releases, built and uploaded by `just release`, which also points the Homebrew formula in
+`jameynakama/homebrew-tap` at them. Binaries are never committed: each build would stay in git
+history and every clone would download it. The formula is a formula rather than a cask because a
+cask quarantines its download, which Gatekeeper then blocks for an unsigned binary, and only a
+formula can offer `brew services`.
 
 ## LLM providers
 
