@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
 
@@ -166,5 +167,41 @@ func TestRejectsRequestsFromOtherSites(t *testing.T) {
 	}
 	if list := decodeAs[[]domain.Task](t, api.do(http.MethodGet, "/api/v1/tasks", nil)); len(list) != 2 {
 		t.Errorf("tasks = %d, want only the 2 legitimate ones", len(list))
+	}
+}
+
+func TestAllowsTheHostsInSettings(t *testing.T) {
+	api := newAPI(t)
+	get := func(host string) int {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks", nil)
+		req.Host = host
+		rec := httptest.NewRecorder()
+		api.handler.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	const tailnet = "mac.example.ts.net"
+	if got := get(tailnet); got != http.StatusForbidden {
+		t.Fatalf("before allowing: status = %d, want %d", got, http.StatusForbidden)
+	}
+
+	s := decodeAs[httpapi.SettingsView](t, api.do(http.MethodGet, "/api/v1/settings", nil)).Settings
+	s.AllowedHosts = []string{tailnet}
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/settings", s), http.StatusOK)
+
+	cases := []struct {
+		name, host string
+		status     int
+	}{
+		{"allowed, as tailscale serve sends it", tailnet, http.StatusOK},
+		{"allowed, with a port and odd case", "Mac.Example.TS.net:7777", http.StatusOK},
+		{"a subdomain of the allowed host", "evil." + tailnet, http.StatusForbidden},
+		{"another host", "evil.example", http.StatusForbidden},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := get(c.host); got != c.status {
+				t.Errorf("status = %d, want %d", got, c.status)
+			}
+		})
 	}
 }

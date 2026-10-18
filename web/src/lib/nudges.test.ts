@@ -18,6 +18,7 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
 	alert_lead_minutes: 10,
 	theme: '',
 	onboarded: true,
+	allowed_hosts: [],
 	...over
 });
 

@@ -30,12 +30,15 @@ test('settings survive a reload, and delete everything starts over', async ({ pa
 
 	const lead = page.getByLabel('Event alerts, minutes before');
 	await lead.fill('25');
+	const hosts = page.getByLabel('Allowed hosts, one per line');
+	await hosts.fill(' mac.example.ts.net \n\n100.64.0.1\n');
 	await Promise.all([
 		page.waitForResponse((r) => r.url().endsWith('/api/v1/settings') && r.request().method() === 'PUT'),
 		page.getByRole('button', { name: 'Save' }).click()
 	]);
 	await page.reload();
 	await expect(lead).toHaveValue('25');
+	await expect(hosts).toHaveValue('mac.example.ts.net\n100.64.0.1');
 
 	await page.getByLabel('Type delete everything to confirm').fill('delete everything');
 	await page.getByRole('button', { name: 'Delete everything' }).click();

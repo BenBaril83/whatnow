@@ -38,7 +38,8 @@ describe('configured', () => {
 			nudges: { before_event: true, event_end: true, late_day: true },
 			alert_lead_minutes: 10,
 			theme: '',
-			onboarded: true
+			onboarded: true,
+			allowed_hosts: []
 		},
 		keys: { anthropic: key, openai: '' }
 	});

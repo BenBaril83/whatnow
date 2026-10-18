@@ -41,6 +41,7 @@
 		if (!view) return;
 		saving = true;
 		result = null;
+		view.settings.allowed_hosts = view.settings.allowed_hosts.map((h) => h.trim()).filter(Boolean);
 		try {
 			if (key.trim()) {
 				await api.saveKey(provider, key.trim());
@@ -138,6 +139,24 @@
 				Late in the day, if a must due today hasn't moved
 			</label>
 			<div><NotifyPermission /></div>
+
+			<h2 class="label">Remote access</h2>
+			<label>
+				<span class="label">Allowed hosts, one per line</span>
+				<textarea
+					class="field"
+					rows="2"
+					placeholder="my-mac.tail1234.ts.net"
+					bind:value={
+						() => view!.settings.allowed_hosts.join('\n'),
+						(v) => (view!.settings.allowed_hosts = v.split('\n'))
+					}
+				></textarea>
+				<span class="muted">
+					Hostnames besides this machine that can open whatnow, such as its Tailscale name behind
+					<code>tailscale serve</code>. Anyone who can reach one gets full access.
+				</span>
+			</label>
 
 			<div class="actions">
 				<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>

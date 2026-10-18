@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -67,6 +68,9 @@ type Settings struct {
 	Theme            Theme `json:"theme"`
 	// Onboarded is set once first-run setup is finished or skipped.
 	Onboarded bool `json:"onboarded"`
+	// AllowedHosts are hostnames the server answers besides loopback, such as the machine's
+	// Tailscale name behind `tailscale serve`. Whoever reaches one gets full access.
+	AllowedHosts []string `json:"allowed_hosts"`
 }
 
 // Nudges turns each kind of nudge on or off. The web client sends them; the server only keeps
@@ -91,6 +95,7 @@ func Defaults() Settings {
 		EndOfDay:         "17:30",
 		Nudges:           Nudges{BeforeEvent: true, EventEnd: true, LateDay: true},
 		AlertLeadMinutes: 10,
+		AllowedHosts:     []string{},
 	}
 }
 
@@ -134,6 +139,11 @@ func (s Settings) Validate() error {
 	}
 	if s.AlertLeadMinutes < 1 || s.AlertLeadMinutes > MaxAlertLead {
 		return fmt.Errorf("%w: alert lead time is %d minutes, it must be 1 to %d", ErrInvalid, s.AlertLeadMinutes, MaxAlertLead)
+	}
+	for _, h := range s.AllowedHosts {
+		if h == "" || strings.ContainsAny(h, ":/ ") {
+			return fmt.Errorf("%w: allowed host %q must be a bare hostname, with no scheme or port", ErrInvalid, h)
+		}
 	}
 	return nil
 }

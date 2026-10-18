@@ -84,6 +84,9 @@ func TestValidate(t *testing.T) {
 		"no alert lead time":            func(s *settings.Settings) { s.AlertLeadMinutes = 0 },
 		"alert lead over an hour":       func(s *settings.Settings) { s.AlertLeadMinutes = 61 },
 		"unknown theme":                 func(s *settings.Settings) { s.Theme = "geocities" },
+		"allowed host with a port":      func(s *settings.Settings) { s.AllowedHosts = []string{"mac.example.ts.net:443"} },
+		"allowed host with a scheme":    func(s *settings.Settings) { s.AllowedHosts = []string{"https://mac.example.ts.net"} },
+		"blank allowed host":            func(s *settings.Settings) { s.AllowedHosts = []string{" "} },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -100,6 +103,7 @@ func TestValidate(t *testing.T) {
 	atLimit.OpenAI.BaseURL = "http://localhost:11434/v1"
 	atLimit.AlertLeadMinutes = 60
 	atLimit.Theme = settings.ThemeVaporwave
+	atLimit.AllowedHosts = []string{"mac.example.ts.net", "100.64.0.1"}
 	if err := atLimit.Validate(); err != nil {
 		t.Errorf("settings at the limits rejected: %v", err)
 	}

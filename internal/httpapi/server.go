@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -101,16 +102,17 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/data", s.deleteData)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
 	mux.Handle("GET /", d.Static)
-	return localOnly(mux)
+	return s.localOnly(mux)
 }
 
 // localOnly rejects requests another site could make through the user's browser. A Host that
-// isn't loopback means DNS rebinding. A write that isn't JSON means a cross-site form post, which
-// skips the CORS preflight a JSON request triggers and this server never answers.
-func localOnly(next http.Handler) http.Handler {
+// isn't loopback or allowed in settings means DNS rebinding. A write that isn't JSON means a
+// cross-site form post, which skips the CORS preflight a JSON request triggers and this server
+// never answers.
+func (s *Server) localOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isLoopback(r.Host) {
-			writeJSON(w, http.StatusForbidden, errorBody{"requests must come from this machine"})
+		if !isLoopback(r.Host) && !s.isAllowed(r) {
+			writeJSON(w, http.StatusForbidden, errorBody{"requests must come from this machine or an allowed host"})
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -125,16 +127,33 @@ func localOnly(next http.Handler) http.Handler {
 }
 
 func isLoopback(hostport string) bool {
-	host, _, err := net.SplitHostPort(hostport)
-	if err != nil {
-		host = hostport
-	}
-	host = strings.Trim(host, "[]")
+	host := hostname(hostport)
 	if host == "localhost" {
 		return true
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// isAllowed reports whether the request's Host is one of the allowed hosts in settings. Settings
+// that can't be read allow nothing.
+func (s *Server) isAllowed(r *http.Request) bool {
+	saved, err := settings.Load(r.Context(), s.DB)
+	if err != nil {
+		log.Printf("load settings for allowed hosts: %v", err)
+		return false
+	}
+	host := hostname(r.Host)
+	return slices.ContainsFunc(saved.AllowedHosts, func(h string) bool { return strings.EqualFold(h, host) })
+}
+
+// hostname strips the port and any IPv6 brackets from a Host header.
+func hostname(hostport string) string {
+	host, _, err := net.SplitHostPort(hostport)
+	if err != nil {
+		host = hostport
+	}
+	return strings.Trim(host, "[]")
 }
 
 // write runs op in a new user batch, publishes the batch, and responds with its ID.

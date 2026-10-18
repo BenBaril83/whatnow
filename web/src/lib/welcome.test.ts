@@ -12,7 +12,8 @@ const fresh: Settings = {
 	nudges: { before_event: true, event_end: true, late_day: true },
 	alert_lead_minutes: 10,
 	theme: '',
-	onboarded: false
+	onboarded: false,
+	allowed_hosts: []
 };
 
 describe('welcomeDue', () => {

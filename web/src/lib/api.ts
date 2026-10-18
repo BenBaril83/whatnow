@@ -176,6 +176,7 @@ export interface Settings {
 	alert_lead_minutes: number;
 	theme: Theme;
 	onboarded: boolean;
+	allowed_hosts: string[];
 }
 
 export type Theme = '' | 'plain' | 'neon' | 'terminal' | 'paper' | 'vaporwave';

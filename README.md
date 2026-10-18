@@ -106,6 +106,11 @@ Both take `-addr` (default `127.0.0.1:7777`) and `-db` (default
 `<user config dir>/whatnow/whatnow.db`, which on macOS is
 `~/Library/Application Support/whatnow/whatnow.db`).
 
+The server only answers this machine. To reach it from your phone over
+[Tailscale](https://tailscale.com), keep it on loopback and run `tailscale serve --bg 7777`, then
+add the machine's Tailscale name (such as `my-mac.tail1234.ts.net`) under *Remote access* in
+settings. Anyone who can reach an allowed host gets full access, so don't put it behind a Funnel.
+
 Open the web UI once to set up a model. After that, use either UI, or both at once, since they
 stay in sync. In the terminal, press `?` for the keys.
 
