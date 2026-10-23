@@ -34,6 +34,17 @@ build-linux: web
     mkdir -p dist
     GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=${v#v}" -o dist/whatnow-linux-amd64 ./cmd/whatnow
 
+# Ships a Linux build to the hosted server set up by docs/hosting.md, restarts it, and checks it answers.
+deploy server="root@whatnow.day": build-linux
+    #!/usr/bin/env bash
+    set -euo pipefail
+    host={{server}}
+    host=${host#*@}
+    scp -q dist/whatnow-linux-amd64 {{server}}:/usr/local/bin/whatnow.new
+    ssh {{server}} 'mv /usr/local/bin/whatnow.new /usr/local/bin/whatnow && systemctl restart whatnow && sleep 2 && systemctl is-active --quiet whatnow || { journalctl -u whatnow -n 20 --no-pager; exit 1; }'
+    curl -fsS https://$host/api/v1/session >/dev/null
+    echo "deployed $(git describe --tags --always) to $host"
+
 # Builds stripped Mac binaries, publishes them as a GitHub release, and points the Homebrew formula in jameynakama/homebrew-tap at them: `just release v0.1.0`. The tag lands on main as GitHub has it, so push first.
 release version: web
     #!/usr/bin/env bash

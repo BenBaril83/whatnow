@@ -474,10 +474,9 @@ server until the restore is done so it doesn't start replicating partial files.
 On your own machine:
 
 ```sh
-just build-linux
-scp dist/whatnow-linux-amd64 root@whatnow.example.com:/usr/local/bin/whatnow.new
-ssh root@whatnow.example.com 'mv /usr/local/bin/whatnow.new /usr/local/bin/whatnow && systemctl restart whatnow'
+just deploy root@whatnow.example.com
 ```
 
-Check `journalctl -u whatnow -n 20` for a clean start. Users stay signed in across a restart, because sessions
-live in `accounts.db`.
+It builds the Linux binary, copies it up, restarts the service, and checks the site answers. If the
+service doesn't come back, it prints the last lines of `journalctl -u whatnow` and fails. Users stay
+signed in across a restart, because sessions live in `accounts.db`.
