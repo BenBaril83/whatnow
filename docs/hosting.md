@@ -120,11 +120,12 @@ days. Generate the key on your own machine or the droplet:
 openssl rand -base64 32
 ```
 
-**Copy it somewhere safe that is not this server**, such as your password manager. It is kept off
-the Volume on purpose, and you must keep a copy elsewhere:
+The key lives in `/etc/whatnow.env` on the droplet's own disk, which the server needs in order to
+decrypt secrets while it runs. **Also keep a second copy somewhere safe that is not this server**,
+such as your password manager:
 
-- The Volume is what gets backed up. Because the key isn't on it, a stolen or leaked backup can't
-  decrypt anyone's secrets.
+- The Volume is what gets backed up, and the key is deliberately not on it. A stolen or leaked
+  backup holds encrypted secrets but no key, so it can't decrypt anyone's secrets.
 - The flip side: if you lose the key, the encrypted secrets in the databases (and in every backup)
   are unreadable, and every user has to enter their API key and integration secrets again. A restore onto a new droplet needs
   the same key.
@@ -218,8 +219,8 @@ Install it (0.5.x; check <https://github.com/benbjohnson/litestream/releases> fo
 
 ```sh
 cd /tmp
-curl -LO https://github.com/benbjohnson/litestream/releases/download/v0.5.17/litestream-0.5.17-linux-amd64.deb
-dpkg -i litestream-0.5.17-linux-amd64.deb
+curl -LO https://github.com/benbjohnson/litestream/releases/download/v0.5.17/litestream-0.5.17-linux-x86_64.deb
+dpkg -i litestream-0.5.17-linux-x86_64.deb
 ```
 
 Write the config, readable by root only because it holds the R2 keys:
@@ -411,7 +412,10 @@ systemctl list-timers whatnow-backup-sweep.timer
 ```
 
 A refused or failed run shows up as a failed unit: check `systemctl status whatnow-backup-sweep`
-now and then, and read `journalctl -u whatnow-backup-sweep`.
+now and then, and read `journalctl -u whatnow-backup-sweep`. A deleting run logs
+`ERROR ... GetBucketVersioning ... AccessDenied`: rclone asks whether the bucket keeps old
+versions, the bucket-scoped token isn't allowed to ask, and rclone carries on assuming it doesn't
+(R2's default). It is harmless; don't widen the token to silence it.
 
 ## 11. The restore drill
 
