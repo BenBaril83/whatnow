@@ -271,11 +271,12 @@ Things to know:
 Litestream's 30-day retention only trims databases it is still replicating. When someone deletes
 their account, their file leaves the Volume, Litestream stops, and their backup in R2 would sit
 there forever. whatnow tells users a deleted account's backups are gone within 30 days, so a daily
-sweep removes the backup of every user whose `users/<id>.db` is no longer on the Volume. That
-happens within a day of the deletion; the deleted user's rows in older `accounts.db` history age out
-with the 30-day retention. Don't use an R2 lifecycle rule for this instead: it can't tell a deleted
-user from one who is just idle, and it would expire the base snapshots that idle users' backups
-need.
+sweep removes the backup of every user whose `users/<id>.db` is no longer on the Volume. It also
+removes the `users/.<id>.db-litestream` directory Litestream keeps beside each database, which holds
+recent changes and stays behind after the database is deleted. That happens within a day of the
+deletion; the deleted user's rows in older `accounts.db` history age out with the 30-day retention.
+Don't use an R2 lifecycle rule for this instead: it can't tell a deleted user from one who is just
+idle, and it would expire the base snapshots that idle users' backups need.
 
 Make a second R2 API token for the sweep, the same way as in section 8 (**Object Read & Write**,
 this bucket only), and name it `whatnow-sweep`. Then install [rclone](https://rclone.org/) (1.59 or
@@ -301,7 +302,8 @@ Write the script:
 ```sh
 cat > /usr/local/bin/whatnow-backup-sweep <<'SCRIPT'
 #!/usr/bin/env bash
-# Delete the R2 backup of every user whose database is gone from the Volume.
+# Delete the R2 backup, and the local Litestream state, of every user whose database is gone from
+# the Volume.
 #   --dry-run  print what would be deleted
 #   --force    skip the "too many at once" check, after you've read what it would delete
 set -euo pipefail
@@ -338,11 +340,21 @@ while IFS= read -r prefix; do
   [[ -e $DATA/users/$name ]] || stale+=("$name")
 done <<<"$listing"
 
-echo "${#backed_up[@]} backed up, ${#stale[@]} to delete"
-((${#stale[@]} > 0)) || exit 0
+# Litestream keeps each database's recent changes in a hidden .<id>.db-litestream directory beside
+# it, and leaves that behind when the database is deleted.
+leftover=()
+for meta in "$DATA"/users/.*.db-litestream; do
+  [[ -d $meta ]] || continue
+  name=${meta##*/.}
+  [[ -e $DATA/users/${name%-litestream} ]] || leftover+=("$meta")
+done
 
-if [[ $force != true ]] && ((${#stale[@]} > MAX_DELETES || ${#stale[@]} * 2 > ${#backed_up[@]})); then
-  printf 'would delete: %s\n' "${stale[@]}" >&2
+echo "${#backed_up[@]} backed up, ${#stale[@]} to delete, ${#leftover[@]} local leftovers"
+((${#stale[@]} + ${#leftover[@]} > 0)) || exit 0
+
+if [[ $force != true ]] && ((${#stale[@]} > MAX_DELETES || ${#stale[@]} * 2 > ${#backed_up[@]} \
+  || ${#leftover[@]} > MAX_DELETES)); then
+  printf 'would delete: %s\n' "${stale[@]}" "${leftover[@]}" >&2
   refuse "that is too many at once; check the Volume, then rerun with --force"
 fi
 
@@ -350,14 +362,18 @@ for name in "${stale[@]}"; do
   echo "deleting $name"
   "${rc[@]}" purge "${dry[@]}" "$REMOTE/$name"
 done
+for meta in "${leftover[@]}"; do
+  echo "deleting $meta"
+  ((${#dry[@]})) || rm -rf -- "$meta"
+done
 SCRIPT
 chmod 755 /usr/local/bin/whatnow-backup-sweep
 ```
 
 The checks mean a missing Volume, an empty `users/` directory, or a run that would delete more than
-5 backups (or more than half of them) does nothing and exits with an error. Early on, with only a
-few users, one deletion can trip the "more than half" check; that's expected. Read the output and
-rerun with `--force` if it looks right.
+5 backups (or more than half of them) or more than 5 local leftovers does nothing and exits with an
+error. Early on, with only a few users, one deletion can trip the "more than half" check; that's
+expected. Read the output and rerun with `--force` if it looks right.
 
 Try it with `--dry-run`, which prints what it would delete and deletes nothing:
 
@@ -365,8 +381,8 @@ Try it with `--dry-run`, which prints what it would delete and deletes nothing:
 whatnow-backup-sweep --dry-run
 ```
 
-With no deleted accounts it prints `N backed up, 0 to delete`. Then run it daily with a systemd
-timer:
+With no deleted accounts it prints `N backed up, 0 to delete, 0 local leftovers`. Then run it
+daily with a systemd timer:
 
 ```sh
 cat > /etc/systemd/system/whatnow-backup-sweep.service <<'UNIT'
@@ -422,9 +438,26 @@ sqlite3 /tmp/restore/users/$ID.db '.tables' 'select count(*) from tasks;'
 If both open and the rows look right, the drill passes. To restore to an earlier moment, add
 `-timestamp YYYY-MM-DDTHH:MM:SSZ` (a UTC time within the last 30 days) before the URL.
 
-The drill also covers the sweep from section 10. On the server, run
-`whatnow-backup-sweep --dry-run` and read the output: it should report `0 to delete` (or name only
-users you know have deleted their accounts), and it should say nothing is wrong with the Volume.
+The drill also covers the sweep from section 10, and proves a deleted account leaves nothing behind.
+On the server:
+
+1. Sign in with a throwaway Google account and add a task. Its database is the newest file in
+   `ls -lt /mnt/whatnow/users/`; set `ID=` to its name without `.db`. Wait a minute so Litestream
+   backs it up.
+2. In Settings, delete that account.
+3. Run `whatnow-backup-sweep --dry-run`. It should name only the throwaway's `<id>.db` and its
+   `.<id>.db-litestream` directory (plus any users you know have deleted their accounts), and say
+   nothing is wrong with the Volume.
+4. Run it for real, `whatnow-backup-sweep`, adding `--force` if the "more than half" check trips with
+   few users. This proves the sweep's R2 token can delete.
+5. Check that nothing of the throwaway remains:
+
+   ```sh
+   ls -la /mnt/whatnow/users/ | grep "$ID"
+   rclone --config /etc/whatnow-sweep.rclone.conf lsf r2:whatnow-backups/whatnow/users/ | grep "$ID"
+   ```
+
+   Both should print nothing.
 
 Litestream can't restore every database in one command when it replicates a directory. To rebuild
 a whole server, list the users from the restored `accounts.db` and restore `users/<id>.db` for each.
