@@ -69,14 +69,14 @@ error: "Nothing sent from your computer yet — run `whatnow jira push`". The mo
 are otherwise unchanged.
 
 **Choosing the mode saves it at once**, like the on/off toggle, so the sequence "pick From my
-computer, create a key, run setup" works without a **Save** in between. (Builder's call.)
+computer, create a key, run setup" works without a **Save** in between.
 
 **The hint for direct pulls (hosted only):** when a direct pull fails with "Can't reach Jira" or a
 `401`, the source result carries `hint: "computer"` beside its error. The web shows "Behind a VPN
 or on an intranet? Send tickets from your computer instead" under the error, as a link. On the
 settings card the link switches the mode (saving it, as above); on the morning chip it opens
 settings at the Jira card, where the user switches. The server sets the hint only in hosted mode,
-so local never shows it. (Builder's call.)
+so local never shows it.
 
 **The integration is on** in "from my computer" mode when it's enabled; none of the direct fields
 are required.
@@ -151,11 +151,3 @@ saved with the card's other values through the existing `PUT /integrations/{id}`
 **A Go flow test in `internal/host`** (the Playwright harness only runs `whatnow serve`): switch Jira to "from my computer", create a key, push a list with the key
 from the test, pull from the morning, add one ticket, skip another, push again: neither comes
 back.
-
-## Left to the builder
-
-- Where the push route is registered so it sits outside the cookie check but inside the host check
-  and body cap.
-- How `Ready` learns that "computer" mode needs no fields; a mode-aware check in the runner is
-  enough, without changing the `Field` contract.
-- The `jira-push.json` shape and the prompt library (or plain `bufio`) for setup.
