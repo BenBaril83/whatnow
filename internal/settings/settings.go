@@ -1,5 +1,6 @@
 // Package settings holds the user's configuration and API keys. Settings live in SQLite as one
-// JSON document. API keys live in the OS keychain, never in the database.
+// JSON document. API keys live in the secrets store: the OS keychain locally, sealed in the user's
+// own database when hosted. Never in the settings document.
 package settings
 
 import (

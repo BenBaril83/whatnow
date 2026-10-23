@@ -99,7 +99,8 @@ would violate those terms once the app is distributed to others.
 - **DaySummary:** a short summary of each day, written by the light model.
 - **Settings:** provider, models, base URL, assistant style (500 characters at most), about me
   (1000 characters at most), nudge toggles, end-of-day time, and alert lead time. API keys go in
-  the OS keychain through `go-keyring` and are never stored in SQLite.
+  the OS keychain through `go-keyring` and are never stored in SQLite. Hosted mode seals them in the
+  user's own database instead (`2026-10-22-hosted-whatnow-design.md`).
 
 Pace has five levels: *running on fumes / gentle / steady / full steam / go hard*. The labels can
 change; there are always five levels.

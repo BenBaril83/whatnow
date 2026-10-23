@@ -267,7 +267,7 @@ func field(fields []Field, key string) *Field {
 	return nil
 }
 
-// rowSecrets names the keychain entries of every secret column in s's list rows.
+// rowSecrets names the secrets-store entries of every secret column in s's list rows.
 func rowSecrets(in Integration, s saved) []string {
 	var accts []string
 	for _, f := range in.Fields() {

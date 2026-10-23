@@ -67,14 +67,17 @@ never flags.
 ## Sign-in
 
 - Google sign-in (OpenID Connect, authorization code flow). The account is keyed by Google's
-  subject ID; email and name are kept for display and updated at each sign-in.
+  subject ID; email and name are kept for display and updated at each sign-in. No PKCE: the server
+  is a confidential client with a client secret, and it checks state and nonce. Adding PKCE means
+  passing a verifier through the `Provider` seam.
 - First sign-in creates the account and the user's database. The browser's time zone
   (`Intl.DateTimeFormat().resolvedOptions().timeZone`) is sent with it and saved as a time zone
   setting in the user's own settings document, which hosted mode shows in settings. The user's App
   opens with that `*time.Location` in place of `time.Local`. The planner, cleanup, agent,
   integrations, and handler each take a copy at construction, so saving a new time zone has the
   registry close that user's App once the save is answered; the next request reopens it in the new
-  zone.
+  zone. Only a changed zone does this. Closing an App cancels the user's other requests and drops
+  the in-memory cleanup queue, and the theme picker saves settings on every click.
 - Sessions are a random token in a cookie (`HttpOnly`, `Secure`, `SameSite=Lax`), stored hashed in
   the accounts database, with a long expiry so phones stay signed in. Sign out deletes the session.
 - **User cap.** Once the number of accounts reaches the configured cap, new sign-ups get a page
@@ -96,30 +99,39 @@ never flags.
 **API keys and integration secrets** move behind a small secrets interface with two
 implementations: the OS keychain (local) and encrypted rows in the user's own database (hosted),
 AES-GCM under a master key from the environment. The master key never sits on the volume, so a
-copy of the backups alone can't read anyone's keys. `settings.Key`, `SetKey`, `DeleteKey`, and the
-integration secret calls in `runner.go` and `saved.go` go through it.
+copy of the backups alone can't read anyone's keys. `settings.Keys` and the integration runner's
+secret calls go through it.
 
-**No environment key fallback in hosted mode.** `settings.Key` falls back to `ANTHROPIC_API_KEY` and
-`OPENAI_API_KEY`. In hosted mode that fallback is off, so nobody runs on the server's key.
+**No server environment in hosted users' requests.** Locally, keys fall back to `ANTHROPIC_API_KEY`
+and `OPENAI_API_KEY`. In hosted mode that fallback is off, so nobody runs on the server's key. The
+model SDKs also read other variables (auth tokens, base URLs, org IDs, custom headers) that would
+travel to a user-chosen base URL, so `whatnow host` refuses to start while any `ANTHROPIC_*` or
+`OPENAI_*` variable is set.
 
 **Outbound requests can't reach private addresses.** In hosted mode, every request to a URL a user
 controls refuses loopback, private, link-local, and metadata addresses, checked on the address
 actually dialed, not just the hostname, so DNS rebinding can't get around it. That covers the
-LLM base URL setting, Google Calendar iCal addresses, and Jira. The integrations already take an
-`*http.Client` in `New`, which is where the guarded client goes. The LLM clients need the same.
+LLM base URL setting, Google Calendar iCal addresses, and Jira. The model clients' guarded client
+has no overall timeout, since a streamed reply can run long. The guard can still reach the
+droplet's own public address, so nothing else on it may listen beyond loopback.
 
 **Settings that don't apply in hosted mode** aren't shown or accepted: allowed hosts, and Review
 Queue (not registered with the runner). Base URLs stay, behind the guard above.
 
 **Limits.** Request body size caps, and a per-user rate limit on the endpoints that call the model
-(capture cleanup, plan, replan, what now, chat). The model cost is the user's, but the request
-handling and goroutines are the server's.
+(capture cleanup, plan, replan, what now, chat) and on integration pulls, which make the server
+fetch user-set URLs. The model cost is the user's, but the request handling and goroutines are
+the server's.
 
 ## Deleting an account
 
 The settings danger zone's wipe (`DELETE /api/v1/data`) becomes **Delete my account** in hosted
-mode: close the user's App, delete their database file, delete their account and sessions. Backups
-age out on the retention schedule below, and the privacy page says so.
+mode: delete their account and sessions first, so no new request can reopen anything, then close
+the user's App and delete their database file. A deleted user's ID is never reopened. Litestream
+leaves a deleted database's replica and local state in place forever, so a daily guarded sweep in
+`docs/hosting.md` removes both; older copies of `accounts.db` age out with the 30-day retention.
+An R2 lifecycle rule can't do this: it can't tell a deleted database from an idle one. The
+privacy page and the danger zone promise backups are gone within 30 days.
 
 ## The web client
 
@@ -157,8 +169,8 @@ it's a follow-up with its own spec.
 - User data on a DigitalOcean Volume mounted on the droplet, so rebuilding the droplet doesn't touch
   it.
 - Caddy in front for TLS. `whatnow host` runs under systemd.
-- Backups to Cloudflare R2, continuously and covering every user's file, including users who sign up
-  after the backup process starts. Retention: 30 days. A restore drill before launch: restore one
+- Backups to Cloudflare R2 with Litestream watching the users directory, continuously and covering
+  every user's file, including users who sign up after the backup process starts. Retention: 30 days. A restore drill before launch: restore one
   user's file and the accounts database from R2 onto a scratch machine and open them.
 - A Linux build recipe in the Justfile next to the Mac release.
 - A setup guide, `docs/hosting.md`, written as step-by-step instructions for someone who has never
@@ -183,14 +195,3 @@ later billing work. Everything needed to run hosted mode is public.
 - Delete my account removes the file, the account, and its sessions.
 - The user cap blocks a new sign-up and lets an existing user in.
 - Google sign-in is tested against a fake provider; nothing in the suite calls Google.
-
-## Left to the builder
-
-- The idle timeout and the rate limit numbers.
-- The Go packages for OIDC and sessions (`golang.org/x/oauth2` with `github.com/coreos/go-oidc`
-  is the obvious pair).
-- The backup tool. Litestream is the first choice; check that it can replicate a directory whose
-  files keep being added. If it can't, find a setup that meets the "continuously, every user's
-  file" bar above, and say so before settling for less.
-- How the registry and the per-user handler are wired, and the session endpoint's shape.
-- The landing page's copy and look, within the existing themes.

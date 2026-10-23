@@ -52,8 +52,8 @@ type Field struct {
 }
 ```
 
-- **`text`** is stored in the database. **`secret`** is stored in the keychain and never
-  leaves the server. **`list`** is repeatable rows of `text` and `secret` columns. Lists don't
+- **`text`** is stored in the database. **`secret`** is stored in the keychain (sealed in the
+  user's database when hosted) and never leaves the server. **`list`** is repeatable rows of `text` and `secret` columns. Lists don't
   nest.
 - **List rows get a server-generated ID**, so a row's secret has a stable keychain entry
   (`integration/gcal/<rowID>/url`) when its label is renamed.
