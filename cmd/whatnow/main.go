@@ -2,13 +2,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -17,7 +20,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jameynakama/whatnow/internal/app"
+	"github.com/jameynakama/whatnow/internal/host"
 	"github.com/jameynakama/whatnow/internal/httpapi"
+	"github.com/jameynakama/whatnow/internal/secrets"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/tui"
 	"github.com/jameynakama/whatnow/internal/web"
@@ -31,7 +36,7 @@ var newClient = settings.NewClient
 
 const defaultAddr = "127.0.0.1:7777"
 
-const usage = "usage: whatnow [-addr 127.0.0.1:7777] [-db PATH]        the terminal view, serving the web UI if nothing else is\n       whatnow serve [-addr 127.0.0.1:7777] [-db PATH]  the web UI only\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]    same as bare whatnow\n       whatnow version"
+const usage = "usage: whatnow [-addr 127.0.0.1:7777] [-db PATH]        the terminal view, serving the web UI if nothing else is\n       whatnow serve [-addr 127.0.0.1:7777] [-db PATH]  the web UI only\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]    same as bare whatnow\n       whatnow host -data DIR -public-url https://HOST [-addr 127.0.0.1:8080] [-max-users 100]  hosted, for many Google-signed-in users\n       whatnow version"
 
 func main() {
 	cmd, args := command(os.Args[1:])
@@ -47,6 +52,8 @@ func main() {
 	case "tui":
 		flags.Parse(args)
 		err = runTUI(*addr, *dbPath)
+	case "host":
+		err = runHost(args, os.Getenv)
 	case "version":
 		fmt.Println(Version)
 	default:
@@ -85,7 +92,12 @@ func serve(addr, dbPath string) error {
 }
 
 func newServer(a *app.App, addr string) *http.Server {
-	handler := httpapi.New(httpapi.Deps{
+	// No WriteTimeout: it would cut off the long-lived SSE stream.
+	return &http.Server{Addr: addr, Handler: apiHandler(a, false), ReadHeaderTimeout: 5 * time.Second}
+}
+
+func apiHandler(a *app.App, hosted bool) http.Handler {
+	return httpapi.New(httpapi.Deps{
 		Service:      a.Service,
 		Hub:          a.Hub,
 		DB:           a.DB,
@@ -99,9 +111,8 @@ func newServer(a *app.App, addr string) *http.Server {
 		Agent:        a.Agent,
 		Integrations: a.Integrations,
 		Static:       web.Handler(),
+		Hosted:       hosted,
 	})
-	// No WriteTimeout: it would cut off the long-lived SSE stream.
-	return &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 }
 
 // listenUnlessTaken listens on addr, or returns a nil listener when something already holds it.
@@ -144,4 +155,112 @@ func runTUI(addr, dbPath string) error {
 		log.Printf("whatnow listening on http://%s (db %s)", addr, a.DBPath)
 	}
 	return tui.Run(a, "http://"+addr)
+}
+
+// hostIdle is how long a user's App stays open with no requests.
+const hostIdle = 15 * time.Minute
+
+type hostOptions struct {
+	addr, dataDir          string
+	publicURL              *url.URL
+	maxUsers               int
+	clientID, clientSecret string
+	sealKey                [32]byte
+}
+
+// redirectURL is where Google sends the user back: the public origin, whatever path it was given.
+func (o hostOptions) redirectURL() string {
+	return (&url.URL{Scheme: o.publicURL.Scheme, Host: o.publicURL.Host, Path: "/auth/google/callback"}).String()
+}
+
+// hostConfig reads the host flags, and the secrets from the environment, which never take flags.
+func hostConfig(args []string, getenv func(string) string) (hostOptions, error) {
+	var o hostOptions
+	flags := flag.NewFlagSet("host", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	flags.Usage = func() { fmt.Fprintln(os.Stderr, usage) }
+	flags.StringVar(&o.addr, "addr", "127.0.0.1:8080", "listen address; put a TLS-terminating proxy in front")
+	flags.StringVar(&o.dataDir, "data", "", "data directory for the accounts database and each user's database")
+	publicURL := flags.String("public-url", "", "the https URL users reach this server at")
+	flags.IntVar(&o.maxUsers, "max-users", 100, "most users who may sign up")
+	if err := flags.Parse(args); err != nil {
+		return o, err
+	}
+	if o.dataDir == "" {
+		return o, errors.New("-data is required")
+	}
+	if *publicURL == "" {
+		return o, errors.New("-public-url is required")
+	}
+	u, err := url.Parse(*publicURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return o, fmt.Errorf("-public-url must be an https URL, got %q", *publicURL)
+	}
+	o.publicURL = u
+	for name, dst := range map[string]*string{
+		"WHATNOW_GOOGLE_CLIENT_ID":     &o.clientID,
+		"WHATNOW_GOOGLE_CLIENT_SECRET": &o.clientSecret,
+	} {
+		if *dst = getenv(name); *dst == "" {
+			return o, fmt.Errorf("%s is required", name)
+		}
+	}
+	seal := getenv("WHATNOW_SEAL_KEY")
+	if seal == "" {
+		return o, errors.New("WHATNOW_SEAL_KEY is required")
+	}
+	if o.sealKey, err = secrets.ParseKey(seal); err != nil {
+		return o, fmt.Errorf("WHATNOW_SEAL_KEY: %w", err)
+	}
+	return o, nil
+}
+
+func runHost(args []string, getenv func(string) string) error {
+	o, err := hostConfig(args, getenv)
+	if err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := os.MkdirAll(filepath.Join(o.dataDir, "users"), 0o700); err != nil {
+		return err
+	}
+	accounts, err := host.OpenAccounts(filepath.Join(o.dataDir, "accounts.db"), time.Now)
+	if err != nil {
+		return err
+	}
+	defer accounts.Close()
+	google, err := host.NewGoogle(ctx, o.clientID, o.clientSecret, o.redirectURL())
+	if err != nil {
+		return err
+	}
+	registry := host.NewRegistry(o.dataDir, func(_, dbPath string) (*app.App, http.Handler, error) {
+		a, err := app.Open(app.Options{DBPath: dbPath, NewClient: newClient, Now: time.Now, Loc: time.UTC, Hosted: &app.Hosted{SealKey: o.sealKey}})
+		if err != nil {
+			return nil, nil, err
+		}
+		return a, apiHandler(a, true), nil
+	}, hostIdle, time.Now)
+	go registry.Run(ctx)
+
+	srv := &http.Server{
+		Addr:              o.addr,
+		Handler:           host.New(host.Config{PublicURL: o.publicURL, MaxUsers: o.maxUsers, Provider: google, Static: web.Handler()}, accounts, registry),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- srv.ListenAndServe() }()
+	log.Printf("whatnow hosting on http://%s for %s (data %s)", o.addr, o.publicURL, o.dataDir)
+
+	select {
+	case err = <-serveErr:
+	case <-ctx.Done():
+		// The registry's Close isn't terminal, so it waits until the server takes no more requests.
+		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err = srv.Shutdown(shutdown)
+	}
+	registry.Close()
+	return err
 }

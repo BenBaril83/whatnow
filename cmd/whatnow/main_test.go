@@ -3,6 +3,7 @@ package main
 import (
 	"net"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -57,5 +58,70 @@ func TestCommand(t *testing.T) {
 		if cmd != c.wantCmd || !slices.Equal(args, c.wantArgs) {
 			t.Errorf("command(%q) = %q, %q; want %q, %q", c.args, cmd, args, c.wantCmd, c.wantArgs)
 		}
+	}
+}
+
+// validSealKey is base64 of 32 bytes.
+const validSealKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
+func TestHostConfigErrors(t *testing.T) {
+	key := validSealKey
+	env := map[string]string{
+		"WHATNOW_GOOGLE_CLIENT_ID":     "id",
+		"WHATNOW_GOOGLE_CLIENT_SECRET": "secret",
+		"WHATNOW_SEAL_KEY":             key,
+	}
+	good := []string{"-data", "/tmp/d", "-public-url", "https://now.example.com"}
+	tests := []struct {
+		name    string
+		args    []string
+		unset   string
+		sealKey string
+		want    string
+	}{
+		{name: "missing data", args: []string{"-public-url", "https://now.example.com"}, want: "-data"},
+		{name: "missing public url", args: []string{"-data", "/tmp/d"}, want: "-public-url"},
+		{name: "http public url", args: []string{"-data", "/tmp/d", "-public-url", "http://now.example.com"}, want: "https"},
+		{name: "missing client id", args: good, unset: "WHATNOW_GOOGLE_CLIENT_ID", want: "WHATNOW_GOOGLE_CLIENT_ID"},
+		{name: "missing client secret", args: good, unset: "WHATNOW_GOOGLE_CLIENT_SECRET", want: "WHATNOW_GOOGLE_CLIENT_SECRET"},
+		{name: "missing seal key", args: good, unset: "WHATNOW_SEAL_KEY", want: "WHATNOW_SEAL_KEY"},
+		{name: "short seal key", args: good, sealKey: "abcd", want: "WHATNOW_SEAL_KEY"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			getenv := func(k string) string {
+				if k == tt.unset {
+					return ""
+				}
+				if k == "WHATNOW_SEAL_KEY" && tt.sealKey != "" {
+					return tt.sealKey
+				}
+				return env[k]
+			}
+			_, err := hostConfig(tt.args, getenv)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("got %v, want an error naming %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestHostConfigReadsFlagsAndEnvironment(t *testing.T) {
+	getenv := func(k string) string {
+		return map[string]string{
+			"WHATNOW_GOOGLE_CLIENT_ID":     "id",
+			"WHATNOW_GOOGLE_CLIENT_SECRET": "secret",
+			"WHATNOW_SEAL_KEY":             validSealKey,
+		}[k]
+	}
+	cfg, err := hostConfig([]string{"-data", "/tmp/d", "-public-url", "https://now.example.com/", "-max-users", "5"}, getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.maxUsers != 5 || cfg.dataDir != "/tmp/d" || cfg.addr != "127.0.0.1:8080" || cfg.clientID != "id" || cfg.clientSecret != "secret" {
+		t.Fatalf("got %+v", cfg)
+	}
+	if got := cfg.redirectURL(); got != "https://now.example.com/auth/google/callback" {
+		t.Fatalf("got redirect %q", got)
 	}
 }

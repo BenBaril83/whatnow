@@ -26,6 +26,14 @@ build: web
 install: web
     go install ./cmd/whatnow
 
+# Builds the stripped Linux binary that `whatnow host` runs from, into dist/.
+build-linux: web
+    #!/usr/bin/env bash
+    set -euo pipefail
+    v=$(git describe --tags --always)
+    mkdir -p dist
+    GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=${v#v}" -o dist/whatnow-linux-amd64 ./cmd/whatnow
+
 # Builds stripped Mac binaries, publishes them as a GitHub release, and points the Homebrew formula in jameynakama/homebrew-tap at them: `just release v0.1.0`. The tag lands on main as GitHub has it, so push first.
 release version: web
     #!/usr/bin/env bash
