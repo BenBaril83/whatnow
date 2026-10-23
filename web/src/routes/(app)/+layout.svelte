@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChatDock from '#lib/components/ChatDock.svelte';
+	import InstallBanner from '#lib/components/InstallBanner.svelte';
 	import EditSheet from '#lib/components/EditSheet.svelte';
 	import { today } from '#lib/today.svelte.ts';
 	import type { LayoutProps } from './$types';
@@ -9,6 +10,7 @@
 
 <div class="page">
 	<main>
+		<InstallBanner />
 		{@render children()}
 	</main>
 	<ChatDock opening={today.today?.plan?.opening ?? ''} />
