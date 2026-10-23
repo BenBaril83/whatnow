@@ -7,7 +7,6 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -185,26 +184,22 @@ func (f *frontDoor) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// deleteAccount removes the account first, so no new request can reach the App, then closes
-// the App and removes its database.
+// deleteAccount removes the account first, so no new request can get past the session check,
+// then the user's App and database.
 func (f *frontDoor) deleteAccount(w http.ResponseWriter, r *http.Request, u User) {
 	if err := f.accounts.DeleteUser(r.Context(), u.ID); err != nil {
 		log.Printf("delete account %s: %v", u.ID, err)
 		writeJSON(w, http.StatusInternalServerError, errorBody{"could not delete your account"})
 		return
 	}
-	f.registry.Evict(u.ID)
 	f.mu.Lock()
 	delete(f.limiters, u.ID)
 	f.mu.Unlock()
 	clearSession(w)
-	path := f.registry.DBPath(u.ID)
-	for _, p := range []string{path, path + "-wal", path + "-shm"} {
-		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
-			log.Printf("remove %s: %v", p, err)
-			writeJSON(w, http.StatusInternalServerError, errorBody{"your account is gone, but its data could not all be removed"})
-			return
-		}
+	if err := f.registry.Delete(u.ID); err != nil {
+		log.Printf("remove data for %s: %v", u.ID, err)
+		writeJSON(w, http.StatusInternalServerError, errorBody{"your account is gone, but its data could not all be removed"})
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

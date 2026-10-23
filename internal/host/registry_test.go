@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -268,4 +270,73 @@ func TestSlowOpenDoesNotBlockOtherUsers(t *testing.T) {
 	serve(r, "fast")
 	close(release)
 	<-done
+}
+
+// noDatabase fails the test if any of the user's database files exist.
+func noDatabase(t *testing.T, r *Registry, userID string) {
+	t.Helper()
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		if _, err := os.Stat(r.DBPath(userID) + suffix); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("database%s stat: %v, want none", suffix, err)
+		}
+	}
+}
+
+func TestDeleteRemovesForGood(t *testing.T) {
+	o := newOpener(ok)
+	r := newRegistry(t, o.open, &clock{t: *start()})
+	serve(r, "u1")
+	serve(r, "u2")
+
+	if err := r.Delete("u1"); err != nil {
+		t.Fatal(err)
+	}
+	noDatabase(t, r, "u1")
+	if w := serve(r, "u1"); w.Code != http.StatusUnauthorized || o.count("u1") != 1 {
+		t.Fatalf("after delete: status %d, opens %d; want 401 without opening", w.Code, o.count("u1"))
+	}
+	noDatabase(t, r, "u1")
+	if w := serve(r, "u2"); w.Code != http.StatusOK || o.count("u2") != 1 {
+		t.Fatalf("other user: status %d, opens %d; want their App still open", w.Code, o.count("u2"))
+	}
+}
+
+func TestDeleteDuringOpen(t *testing.T) {
+	o := newOpener(ok)
+	entered, release := make(chan struct{}), make(chan struct{})
+	var first sync.Once
+	r := newRegistry(t, func(userID, dbPath string) (*app.App, http.Handler, error) {
+		first.Do(func() { close(entered) })
+		<-release
+		return o.open(userID, dbPath)
+	}, &clock{t: *start()})
+
+	served := make(chan *httptest.ResponseRecorder)
+	go func() { served <- serve(r, "u1") }()
+	<-entered
+	deleted := make(chan error)
+	go func() { deleted <- r.Delete("u1") }()
+	// Let the open finish only once the user is marked deleted, as a request that passed the
+	// session check just before the account went would.
+	for {
+		r.mu.Lock()
+		marked := r.deleted["u1"]
+		r.mu.Unlock()
+		if marked {
+			break
+		}
+		runtime.Gosched()
+	}
+	close(release)
+
+	if w := <-served; w.Code != http.StatusUnauthorized {
+		t.Fatalf("request racing the delete: status %d, want 401", w.Code)
+	}
+	if err := <-deleted; err != nil {
+		t.Fatal(err)
+	}
+	noDatabase(t, r, "u1")
+	if n := o.count("u1"); n != 1 {
+		t.Fatalf("open called %d times, want only the one in flight", n)
+	}
 }

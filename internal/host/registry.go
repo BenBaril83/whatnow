@@ -2,8 +2,10 @@ package host
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -21,7 +23,13 @@ type Registry struct {
 
 	mu      sync.Mutex
 	entries map[string]*entry
+	// deleted are users whose data is gone. Their Apps are never opened again, so a request that
+	// was already past the session check can't recreate the database.
+	deleted map[string]bool
 }
+
+// errDeleted means the user was deleted.
+var errDeleted = errors.New("host: user deleted")
 
 // entry is one user's App. Every field but ready and requests is guarded by Registry.mu, and
 // app, handler, and err are set before ready closes. An entry leaves the map before it is shut,
@@ -40,7 +48,7 @@ type entry struct {
 
 // NewRegistry keeps user databases under dir. open builds a user's App and its handler.
 func NewRegistry(dir string, open func(userID, dbPath string) (*app.App, http.Handler, error), idle time.Duration, now func() time.Time) *Registry {
-	return &Registry{dir: dir, open: open, idle: idle, now: now, entries: map[string]*entry{}}
+	return &Registry{dir: dir, open: open, idle: idle, now: now, entries: map[string]*entry{}, deleted: map[string]bool{}}
 }
 
 // DBPath is where the user's database lives.
@@ -52,6 +60,10 @@ func (r *Registry) DBPath(userID string) string {
 // cancelled when the App is evicted, so a long-lived stream ends with it.
 func (r *Registry) Serve(w http.ResponseWriter, req *http.Request, userID string) {
 	e, err := r.acquire(userID)
+	if errors.Is(err, errDeleted) {
+		http.Error(w, "sign in first", http.StatusUnauthorized)
+		return
+	}
 	if err != nil {
 		log.Printf("open app for %s: %v", userID, err)
 		http.Error(w, "could not open your planner", http.StatusInternalServerError)
@@ -69,6 +81,10 @@ func (r *Registry) Serve(w http.ResponseWriter, req *http.Request, userID string
 func (r *Registry) acquire(userID string) (*entry, error) {
 	for {
 		r.mu.Lock()
+		if r.deleted[userID] {
+			r.mu.Unlock()
+			return nil, errDeleted
+		}
 		e := r.entries[userID]
 		if e == nil {
 			e = &entry{ready: make(chan struct{})}
@@ -135,6 +151,27 @@ func (r *Registry) Evict(userID string) {
 	if e != nil {
 		shut(e)
 	}
+}
+
+// Delete closes the user's App for good, as Evict does, and removes the database. No later
+// Serve opens it again.
+func (r *Registry) Delete(userID string) error {
+	r.mu.Lock()
+	r.deleted[userID] = true
+	e := r.entries[userID]
+	delete(r.entries, userID)
+	r.mu.Unlock()
+	if e != nil {
+		shut(e)
+	}
+	path := r.DBPath(userID)
+	var errs []error
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Run closes idle Apps every minute until ctx is done.
