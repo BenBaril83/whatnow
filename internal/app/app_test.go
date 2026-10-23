@@ -15,7 +15,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/settings"
 )
 
-func fakeClient(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
+func fakeClient(context.Context, settings.Clients, settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 	return fake.Client{}, settings.ProviderConfig{}, nil
 }
 

@@ -184,7 +184,7 @@ func TestReconcileStartsTheDayWithTheChosenTriage(t *testing.T) {
 }
 
 func TestTheDumpIsPlannedRawWhenCleanupFails(t *testing.T) {
-	f := newFixtureWith(t, func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
+	f := newFixtureWith(t, func(context.Context, settings.Clients, settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 		return nil, settings.ProviderConfig{}, settings.ErrNotConfigured
 	})
 	m := f.morningAt(t)

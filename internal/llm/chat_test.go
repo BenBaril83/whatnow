@@ -102,7 +102,7 @@ func TestAnthropicChatStreamsTextAndToolCalls(t *testing.T) {
 		[]map[string]any{{"type": "tool_use", "id": "toolu_1", "name": "complete_task", "input": map[string]any{}},
 			{"type": "input_json_delta", "partial_json": `{"task_`}, {"type": "input_json_delta", "partial_json": `id": 4}`}},
 	)}
-	reply, deltas := collect(t, llm.NewAnthropic("sk-test", api.start(t)), chatRequest())
+	reply, deltas := collect(t, llm.NewAnthropic("sk-test", api.start(t), nil), chatRequest())
 
 	want := llm.Reply{Text: "Let me fix that.", ToolCalls: []llm.ToolCall{{ID: "toolu_1", Name: "complete_task", Input: json.RawMessage(`{"task_id": 4}`)}}}
 	if diff := cmp.Diff(want, reply); diff != "" {
@@ -145,7 +145,7 @@ func TestOpenAIChatStreamsTextAndToolCalls(t *testing.T) {
 		openAIChunk(map[string]any{}, "tool_calls"),
 		"data: [DONE]",
 	}}
-	reply, deltas := collect(t, llm.NewOpenAI("sk-test", api.start(t)), chatRequest())
+	reply, deltas := collect(t, llm.NewOpenAI("sk-test", api.start(t), nil), chatRequest())
 
 	want := llm.Reply{Text: "Let me fix that.", ToolCalls: []llm.ToolCall{{ID: "call_1", Name: "complete_task", Input: json.RawMessage(`{"task_id":4}`)}}}
 	if diff := cmp.Diff(want, reply); diff != "" {
@@ -218,5 +218,5 @@ func TestChatProviderErrorIsReturned(t *testing.T) {
 	}
 }
 
-func anthropicClient(url string) llm.Client { return llm.NewAnthropic("sk-test", url) }
-func openAIClient(url string) llm.Client    { return llm.NewOpenAI("sk-test", url) }
+func anthropicClient(url string) llm.Client { return llm.NewAnthropic("sk-test", url, nil) }
+func openAIClient(url string) llm.Client    { return llm.NewOpenAI("sk-test", url, nil) }

@@ -28,7 +28,7 @@ func (s *Server) settingsView(w http.ResponseWriter, r *http.Request) {
 	}
 	view := SettingsView{Settings: saved, Keys: map[settings.Provider]settings.KeySource{}}
 	for _, p := range []settings.Provider{settings.Anthropic, settings.OpenAI} {
-		_, source, err := settings.Key(p)
+		_, source, err := s.Keys.Key(r.Context(), p)
 		if err != nil {
 			writeError(w, err)
 			return
@@ -63,7 +63,7 @@ func (s *Server) putKey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	if err := settings.SetKey(settings.Provider(r.PathValue("provider")), body.Key); err != nil {
+	if err := s.Keys.Set(r.Context(), settings.Provider(r.PathValue("provider")), body.Key); err != nil {
 		writeError(w, err)
 		return
 	}
@@ -71,7 +71,7 @@ func (s *Server) putKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteKey(w http.ResponseWriter, r *http.Request) {
-	if err := settings.DeleteKey(settings.Provider(r.PathValue("provider"))); err != nil {
+	if err := s.Keys.Delete(r.Context(), settings.Provider(r.PathValue("provider"))); err != nil {
 		writeError(w, err)
 		return
 	}
@@ -93,7 +93,7 @@ func (s *Server) testConnection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	client, cfg, err := s.NewClient(saved)
+	client, cfg, err := s.NewClient(r.Context(), saved)
 	if err != nil {
 		writeJSON(w, http.StatusOK, ConnectionResult{Error: err.Error()})
 		return
@@ -114,7 +114,7 @@ func (s *Server) testConnection(w http.ResponseWriter, r *http.Request) {
 
 // deleteData wipes every row, both saved keys, and the integrations' secrets, then tells every
 // open tab to start over. Environment keys can't be removed and are found again on the next setup.
-// An unreachable keychain is logged rather than failed, as in settings.Key: the rows are already
+// An unreachable keychain is logged rather than failed, as in Keys.Key: the rows are already
 // gone. The secrets are listed first, since the rows say which there are.
 func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
 	secrets, err := s.Integrations.Secrets(r.Context())
@@ -127,7 +127,7 @@ func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, p := range []settings.Provider{settings.Anthropic, settings.OpenAI} {
-		if err := settings.DeleteKey(p); err != nil {
+		if err := s.Keys.Delete(r.Context(), p); err != nil {
 			log.Printf("delete %s key: %v", p, err)
 		}
 	}

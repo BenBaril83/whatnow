@@ -69,7 +69,7 @@ func anthropicReply(stopReason, text string) string {
 
 func TestAnthropicRequestAndReply(t *testing.T) {
 	api := &fakeAPI{status: 200, reply: anthropicReply("end_turn", `{"ok":true}`)}
-	client := llm.NewAnthropic("sk-test", api.start(t))
+	client := llm.NewAnthropic("sk-test", api.start(t), nil)
 
 	got, err := client.Complete(context.Background(), request())
 	if err != nil {
@@ -108,7 +108,7 @@ func TestAnthropicFallbackOptIn(t *testing.T) {
 			api := &fakeAPI{status: 200, reply: anthropicReply("end_turn", `{"ok":true}`)}
 			req := request()
 			req.Fallback = c.fallback
-			if _, err := llm.NewAnthropic("sk-test", api.start(t)).Complete(context.Background(), req); err != nil {
+			if _, err := llm.NewAnthropic("sk-test", api.start(t), nil).Complete(context.Background(), req); err != nil {
 				t.Fatal(err)
 			}
 			beta := strings.Contains(api.header.Get("anthropic-beta"), "server-side-fallback-2026-07-01")
@@ -129,7 +129,7 @@ func TestOpenAIRequestAndReply(t *testing.T) {
 		}},
 	})
 	api := &fakeAPI{status: 200, reply: string(reply)}
-	client := llm.NewOpenAI("sk-test", api.start(t))
+	client := llm.NewOpenAI("sk-test", api.start(t), nil)
 
 	got, err := client.Complete(context.Background(), request())
 	if err != nil {
@@ -173,10 +173,10 @@ func TestStopReasonsBecomeErrors(t *testing.T) {
 		reply  string
 		want   error
 	}{
-		{"anthropic refusal", func(u string) llm.Client { return llm.NewAnthropic("k", u) }, anthropicReply("refusal", ""), llm.ErrRefused},
-		{"anthropic max tokens", func(u string) llm.Client { return llm.NewAnthropic("k", u) }, anthropicReply("max_tokens", `{"ok":`), llm.ErrTruncated},
-		{"openai refusal", func(u string) llm.Client { return llm.NewOpenAI("k", u) }, openAIReply("stop", "I can't help with that"), llm.ErrRefused},
-		{"openai length", func(u string) llm.Client { return llm.NewOpenAI("k", u) }, openAIReply("length", ""), llm.ErrTruncated},
+		{"anthropic refusal", func(u string) llm.Client { return llm.NewAnthropic("k", u, nil) }, anthropicReply("refusal", ""), llm.ErrRefused},
+		{"anthropic max tokens", func(u string) llm.Client { return llm.NewAnthropic("k", u, nil) }, anthropicReply("max_tokens", `{"ok":`), llm.ErrTruncated},
+		{"openai refusal", func(u string) llm.Client { return llm.NewOpenAI("k", u, nil) }, openAIReply("stop", "I can't help with that"), llm.ErrRefused},
+		{"openai length", func(u string) llm.Client { return llm.NewOpenAI("k", u, nil) }, openAIReply("length", ""), llm.ErrTruncated},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -192,10 +192,10 @@ func TestStopReasonsBecomeErrors(t *testing.T) {
 func TestAuthErrorDoesNotLeakTheKey(t *testing.T) {
 	const key = "sk-very-secret-123"
 	body := `{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}`
-	for name, newClient := range map[string]func(string, string) llm.Client{"anthropic": llm.NewAnthropic, "openai": llm.NewOpenAI} {
+	for name, newClient := range map[string]func(string, string, *http.Client) llm.Client{"anthropic": llm.NewAnthropic, "openai": llm.NewOpenAI} {
 		t.Run(name, func(t *testing.T) {
 			api := &fakeAPI{status: 401, reply: body}
-			_, err := newClient(key, api.start(t)).Complete(context.Background(), request())
+			_, err := newClient(key, api.start(t), nil).Complete(context.Background(), request())
 			if err == nil {
 				t.Fatal("expected an error for a 401")
 			}
@@ -214,7 +214,7 @@ func TestOpenAISkipsAnEmptySystemMessage(t *testing.T) {
 	})
 	api := &fakeAPI{status: 200, reply: string(reply)}
 
-	_, err := llm.NewOpenAI("k", api.start(t)).Complete(context.Background(), llm.Request{Model: "m", User: "hi", MaxTokens: 16})
+	_, err := llm.NewOpenAI("k", api.start(t), nil).Complete(context.Background(), llm.Request{Model: "m", User: "hi", MaxTokens: 16})
 	if err != nil {
 		t.Fatal(err)
 	}

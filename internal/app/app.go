@@ -29,7 +29,7 @@ import (
 type Options struct {
 	// DBPath defaults to <user config dir>/whatnow/whatnow.db.
 	DBPath    string
-	NewClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)
+	NewClient func(context.Context, settings.Clients, settings.Settings) (llm.Client, settings.ProviderConfig, error)
 	Now       func() time.Time
 	Loc       *time.Location
 }
@@ -45,11 +45,14 @@ type App struct {
 	Agent   *agent.Agent
 	Now     func() time.Time
 	Loc     *time.Location
+	// Clients is where this app's keys live and what its model clients send with.
+	Clients settings.Clients
 	// Integrations pull outside work in, such as calendar events, when the user asks.
 	Integrations *integrations.Runner
 
-	stop    context.CancelFunc
-	running sync.WaitGroup
+	newClient func(context.Context, settings.Clients, settings.Settings) (llm.Client, settings.ProviderConfig, error)
+	stop      context.CancelFunc
+	running   sync.WaitGroup
 }
 
 // Open opens the database and starts the cleanup runner and the replan watcher.
@@ -70,6 +73,7 @@ func Open(o Options) (*App, error) {
 		return nil, err
 	}
 
+	clients := settings.Clients{Keys: settings.LocalKeys()}
 	svc := service.New(db, o.Now)
 	hub := stream.NewHub()
 	active := func(ctx context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
@@ -77,20 +81,22 @@ func Open(o Options) (*App, error) {
 		if err != nil {
 			return nil, settings.ProviderConfig{}, settings.Settings{}, err
 		}
-		client, cfg, err := o.NewClient(s)
+		client, cfg, err := o.NewClient(ctx, clients, s)
 		return client, cfg, s, err
 	}
 	plans := planner.New(svc, hub, active, o.Loc, o.Now)
 	a := &App{
-		DB:      db,
-		DBPath:  path,
-		Service: svc,
-		Hub:     hub,
-		Cleanup: cleanup.New(svc, hub, active, o.Loc, o.Now),
-		Planner: plans,
-		Agent:   agent.New(svc, hub, plans, o.Loc, o.Now),
-		Now:     o.Now,
-		Loc:     o.Loc,
+		DB:        db,
+		DBPath:    path,
+		Service:   svc,
+		Hub:       hub,
+		Cleanup:   cleanup.New(svc, hub, active, o.Loc, o.Now),
+		Planner:   plans,
+		Agent:     agent.New(svc, hub, plans, o.Loc, o.Now),
+		Now:       o.Now,
+		Loc:       o.Loc,
+		Clients:   clients,
+		newClient: o.NewClient,
 		Integrations: integrations.NewRunner(db, svc, hub, o.Loc, o.Now,
 			gcal.New(nil), jira.New(nil), reviewqueue.New(nil),
 		),
@@ -110,6 +116,11 @@ func Open(o Options) (*App, error) {
 		plans.Run(ctx, watched)
 	}()
 	return a, nil
+}
+
+// NewClient builds the model client for s from this app's keys and HTTP client.
+func (a *App) NewClient(ctx context.Context, s settings.Settings) (llm.Client, settings.ProviderConfig, error) {
+	return a.newClient(ctx, a.Clients, s)
 }
 
 // Close stops the background work, waits for it, and closes the database.

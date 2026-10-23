@@ -3,6 +3,9 @@ package settings_test
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/zalando/go-keyring"
 
+	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
 )
@@ -110,66 +114,134 @@ func TestValidate(t *testing.T) {
 }
 
 func TestKeysPreferKeychainOverEnv(t *testing.T) {
+	ctx := context.Background()
 	keyring.MockInit()
 	t.Setenv("ANTHROPIC_API_KEY", "from-env")
 
-	key, source, err := settings.Key(settings.Anthropic)
+	key, source, err := settings.LocalKeys().Key(ctx, settings.Anthropic)
 	if err != nil || key != "from-env" || source != settings.KeyFromEnv {
 		t.Fatalf("env fallback: %q %q %v", key, source, err)
 	}
 
-	if err := settings.SetKey(settings.Anthropic, "  from-keychain \n"); err != nil {
+	if err := settings.LocalKeys().Set(ctx, settings.Anthropic, "  from-keychain \n"); err != nil {
 		t.Fatal(err)
 	}
-	key, source, err = settings.Key(settings.Anthropic)
+	key, source, err = settings.LocalKeys().Key(ctx, settings.Anthropic)
 	if err != nil || key != "from-keychain" || source != settings.KeyFromKeychain {
 		t.Fatalf("keychain: %q %q %v", key, source, err)
 	}
 
-	if err := settings.DeleteKey(settings.Anthropic); err != nil {
+	if err := settings.LocalKeys().Delete(ctx, settings.Anthropic); err != nil {
 		t.Fatal(err)
 	}
-	if err := settings.DeleteKey(settings.Anthropic); err != nil {
+	if err := settings.LocalKeys().Delete(ctx, settings.Anthropic); err != nil {
 		t.Errorf("deleting a missing key: %v", err)
 	}
-	if _, source, _ := settings.Key(settings.Anthropic); source != settings.KeyFromEnv {
+	if _, source, _ := settings.LocalKeys().Key(ctx, settings.Anthropic); source != settings.KeyFromEnv {
 		t.Errorf("after delete, source = %q, want env", source)
 	}
-	if err := settings.SetKey(settings.Anthropic, "   "); !errors.Is(err, settings.ErrInvalid) {
+	if err := settings.LocalKeys().Set(ctx, settings.Anthropic, "   "); !errors.Is(err, settings.ErrInvalid) {
 		t.Errorf("blank key: err = %v, want ErrInvalid", err)
 	}
 }
 
 func TestNewClientNeedsProviderAndKey(t *testing.T) {
+	ctx := context.Background()
 	keyring.MockInit()
 	t.Setenv("OPENAI_API_KEY", "")
+	clients := settings.Clients{Keys: settings.LocalKeys()}
 	s := settings.Defaults()
 
-	if _, _, err := settings.NewClient(s); !errors.Is(err, settings.ErrNotConfigured) {
+	if _, _, err := settings.NewClient(ctx, clients, s); !errors.Is(err, settings.ErrNotConfigured) {
 		t.Errorf("no provider: err = %v, want ErrNotConfigured", err)
 	}
 	s.Provider = settings.OpenAI
 	s.OpenAI = settings.ProviderConfig{MainModel: "big", LightModel: "small"}
-	if _, _, err := settings.NewClient(s); !errors.Is(err, settings.ErrNotConfigured) {
+	if _, _, err := settings.NewClient(ctx, clients, s); !errors.Is(err, settings.ErrNotConfigured) {
 		t.Errorf("no key: err = %v, want ErrNotConfigured", err)
 	}
-	if err := settings.SetKey(settings.OpenAI, "sk-test"); err != nil {
+	if err := settings.LocalKeys().Set(ctx, settings.OpenAI, "sk-test"); err != nil {
 		t.Fatal(err)
 	}
-	client, cfg, err := settings.NewClient(s)
+	client, cfg, err := settings.NewClient(ctx, clients, s)
 	if err != nil || client == nil || cfg.LightModel != "small" {
 		t.Errorf("configured: client %v, cfg %+v, err %v", client, cfg, err)
 	}
 }
 
 func TestKeychainFailureFallsBackToEnv(t *testing.T) {
+	ctx := context.Background()
 	keyring.MockInitWithError(errors.New("no secret service"))
 	t.Setenv("ANTHROPIC_API_KEY", "from-env")
 
-	key, source, err := settings.Key(settings.Anthropic)
+	key, source, err := settings.LocalKeys().Key(ctx, settings.Anthropic)
 	if err != nil || key != "from-env" || source != settings.KeyFromEnv {
 		t.Errorf("got %q %q %v, want the env key", key, source, err)
 	}
+}
+
+// memStore is a secrets.Store over a map.
+type memStore map[string]string
+
+func (m memStore) Get(_ context.Context, name string) (string, error) { return m[name], nil }
+func (m memStore) Set(_ context.Context, name, value string) error    { m[name] = value; return nil }
+func (m memStore) Delete(_ context.Context, name string) error        { delete(m, name); return nil }
+
+func TestSealedKeysIgnoreEnv(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("ANTHROPIC_API_KEY", "from-env")
+	keys := settings.SealedKeys(memStore{})
+
+	if key, source, err := keys.Key(ctx, settings.Anthropic); err != nil || key != "" || source != "" {
+		t.Fatalf("before Set: %q %q %v, want nothing", key, source, err)
+	}
+	if err := keys.Set(ctx, settings.Anthropic, "sk-saved"); err != nil {
+		t.Fatal(err)
+	}
+	if key, source, err := keys.Key(ctx, settings.Anthropic); err != nil || key != "sk-saved" || source != settings.KeyFromSaved {
+		t.Errorf("after Set: %q %q %v, want the saved key", key, source, err)
+	}
+}
+
+func TestLocalKeysFallBackToEnv(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv("ANTHROPIC_API_KEY", "from-env")
+
+	key, source, err := settings.LocalKeys().Key(context.Background(), settings.Anthropic)
+	if err != nil || key != "from-env" || source != settings.KeyFromEnv {
+		t.Errorf("got %q %q %v, want the env key", key, source, err)
+	}
+}
+
+func TestNewClientUsesHTTPClient(t *testing.T) {
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"id":"m","type":"message","role":"assistant","model":"m","stop_reason":"end_turn","content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":1,"output_tokens":1}}`)
+	}))
+	t.Cleanup(api.Close)
+	counter := &countingTransport{}
+	keys := settings.SealedKeys(memStore{"anthropic": "sk-test"})
+	s := settings.Defaults()
+	s.Provider = settings.Anthropic
+	s.Anthropic.BaseURL = api.URL
+
+	client, _, err := settings.NewClient(context.Background(), settings.Clients{Keys: keys, HTTP: &http.Client{Transport: counter}}, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Complete(context.Background(), llm.Request{Model: "m", User: "hi", MaxTokens: 16}); err != nil {
+		t.Fatal(err)
+	}
+	if counter.requests != 1 {
+		t.Errorf("requests through the supplied client = %d, want 1", counter.requests)
+	}
+}
+
+type countingTransport struct{ requests int }
+
+func (c *countingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	c.requests++
+	return http.DefaultTransport.RoundTrip(r)
 }
 
 func TestSettingsSavedBeforeEndOfDayExistedGetTheDefault(t *testing.T) {

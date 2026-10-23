@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/openai/openai-go/v3"
@@ -17,11 +18,14 @@ type openAIClient struct {
 }
 
 // NewOpenAI returns a Client for the OpenAI chat completions API or any server compatible with
-// it, such as Ollama, LM Studio, or OpenRouter. An empty baseURL uses OpenAI.
-func NewOpenAI(apiKey, baseURL string) Client {
+// it, such as Ollama, LM Studio, or OpenRouter. An empty baseURL uses OpenAI, and a nil hc the SDK's HTTP client.
+func NewOpenAI(apiKey, baseURL string, hc *http.Client) Client {
 	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
 	if baseURL != "" {
 		opts = append(opts, option.WithBaseURL(baseURL))
+	}
+	if hc != nil {
+		opts = append(opts, option.WithHTTPClient(hc))
 	}
 	return &openAIClient{client: openai.NewClient(opts...)}
 }

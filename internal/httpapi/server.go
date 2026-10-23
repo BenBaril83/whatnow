@@ -40,9 +40,11 @@ type Deps struct {
 	// Clean runs cleanup on a captured task right away, for the morning's brain dump.
 	Clean func(ctx context.Context, captured domain.Task) (int64, error)
 	// NewClient builds an LLM client from settings, for the connection test.
-	NewClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)
-	Planner   *planner.Planner
-	Agent     *agent.Agent
+	NewClient func(context.Context, settings.Settings) (llm.Client, settings.ProviderConfig, error)
+	// Keys holds the provider API keys.
+	Keys    settings.Keys
+	Planner *planner.Planner
+	Agent   *agent.Agent
 	// Static serves the web client for every GET outside the API.
 	Static       http.Handler
 	Integrations *integrations.Runner

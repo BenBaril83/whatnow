@@ -1,15 +1,16 @@
 package settings
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
-	"github.com/zalando/go-keyring"
-
 	"github.com/jameynakama/whatnow/internal/llm"
+	"github.com/jameynakama/whatnow/internal/secrets"
 )
 
 // ErrNotConfigured means no provider is chosen, or the chosen one has no key.
@@ -21,30 +22,51 @@ type KeySource string
 const (
 	KeyFromKeychain KeySource = "keychain"
 	KeyFromEnv      KeySource = "env"
+	KeyFromSaved    KeySource = "saved"
 )
-
-const keychainService = "whatnow"
 
 var envVars = map[Provider]string{Anthropic: "ANTHROPIC_API_KEY", OpenAI: "OPENAI_API_KEY"}
 
-// Key returns a provider's API key from the keychain, falling back to the provider's usual
-// environment variable.
-func Key(p Provider) (string, KeySource, error) {
-	key, err := keyring.Get(keychainService, string(p))
-	if err == nil {
-		return key, KeyFromKeychain, nil
-	}
-	if !errors.Is(err, keyring.ErrNotFound) {
+// Keys reads and writes provider API keys in a secrets store.
+type Keys struct {
+	store  secrets.Store
+	source KeySource
+	// env lets a provider's usual environment variable stand in for a missing key.
+	env bool
+}
+
+// LocalKeys keeps keys in the OS keychain, falling back to the environment.
+func LocalKeys() Keys {
+	return Keys{store: secrets.Keychain{}, source: KeyFromKeychain, env: true}
+}
+
+// SealedKeys keeps keys in s alone. The server's environment is never a user's key.
+func SealedKeys(s secrets.Store) Keys {
+	return Keys{store: s, source: KeyFromSaved}
+}
+
+// Key returns a provider's API key from the store, falling back to the provider's usual
+// environment variable where that's allowed.
+func (k Keys) Key(ctx context.Context, p Provider) (string, KeySource, error) {
+	key, err := k.store.Get(ctx, string(p))
+	if err != nil {
+		if !k.env {
+			return "", "", err
+		}
 		// An unavailable keychain (no Secret Service, a denied prompt) shouldn't hide an env key.
 		log.Printf("read %s key from keychain: %v", p, err)
+	} else if key != "" {
+		return key, k.source, nil
 	}
-	if key := os.Getenv(envVars[p]); key != "" {
-		return key, KeyFromEnv, nil
+	if k.env {
+		if key := os.Getenv(envVars[p]); key != "" {
+			return key, KeyFromEnv, nil
+		}
 	}
 	return "", "", nil
 }
 
-func SetKey(p Provider, key string) error {
+func (k Keys) Set(ctx context.Context, p Provider, key string) error {
 	if !p.Valid() {
 		return fmt.Errorf("%w: provider %q", ErrInvalid, p)
 	}
@@ -52,26 +74,30 @@ func SetKey(p Provider, key string) error {
 	if key == "" {
 		return fmt.Errorf("%w: key is empty", ErrInvalid)
 	}
-	return keyring.Set(keychainService, string(p), key)
+	return k.store.Set(ctx, string(p), key)
 }
 
-// DeleteKey removes a provider's key from the keychain. Deleting a key that isn't there is fine.
-func DeleteKey(p Provider) error {
+// Delete removes a provider's key. Deleting a key that isn't there is fine.
+func (k Keys) Delete(ctx context.Context, p Provider) error {
 	if !p.Valid() {
 		return fmt.Errorf("%w: provider %q", ErrInvalid, p)
 	}
-	if err := keyring.Delete(keychainService, string(p)); err != nil && !errors.Is(err, keyring.ErrNotFound) {
-		return err
-	}
-	return nil
+	return k.store.Delete(ctx, string(p))
+}
+
+// Clients is what building a model client needs: where keys live, and the HTTP client the
+// provider SDKs send with. A nil HTTP uses the SDK default.
+type Clients struct {
+	Keys Keys
+	HTTP *http.Client
 }
 
 // NewClient returns a client for the active provider, along with its model settings.
-func NewClient(s Settings) (llm.Client, ProviderConfig, error) {
+func NewClient(ctx context.Context, c Clients, s Settings) (llm.Client, ProviderConfig, error) {
 	if s.Provider == "" {
 		return nil, ProviderConfig{}, ErrNotConfigured
 	}
-	key, _, err := Key(s.Provider)
+	key, _, err := c.Keys.Key(ctx, s.Provider)
 	if err != nil {
 		return nil, ProviderConfig{}, err
 	}
@@ -80,7 +106,7 @@ func NewClient(s Settings) (llm.Client, ProviderConfig, error) {
 	}
 	cfg := s.Config()
 	if s.Provider == OpenAI {
-		return llm.NewOpenAI(key, cfg.BaseURL), cfg, nil
+		return llm.NewOpenAI(key, cfg.BaseURL, c.HTTP), cfg, nil
 	}
-	return llm.NewAnthropic(key, cfg.BaseURL), cfg, nil
+	return llm.NewAnthropic(key, cfg.BaseURL, c.HTTP), cfg, nil
 }

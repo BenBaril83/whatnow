@@ -28,13 +28,13 @@ type fixture struct {
 // newFixture opens a temp database at 10:00 on a fixed day, with the fake model.
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	return newFixtureWith(t, func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
+	return newFixtureWith(t, func(context.Context, settings.Clients, settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 		return fake.Client{}, settings.ProviderConfig{}, nil
 	})
 }
 
 // newFixtureWith is newFixture with its own model client.
-func newFixtureWith(t *testing.T, newClient func(settings.Settings) (llm.Client, settings.ProviderConfig, error)) *fixture {
+func newFixtureWith(t *testing.T, newClient func(context.Context, settings.Clients, settings.Settings) (llm.Client, settings.ProviderConfig, error)) *fixture {
 	t.Helper()
 	// Integration secrets live in the keychain, which a test never touches.
 	keyring.MockInit()

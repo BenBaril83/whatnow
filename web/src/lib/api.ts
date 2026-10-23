@@ -7,7 +7,7 @@ export type Tier = 'must' | 'should' | 'could';
 export type Source = 'user' | 'chat' | 'cleanup' | 'triage';
 export type Provider = 'anthropic' | 'openai';
 /** Where a provider's key comes from. Empty means there is none. */
-export type KeySource = '' | 'keychain' | 'env';
+export type KeySource = '' | 'keychain' | 'env' | 'saved';
 
 /** A link or key pulled out of a task's text. */
 export interface Ref {

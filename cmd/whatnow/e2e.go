@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/zalando/go-keyring"
@@ -18,8 +19,8 @@ func init() {
 	keyring.MockInit()
 	os.Unsetenv("ANTHROPIC_API_KEY")
 	os.Unsetenv("OPENAI_API_KEY")
-	newClient = func(s settings.Settings) (llm.Client, settings.ProviderConfig, error) {
-		_, cfg, err := settings.NewClient(s)
+	newClient = func(ctx context.Context, c settings.Clients, s settings.Settings) (llm.Client, settings.ProviderConfig, error) {
+		_, cfg, err := settings.NewClient(ctx, c, s)
 		if err != nil {
 			return nil, cfg, err
 		}

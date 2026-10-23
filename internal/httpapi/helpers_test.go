@@ -79,7 +79,8 @@ func newAPI(t *testing.T) *testAPI {
 		Now:       now,
 		OnCapture: func(task domain.Task) { api.captured = append(api.captured, task.ID) },
 		Clean:     runner.Clean,
-		NewClient: func(settings.Settings) (llm.Client, settings.ProviderConfig, error) {
+		Keys:      settings.LocalKeys(),
+		NewClient: func(context.Context, settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 			if api.model == nil {
 				return nil, settings.ProviderConfig{}, settings.ErrNotConfigured
 			}
