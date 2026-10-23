@@ -5,15 +5,29 @@
 	import '#lib/tokens.css';
 	import '#lib/themes.css';
 	import favicon from '#lib/assets/favicon.svg';
+	import Landing from '#lib/components/Landing.svelte';
 	import Toasts from '#lib/components/Toasts.svelte';
 	import { live } from '#lib/live.svelte.ts';
+	import { session, showLanding } from '#lib/session.svelte.ts';
+	import { toasts } from '#lib/toasts.svelte.ts';
 	import { applyTheme } from '#lib/theme.ts';
 	import { welcomeDue } from '#lib/welcome.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
 
-	onMount(() => live.start());
+	// A hosted server answers 401 to everything but the session until someone signs in, so the stream
+	// starts only once the session says there's a user to stream for (or no sign-in at all).
+	onMount(() => {
+		let stop: (() => void) | undefined;
+		session.load().then(
+			() => {
+				if (!session.value?.hosted || session.value.user) stop = live.start();
+			},
+			(err) => toasts.error(err)
+		);
+		return () => stop?.();
+	});
 
 	$effect(() => {
 		if (live.view) applyTheme(live.view.settings.theme);
@@ -29,5 +43,11 @@
 	<title>whatnow</title>
 </svelte:head>
 
-{@render children()}
+{#if session.value}
+	{#if showLanding(session.value, page.url.pathname)}
+		<Landing />
+	{:else}
+		{@render children()}
+	{/if}
+{/if}
 <Toasts />

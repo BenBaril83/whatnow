@@ -139,6 +139,12 @@ export interface Message {
 	error: string;
 }
 
+/** Who the server says is asking. Local mode has no sign-in, so hosted is false there. */
+export interface Session {
+	hosted: boolean;
+	user: { name: string; email: string } | null;
+}
+
 /** The response to every write. */
 export interface Mutation {
 	batch_id: number;
@@ -303,6 +309,16 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const api = {
+	session: () => request<Session>('GET', '/session'),
+	// Sign-out lives outside /api/v1, so it can't go through request().
+	logout: async (): Promise<void> => {
+		const res = await fetch('/auth/logout', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: '{}'
+		});
+		if (!res.ok) throw new ApiError(res.status, res.statusText);
+	},
 	today: () => request<Today>('GET', '/today'),
 	events: (date: string) => request<CalendarEvent[]>('GET', `/events?date=${date}`),
 	deleteEvent: (id: number) => request<Mutation>('DELETE', `/events/${id}`),

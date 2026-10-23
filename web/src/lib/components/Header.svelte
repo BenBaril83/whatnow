@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api, configured, paceLabels, type Today } from '#lib/api.ts';
 	import { dismiss } from '#lib/dismiss.ts';
+	import { session } from '#lib/session.svelte.ts';
 	import { live } from '#lib/live.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import { countdown, wrapDue } from '#lib/time.ts';
@@ -16,6 +17,8 @@
 
 	let paceOpen = $state(false);
 	let menuOpen = $state(false);
+	let accountOpen = $state(false);
+	const user = $derived(session.value?.hosted ? session.value.user : null);
 	const next = $derived(countdown(todayState.events, live.now));
 	const wrapped = $derived(today.day?.wrapped_at != null);
 	const canWrap = $derived(today.day !== null && !wrapped);
@@ -26,6 +29,15 @@
 			day: 'numeric'
 		})
 	);
+
+	async function signOut() {
+		try {
+			await api.logout();
+			location.assign('/');
+		} catch (err) {
+			toasts.error(err);
+		}
+	}
 
 	function setPace(pace: number) {
 		paceOpen = false;
@@ -63,6 +75,15 @@
 			<button class="btn primary" disabled={asking || !today.day} onclick={onwhatnow}>
 				{asking ? 'Thinking…' : 'What now?'}
 			</button>
+		{/if}
+		{#if user}
+			<details class="more" bind:open={accountOpen} {@attach dismiss}>
+				<summary class="btn" aria-label="Account">{user.name}</summary>
+				<div class="sticker menu">
+					<a class="item" href="/privacy" onclick={() => (accountOpen = false)}>Privacy</a>
+					<button class="item" onclick={signOut}>Sign out</button>
+				</div>
+			</details>
 		{/if}
 		<details class="more" bind:open={menuOpen} {@attach dismiss}>
 			<summary class="btn" aria-label="Menu">⋯</summary>
