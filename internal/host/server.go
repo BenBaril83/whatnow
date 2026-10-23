@@ -81,6 +81,10 @@ func New(cfg Config, accounts *Accounts, registry *Registry) http.Handler {
 	mux.HandleFunc("POST /auth/logout", f.logout)
 	mux.HandleFunc("GET /api/v1/session", f.session)
 	mux.HandleFunc("DELETE /api/v1/data", f.withUser(f.deleteAccount))
+	mux.HandleFunc("POST "+pushPath, f.push)
+	mux.HandleFunc("GET /api/v1/integrations/jira/key", f.withUser(f.pushKey))
+	mux.HandleFunc("POST /api/v1/integrations/jira/key", f.withUser(f.createPushKey))
+	mux.HandleFunc("DELETE /api/v1/integrations/jira/key", f.withUser(f.deletePushKey))
 	mux.HandleFunc("/api/v1/", f.withUser(f.dispatch))
 	mux.Handle("/", cfg.Static)
 	return f.guard(mux)
@@ -88,7 +92,8 @@ func New(cfg Config, accounts *Accounts, registry *Registry) http.Handler {
 
 // guard refuses requests another site could make through the user's browser. A Host that isn't
 // the public one means DNS rebinding. A write from another origin, or one that isn't JSON (a
-// cross-site form post, which skips the CORS preflight), is cross-site request forgery.
+// cross-site form post, which skips the CORS preflight), is cross-site request forgery. A push
+// carries its key in a header no browser sends on its own, so it has no Origin to check.
 func (f *frontDoor) guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.EqualFold(r.Host, f.host) {
@@ -97,7 +102,8 @@ func (f *frontDoor) guard(next http.Handler) http.Handler {
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-			if r.Header.Get("Origin") != f.origin || err != nil || mt != "application/json" {
+			crossSite := r.Header.Get("Origin") != f.origin && r.URL.Path != pushPath
+			if crossSite || err != nil || mt != "application/json" {
 				writeJSON(w, http.StatusForbidden, errorBody{"writes must be application/json from this site"})
 				return
 			}
@@ -133,6 +139,11 @@ func (f *frontDoor) withUser(next func(http.ResponseWriter, *http.Request, User)
 
 // dispatch hands the request to the user's App, once the user's limiter allows a metered one.
 func (f *frontDoor) dispatch(w http.ResponseWriter, r *http.Request, u User) {
+	// Pushed tickets arrive only through a push key; see push.
+	if strings.HasSuffix(r.URL.Path, "/received") {
+		writeJSON(w, http.StatusNotFound, errorBody{"not found"})
+		return
+	}
 	if _, pattern := limited.Handler(r); pattern != "" && !f.limiter(u.ID).AllowN(f.now(), 1) {
 		writeJSON(w, http.StatusTooManyRequests, errorBody{"too many requests; wait a minute and try again"})
 		return
