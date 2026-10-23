@@ -79,8 +79,11 @@ func TestValidate(t *testing.T) {
 	valid := settings.Defaults()
 	valid.Provider = settings.Anthropic
 	cases := map[string]func(*settings.Settings){
-		"unknown provider":              func(s *settings.Settings) { s.Provider = "gemini" },
-		"openai without models":         func(s *settings.Settings) { s.Provider = settings.OpenAI },
+		"unknown provider": func(s *settings.Settings) { s.Provider = "gemini" },
+		"openai without models": func(s *settings.Settings) {
+			s.Provider = settings.OpenAI
+			s.OpenAI = settings.ProviderConfig{}
+		},
 		"base URL without scheme":       func(s *settings.Settings) { s.OpenAI.BaseURL = "localhost:11434" },
 		"style over 500 characters":     func(s *settings.Settings) { s.Style = strings.Repeat("é", 501) },
 		"about me over 1000 characters": func(s *settings.Settings) { s.AboutMe = strings.Repeat("🧠", 1001) },

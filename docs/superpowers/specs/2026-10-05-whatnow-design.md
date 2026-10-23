@@ -57,12 +57,12 @@ The user supplies their own key. There are two providers behind one interface:
 
 Each provider has two model settings:
 
-| Setting | Used for | Default |
-|---|---|---|
-| Main | Agent, plans, "what now?" | `claude-sonnet-5-5` |
-| Light | Cleanup, day summaries | `claude-haiku-4-5` |
+| Setting | Used for | Claude default | OpenAI default |
+|---|---|---|---|
+| Main | Agent, plans, "what now?" | `claude-sonnet-5-5` | `gpt-5.5` |
+| Light | Cleanup, day summaries | `claude-haiku-4-5` | `gpt-5.4-mini` |
 
-OpenAI-compatible models have no defaults, since they depend on the server.
+An OpenAI-compatible server other than OpenAI's needs its own models.
 
 Structured replies use the provider's JSON-schema output (`output_config.format` on Claude,
 strict `response_format` on OpenAI), never a forced tool call: Claude Sonnet 5.5 and Opus 5.5

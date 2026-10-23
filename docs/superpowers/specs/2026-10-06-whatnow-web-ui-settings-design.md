@@ -93,7 +93,7 @@ Today.
    OpenAI-compatible.
    - Anthropic shows its default models, editable.
    - OpenAI-compatible asks for an optional base URL and the main and light models. Both model
-     fields are required and have no defaults, since they depend on the server.
+     fields are required, and default to OpenAI's models.
 2. **Key:**
    - When the provider's key comes from the environment, the step says "Found your key in
      `ANTHROPIC_API_KEY`" (or `OPENAI_API_KEY`). A "use a different key" link opens the field.

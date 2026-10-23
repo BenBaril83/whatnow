@@ -91,11 +91,12 @@ const (
 	MaxAlertLead    = 60
 )
 
-// Defaults has Claude models filled in. OpenAI-compatible models are left for the user, since
-// they depend on the server.
+// Defaults has models filled in for both providers. An OpenAI-compatible server other than
+// OpenAI's needs its own.
 func Defaults() Settings {
 	return Settings{
 		Anthropic:        ProviderConfig{MainModel: "claude-sonnet-5-5", LightModel: "claude-haiku-4-5"},
+		OpenAI:           ProviderConfig{MainModel: "gpt-5.5", LightModel: "gpt-5.4-mini"},
 		EndOfDay:         "17:30",
 		Nudges:           Nudges{BeforeEvent: true, EventEnd: true, LateDay: true},
 		AlertLeadMinutes: 10,
