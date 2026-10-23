@@ -125,6 +125,8 @@ add, and chat. These are web-only:
 - nudges
 - editing a task's details, and the all-tasks list
 
+Hosting it for other people, on your own server? See [docs/hosting.md](docs/hosting.md).
+
 ## Development
 
 ```sh
