@@ -84,6 +84,7 @@ func (s *signIn) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	u, created, err := s.accounts.SignIn(ctx, id, s.maxUsers)
 	if errors.Is(err, ErrFull) {
+		log.Printf("sign-up refused: user cap of %d reached", s.maxUsers)
 		http.Redirect(w, r, "/?signups=closed", http.StatusSeeOther)
 		return
 	}

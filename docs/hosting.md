@@ -67,7 +67,7 @@ chmod 700 /mnt/whatnow
 
 ```sh
 apt update
-apt install -y debian-keyring debian-archive-keyring apt-transport-https curl gpg
+apt install -y debian-keyring debian-archive-keyring apt-transport-https curl gpg sqlite3
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
 apt update
@@ -192,6 +192,8 @@ journalctl -u whatnow -f
 ```
 
 `-max-users` is the sign-up cap (default 100); change it here and restart to raise it.
+`just users` prints how many accounts exist, and each turned-away sign-up logs `sign-up refused`
+to the journal.
 
 Visit `https://whatnow.example.com` and sign in with Google to check the whole chain. Because the
 Volume is mounted with `nofail`, `RequiresMountsFor` keeps the service from starting against an

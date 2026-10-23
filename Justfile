@@ -45,6 +45,10 @@ deploy server="root@whatnow.day": test build-linux
     curl -fsS https://$host/api/v1/session >/dev/null
     echo "deployed $(git describe --tags --always) to $host"
 
+# Prints how many accounts the hosted server has, against its -max-users cap.
+users server="root@whatnow.day":
+    ssh {{server}} "sqlite3 -readonly /mnt/whatnow/accounts.db 'select count(*) from users;'"
+
 # Builds stripped Mac binaries, publishes them as a GitHub release, and points the Homebrew formula in jameynakama/homebrew-tap at them: `just release v0.1.0`. The tag lands on main as GitHub has it, so push first.
 release version: web
     #!/usr/bin/env bash
