@@ -128,8 +128,9 @@ and `pushed: {at, tickets, more}`. The runner, not the `jira` package, answers a
 "computer" mode from `pushed`, since the `jira` package knows nothing of storage.
 
 **The key endpoints** for the card: `GET`, `POST` (create, returns the key once), and `DELETE`
-on `/api/v1/integrations/jira/key`, all session-authenticated like the rest of the API. `via` is
-saved with the card's other values through the existing `PUT /integrations/{id}`.
+on `/api/v1/integrations/jira/key`, all session-authenticated like the rest of the API. `via` has
+its own route, `PUT /api/v1/integrations/{id}/via`, so switching modes never saves half-typed field
+edits.
 
 ## Testing
 
