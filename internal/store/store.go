@@ -17,6 +17,11 @@ var migrations embed.FS
 // Open opens the database at path, creating the file if needed, and applies pending migrations.
 // The parent directory must exist.
 func Open(path string) (*sql.DB, error) {
+	return OpenMigrated(path, migrations)
+}
+
+// OpenMigrated is Open with the migrations taken from the migrations/*.sql files of the given FS.
+func OpenMigrated(path string, migrations fs.FS) (*sql.DB, error) {
 	// A plain path, not a file: URI, so spaces in the path need no escaping.
 	dsn := path + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
 	db, err := sql.Open("sqlite", dsn)
@@ -25,14 +30,14 @@ func Open(path string) (*sql.DB, error) {
 	}
 	// SQLite allows one writer, and a single-user app never needs more than one connection.
 	db.SetMaxOpenConns(1)
-	if err := migrate(db); err != nil {
+	if err := migrate(db, migrations); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate %s: %w", path, err)
 	}
 	return db, nil
 }
 
-func migrate(db *sql.DB) error {
+func migrate(db *sql.DB, migrations fs.FS) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY)`); err != nil {
 		return err
 	}
@@ -42,14 +47,14 @@ func migrate(db *sql.DB) error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if err := apply(db, name); err != nil {
+		if err := apply(db, migrations, name); err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
 	}
 	return nil
 }
 
-func apply(db *sql.DB, name string) error {
+func apply(db *sql.DB, migrations fs.FS, name string) error {
 	var done int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`, name).Scan(&done); err != nil {
 		return err
@@ -57,7 +62,7 @@ func apply(db *sql.DB, name string) error {
 	if done > 0 {
 		return nil
 	}
-	body, err := migrations.ReadFile(name)
+	body, err := fs.ReadFile(migrations, name)
 	if err != nil {
 		return err
 	}
