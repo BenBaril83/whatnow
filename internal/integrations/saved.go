@@ -16,6 +16,9 @@ type saved struct {
 	Values  map[string]string `json:"values"`
 	Lists   map[string][]Row  `json:"lists"`
 	Skipped []Skip            `json:"skipped"`
+	// Via is how the integration is reached; empty is ViaDirect.
+	Via    string  `json:"via,omitempty"`
+	Pushed *Pushed `json:"pushed,omitempty"`
 }
 
 // Skip is a series, or any pulled item, the user chose never to see. Title is only for showing.

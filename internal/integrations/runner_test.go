@@ -68,6 +68,8 @@ type board struct {
 	tickets []integrations.Ticket
 	more    int
 	err     error
+	hint    string
+	pulls   int
 }
 
 func (*board) ID() string                { return "board" }
@@ -77,7 +79,8 @@ func (*board) Fields() []integrations.Field {
 	return []integrations.Field{{Key: "jql", Label: "Search", Kind: integrations.Text, Required: true}}
 }
 func (b *board) Pull(context.Context, integrations.Config, time.Time, time.Time) []integrations.Source {
-	return []integrations.Source{{Label: "Board", Tickets: b.tickets, More: b.more, Err: b.err}}
+	b.pulls++
+	return []integrations.Source{{Label: "Board", Tickets: b.tickets, More: b.more, Err: b.err, Hint: b.hint}}
 }
 
 func ticket(key string) integrations.Ticket {

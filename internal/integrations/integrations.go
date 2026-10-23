@@ -72,6 +72,9 @@ type Source struct {
 	// Tickets is what a ticket integration pulled, and More how many matched beyond them.
 	Tickets []Ticket
 	More    int
+	// Hint names another way in that might get past Err: "computer" for sending from the user's
+	// own computer.
+	Hint string
 }
 
 // Event is one pulled event. Key is its identity in the feed and stays the same when it moves.

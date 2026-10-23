@@ -43,6 +43,9 @@ type View struct {
 	Skipped []Skip               `json:"skipped"`
 	// Pulls says whether a pull writes events or offers tickets to pick.
 	Pulls Pulls `json:"pulls"`
+	// Via is how the integration is reached, and SentAt when the user's computer last sent to it.
+	Via    string     `json:"via"`
+	SentAt *time.Time `json:"sent_at"`
 }
 
 type RowView struct {
@@ -103,7 +106,13 @@ func (r *Runner) view(ctx context.Context, in Integration) (View, error) {
 	v := View{
 		ID: in.ID(), Name: in.Name(), Fields: in.Fields(), Enabled: s.Enabled, Ready: true,
 		Values: map[string]string{}, Secrets: map[string]bool{}, Lists: map[string][]RowView{}, Skipped: s.Skipped,
-		Pulls: in.Pulls(),
+		Pulls: in.Pulls(), Via: ViaDirect,
+	}
+	if s.Via != "" {
+		v.Via = s.Via
+	}
+	if s.Pushed != nil {
+		v.SentAt = &s.Pushed.At
 	}
 	if v.Skipped == nil {
 		v.Skipped = []Skip{}
@@ -141,6 +150,8 @@ func (r *Runner) view(ctx context.Context, in Integration) (View, error) {
 			v.Ready = v.Ready && (!f.Required || len(rows) > 0)
 		}
 	}
+	// Nothing the user fills in is needed when their computer sends the tickets.
+	v.Ready = v.Ready || v.Via == ViaComputer
 	return v, nil
 }
 
@@ -171,7 +182,7 @@ func (r *Runner) Save(ctx context.Context, id string, u Update) (View, error) {
 	if err != nil {
 		return View{}, err
 	}
-	next := saved{Enabled: s.Enabled, Values: map[string]string{}, Lists: map[string][]Row{}, Skipped: s.Skipped}
+	next := saved{Enabled: s.Enabled, Values: map[string]string{}, Lists: map[string][]Row{}, Skipped: s.Skipped, Via: s.Via, Pushed: s.Pushed}
 	writes := map[string]string{}
 	fields := in.Fields()
 	for key := range u.Values {
@@ -347,6 +358,9 @@ type SourceResult struct {
 	// Tickets is what a ticket integration offers, and More how many matched beyond them.
 	Tickets []Ticket `json:"tickets"`
 	More    int      `json:"more"`
+	Hint    string   `json:"hint,omitempty"`
+	// SentAt is when the user's computer sent the tickets, for a pull answered from what it sent.
+	SentAt *time.Time `json:"sent_at,omitempty"`
 }
 
 type PulledEvent struct {
@@ -376,6 +390,9 @@ func (r *Runner) Pull(ctx context.Context, id string) (PullResult, error) {
 	s, err := load(ctx, r.db, id)
 	if err != nil {
 		return PullResult{}, err
+	}
+	if s.Via == ViaComputer {
+		return r.offer(ctx, s, []Source{pushedSource(in, s)})
 	}
 	cfg, err := r.config(ctx, in, s)
 	if err != nil {
@@ -511,7 +528,10 @@ func (r *Runner) offer(ctx context.Context, s saved, sources []Source) (PullResu
 	}
 	res := PullResult{Sources: make([]SourceResult, len(sources))}
 	for i, src := range sources {
-		sr := SourceResult{Label: src.Label, Events: []PulledEvent{}, Tickets: []Ticket{}, More: src.More}
+		sr := SourceResult{Label: src.Label, Events: []PulledEvent{}, Tickets: []Ticket{}, More: src.More, Hint: src.Hint}
+		if s.Via == ViaComputer && s.Pushed != nil {
+			sr.SentAt = &s.Pushed.At
+		}
 		if src.Err != nil {
 			sr.Error = src.Err.Error()
 		}
