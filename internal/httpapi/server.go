@@ -48,6 +48,9 @@ type Deps struct {
 	// Static serves the web client for every GET outside the API.
 	Static       http.Handler
 	Integrations *integrations.Runner
+	// Hosted serves one user of a shared server: the front door has already authenticated the
+	// request, so there is no local-only guard and no allowed hosts to set.
+	Hosted bool
 }
 
 type Server struct {
@@ -103,7 +106,11 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/integrations/{id}/skipped/{key}", s.unskipIntegration)
 	mux.HandleFunc("DELETE /api/v1/data", s.deleteData)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
+	mux.HandleFunc("GET /api/v1/session", s.session)
 	mux.Handle("GET /", d.Static)
+	if d.Hosted {
+		return mux
+	}
 	return s.localOnly(mux)
 }
 

@@ -263,3 +263,17 @@ func TestSettingsSavedBeforeEndOfDayExistedGetTheDefault(t *testing.T) {
 		t.Errorf("loaded %+v", got)
 	}
 }
+
+func TestValidateTimeZone(t *testing.T) {
+	for zone, ok := range map[string]bool{"America/Chicago": true, "": true, "Mars/Olympus": false} {
+		s := settings.Defaults()
+		s.TimeZone = zone
+		err := s.Validate()
+		if ok && err != nil {
+			t.Errorf("%q: %v", zone, err)
+		}
+		if !ok && !errors.Is(err, settings.ErrInvalid) {
+			t.Errorf("%q: err = %v, want ErrInvalid", zone, err)
+		}
+	}
+}

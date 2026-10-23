@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -179,5 +180,42 @@ func TestDeleteEverythingWithoutAKeychain(t *testing.T) {
 		}
 	default:
 		t.Error("data.reset wasn't published")
+	}
+}
+
+func TestHostedHandlerDropsAllowedHosts(t *testing.T) {
+	api := newAPIHosted(t, true)
+	body := settings.Defaults()
+	body.AllowedHosts = []string{"box.ts.net"}
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/settings", body), http.StatusOK)
+
+	got := decodeAs[httpapi.SettingsView](t, api.do(http.MethodGet, "/api/v1/settings", nil))
+	if len(got.Settings.AllowedHosts) != 0 {
+		t.Errorf("AllowedHosts = %v, want none", got.Settings.AllowedHosts)
+	}
+}
+
+func TestHostedHandlerSkipsLocalOnly(t *testing.T) {
+	for _, tc := range []struct {
+		hosted bool
+		want   int
+	}{{true, http.StatusOK}, {false, http.StatusForbidden}} {
+		api := newAPIHosted(t, tc.hosted)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/clock", nil)
+		req.Host = "whatnow.example.com"
+		rec := httptest.NewRecorder()
+		api.handler.ServeHTTP(rec, req)
+		if rec.Code != tc.want {
+			t.Errorf("hosted=%v: status = %d, want %d", tc.hosted, rec.Code, tc.want)
+		}
+	}
+}
+
+func TestSessionLocal(t *testing.T) {
+	api := newAPI(t)
+	rec := api.do(http.MethodGet, "/api/v1/session", nil)
+	wantStatus(t, rec, http.StatusOK)
+	if got := decodeAs[map[string]bool](t, rec); !cmp.Equal(got, map[string]bool{"hosted": false}) {
+		t.Errorf("body = %s", rec.Body.String())
 	}
 }

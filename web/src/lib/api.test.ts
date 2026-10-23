@@ -39,7 +39,8 @@ describe('configured', () => {
 			alert_lead_minutes: 10,
 			theme: '',
 			onboarded: true,
-			allowed_hosts: []
+			allowed_hosts: [],
+			time_zone: ''
 		},
 		keys: { anthropic: key, openai: '' }
 	});

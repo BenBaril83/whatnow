@@ -19,6 +19,7 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
 	theme: '',
 	onboarded: true,
 	allowed_hosts: [],
+	time_zone: '',
 	...over
 });
 

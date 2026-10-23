@@ -47,6 +47,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	if s.Hosted {
+		body.AllowedHosts = []string{}
+	}
 	if err := settings.Save(r.Context(), s.DB, body); err != nil {
 		writeError(w, err)
 		return
@@ -135,4 +138,10 @@ func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Hub.Publish(stream.Message{Type: "data.reset"})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// session says whether this is a hosted server, so the web client knows whether to offer sign-out.
+// The hosted front door answers it itself.
+func (s *Server) session(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{"hosted": false})
 }

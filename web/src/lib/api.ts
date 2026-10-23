@@ -177,6 +177,7 @@ export interface Settings {
 	theme: Theme;
 	onboarded: boolean;
 	allowed_hosts: string[];
+	time_zone: string;
 }
 
 export type Theme = '' | 'plain' | 'neon' | 'terminal' | 'paper' | 'vaporwave';

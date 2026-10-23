@@ -48,7 +48,10 @@ type testAPI struct {
 	jiraURL string
 }
 
-func newAPI(t *testing.T) *testAPI {
+func newAPI(t *testing.T) *testAPI { return newAPIHosted(t, false) }
+
+// newAPIHosted is newAPI with the handler built as the hosted front door's inner handler is.
+func newAPIHosted(t *testing.T, hosted bool) *testAPI {
 	t.Helper()
 	db, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -81,6 +84,7 @@ func newAPI(t *testing.T) *testAPI {
 		OnCapture: func(task domain.Task) { api.captured = append(api.captured, task.ID) },
 		Clean:     runner.Clean,
 		Keys:      settings.LocalKeys(),
+		Hosted:    hosted,
 		NewClient: func(context.Context, settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 			if api.model == nil {
 				return nil, settings.ProviderConfig{}, settings.ErrNotConfigured

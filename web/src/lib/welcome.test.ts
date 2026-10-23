@@ -13,7 +13,8 @@ const fresh: Settings = {
 	alert_lead_minutes: 10,
 	theme: '',
 	onboarded: false,
-	allowed_hosts: []
+	allowed_hosts: [],
+	time_zone: ''
 };
 
 describe('welcomeDue', () => {

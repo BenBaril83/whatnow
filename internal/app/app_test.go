@@ -4,15 +4,20 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/zalando/go-keyring"
+
 	"github.com/jameynakama/whatnow/internal/app"
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/llm/fake"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/settings"
+	"github.com/jameynakama/whatnow/internal/store"
 )
 
 func fakeClient(context.Context, settings.Clients, settings.Settings) (llm.Client, settings.ProviderConfig, error) {
@@ -137,5 +142,77 @@ func TestACaptureReportsAFailureWhenSettingsCantBeRead(t *testing.T) {
 	case <-failed:
 	case <-time.After(5 * time.Second):
 		t.Fatal("cleanup never reported the failure")
+	}
+}
+
+func openHosted(t *testing.T, path string, zone string) *app.App {
+	t.Helper()
+	if zone != "" {
+		db, err := store.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := settings.Defaults()
+		s.TimeZone = zone
+		if err := settings.Save(context.Background(), db, s); err != nil {
+			t.Fatal(err)
+		}
+		db.Close()
+	}
+	a, err := app.Open(app.Options{DBPath: path, NewClient: fakeClient, Now: time.Now, Loc: time.UTC, Hosted: &app.Hosted{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { a.Close() })
+	return a
+}
+
+func TestOpenHostedUsesUserTimeZone(t *testing.T) {
+	a := openHosted(t, filepath.Join(t.TempDir(), "u.db"), "America/Chicago")
+	if got := a.Loc.String(); got != "America/Chicago" {
+		t.Errorf("Loc = %q, want America/Chicago", got)
+	}
+}
+
+func TestOpenHostedFallsBackToUTC(t *testing.T) {
+	a := openHosted(t, filepath.Join(t.TempDir(), "u.db"), "")
+	if got := a.Loc.String(); got != "UTC" {
+		t.Errorf("Loc = %q, want UTC", got)
+	}
+}
+
+func hasView(t *testing.T, a *app.App, id string) bool {
+	t.Helper()
+	views, err := a.Integrations.Views(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return slices.ContainsFunc(views, func(v integrations.View) bool { return v.ID == id })
+}
+
+func TestOpenHostedLeavesOutReviewQueue(t *testing.T) {
+	keyring.MockInit()
+	hosted := openHosted(t, filepath.Join(t.TempDir(), "h.db"), "")
+	local := open(t, filepath.Join(t.TempDir(), "l.db"))
+	if hasView(t, hosted, "reviewqueue") {
+		t.Error("hosted app offers reviewqueue")
+	}
+	if !hasView(t, local, "reviewqueue") {
+		t.Error("local app lost reviewqueue")
+	}
+}
+
+func TestOpenHostedSealsKeys(t *testing.T) {
+	a := openHosted(t, filepath.Join(t.TempDir(), "u.db"), "")
+	ctx := context.Background()
+	if err := a.Clients.Keys.Set(ctx, settings.Anthropic, "k"); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := a.DB.QueryRowContext(ctx, `SELECT count(*) FROM secrets`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("secrets rows = %d, want 1", n)
 	}
 }
