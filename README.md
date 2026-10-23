@@ -139,4 +139,8 @@ just demo    # a throwaway database on a clock you move with `just clock 13:45`
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+[AGPL-3.0](LICENSE). Use it, run it, and change it freely. If you run a modified whatnow for other
+people, over a network or otherwise, you must offer them its source under the same license.
+Contributions are accepted under the same license.
+
+Commits up to `8481fdf` were released under the MIT license, and copies of them remain under it.

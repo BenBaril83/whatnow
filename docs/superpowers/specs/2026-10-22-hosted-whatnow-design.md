@@ -29,7 +29,8 @@ subscription may come later to cover hosting.
 - Server-sent push notifications (see Nudges).
 - The TUI in hosted mode. It stays a local tool.
 - Review Queue in hosted mode. It reads a service on the user's own network.
-- Changing the license. The public repo stays MIT.
+- A contributor license agreement. The repo is AGPL-3.0 and all of its code stays public, so
+  contributors' code is never needed in anything closed.
 - Importing a local install's data into a hosted account. Accepting an uploaded SQLite file is
   security work this doesn't need yet.
 
@@ -179,8 +180,9 @@ it's a follow-up with its own spec.
   an update.
 
 **The private repo** holds only what's specific to this deployment: the real environment file
-layout (not its secret values), the Caddyfile, the systemd unit and backup config as deployed, and
-later billing work. Everything needed to run hosted mode is public.
+layout (not its secret values), the Caddyfile, and the systemd unit and backup config as deployed.
+It never holds code: billing, when it comes, goes in the public repo, so no contributor's AGPL code
+is ever needed in anything closed.
 
 ## Testing
 
