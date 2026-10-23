@@ -34,8 +34,8 @@ build-linux: web
     mkdir -p dist
     GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=${v#v}" -o dist/whatnow-linux-amd64 ./cmd/whatnow
 
-# Ships a Linux build to the hosted server set up by docs/hosting.md, restarts it, and checks it answers.
-deploy server="root@whatnow.day": build-linux
+# Tests, then ships a Linux build to the hosted server set up by docs/hosting.md, restarts it, and checks it answers.
+deploy server="root@whatnow.day": test build-linux
     #!/usr/bin/env bash
     set -euo pipefail
     host={{server}}

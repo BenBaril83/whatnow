@@ -477,6 +477,6 @@ On your own machine:
 just deploy root@whatnow.example.com
 ```
 
-It builds the Linux binary, copies it up, restarts the service, and checks the site answers. If the
+It runs the tests, builds the Linux binary, copies it up, restarts the service, and checks the site answers. If the
 service doesn't come back, it prints the last lines of `journalctl -u whatnow` and fails. Users stay
 signed in across a restart, because sessions live in `accounts.db`.
