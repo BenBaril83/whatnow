@@ -254,17 +254,149 @@ Things to know:
 - The bucket layout mirrors the directory, so `/mnt/whatnow/users/abc.db` lives under
   `whatnow/users/abc.db/`.
 - When a user deletes their account, Litestream stops replicating their file, but their existing
-  backup stays in R2. Remove it yourself by deleting that prefix in the bucket if you need it gone.
+  backup stays in R2 until you remove it. Section 10 sets up a daily sweep that does that. Don't
+  skip it: the app tells users their backups are gone within 30 days.
 - Litestream only replicates files with a valid SQLite header, so stray files matching `*.db` are
   ignored.
 
-## 10. The restore drill
+## 10. Sweep deleted users' backups
+
+Litestream's 30-day retention only trims databases it is still replicating. When someone deletes
+their account, their file leaves the Volume, Litestream stops, and their backup in R2 would sit
+there forever. whatnow tells users a deleted account's backups are gone within 30 days, so a daily
+sweep removes the backup of every user whose `users/<id>.db` is no longer on the Volume. That
+happens within a day of the deletion; the deleted user's rows in older `accounts.db` history age out
+with the 30-day retention. Don't use an R2 lifecycle rule for this instead: it can't tell a deleted
+user from one who is just idle, and it would expire the base snapshots that idle users' backups
+need.
+
+Make a second R2 API token for the sweep, the same way as in section 8 (**Object Read & Write**,
+this bucket only), and name it `whatnow-sweep`. Then install [rclone](https://rclone.org/) (1.59 or
+newer, which the install script gives you; the Ubuntu package is older):
+
+```sh
+curl https://rclone.org/install.sh | bash
+install -m 600 -o root -g root /dev/null /etc/whatnow-sweep.rclone.conf
+cat > /etc/whatnow-sweep.rclone.conf <<'CONF'
+[r2]
+type = s3
+provider = Cloudflare
+access_key_id = PASTE-SWEEP-ACCESS-KEY-ID
+secret_access_key = PASTE-SWEEP-SECRET-ACCESS-KEY
+endpoint = https://YOUR-ACCOUNT-ID.r2.cloudflarestorage.com
+acl = private
+no_check_bucket = true
+CONF
+```
+
+Write the script:
+
+```sh
+cat > /usr/local/bin/whatnow-backup-sweep <<'SCRIPT'
+#!/usr/bin/env bash
+# Delete the R2 backup of every user whose database is gone from the Volume.
+#   --dry-run  print what would be deleted
+#   --force    skip the "too many at once" check, after you've read what it would delete
+set -euo pipefail
+
+DATA=/mnt/whatnow
+REMOTE=r2:whatnow-backups/whatnow/users
+MAX_DELETES=5
+rc=(rclone --config /etc/whatnow-sweep.rclone.conf)
+dry=()
+force=false
+for arg in "$@"; do
+  case $arg in
+    --dry-run) dry=(--dry-run) ;;
+    --force) force=true ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
+
+refuse() { echo "refusing to sweep: $*" >&2; exit 1; }
+
+# An unmounted or empty Volume must never look like "every user was deleted".
+mountpoint -q "$DATA" || refuse "$DATA is not a mounted Volume"
+[[ -f $DATA/accounts.db ]] || refuse "$DATA/accounts.db is missing"
+[[ -n $(find "$DATA/users" -maxdepth 1 -name '*.db' -print -quit 2>/dev/null) ]] \
+  || refuse "$DATA/users has no databases"
+
+listing=$("${rc[@]}" lsf --dirs-only "$REMOTE")   # one "<id>.db/" per backed-up user
+backed_up=()
+stale=()
+while IFS= read -r prefix; do
+  [[ -n $prefix ]] || continue
+  name=${prefix%/}
+  backed_up+=("$name")
+  [[ -e $DATA/users/$name ]] || stale+=("$name")
+done <<<"$listing"
+
+echo "${#backed_up[@]} backed up, ${#stale[@]} to delete"
+((${#stale[@]} > 0)) || exit 0
+
+if [[ $force != true ]] && ((${#stale[@]} > MAX_DELETES || ${#stale[@]} * 2 > ${#backed_up[@]})); then
+  printf 'would delete: %s\n' "${stale[@]}" >&2
+  refuse "that is too many at once; check the Volume, then rerun with --force"
+fi
+
+for name in "${stale[@]}"; do
+  echo "deleting $name"
+  "${rc[@]}" purge "${dry[@]}" "$REMOTE/$name"
+done
+SCRIPT
+chmod 755 /usr/local/bin/whatnow-backup-sweep
+```
+
+The checks mean a missing Volume, an empty `users/` directory, or a run that would delete more than
+5 backups (or more than half of them) does nothing and exits with an error. Early on, with only a
+few users, one deletion can trip the "more than half" check; that's expected. Read the output and
+rerun with `--force` if it looks right.
+
+Try it with `--dry-run`, which prints what it would delete and deletes nothing:
+
+```sh
+whatnow-backup-sweep --dry-run
+```
+
+With no deleted accounts it prints `N backed up, 0 to delete`. Then run it daily with a systemd
+timer:
+
+```sh
+cat > /etc/systemd/system/whatnow-backup-sweep.service <<'UNIT'
+[Unit]
+Description=Delete backups of deleted whatnow accounts
+RequiresMountsFor=/mnt/whatnow
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/whatnow-backup-sweep
+UNIT
+cat > /etc/systemd/system/whatnow-backup-sweep.timer <<'UNIT'
+[Unit]
+Description=Daily sweep of deleted whatnow accounts' backups
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now whatnow-backup-sweep.timer
+systemctl list-timers whatnow-backup-sweep.timer
+```
+
+A refused or failed run shows up as a failed unit: check `systemctl status whatnow-backup-sweep`
+now and then, and read `journalctl -u whatnow-backup-sweep`.
+
+## 11. The restore drill
 
 Do this once before you open to users, and again whenever you change the setup. It proves the
 backups work and that you can read them without the original server.
 
-On a scratch machine (a throwaway droplet, or any Linux box with `sqlite3`), install Litestream the
-same way, then:
+On a scratch machine (a throwaway droplet, or any Linux box with `sqlite3`), install the same
+Litestream version as the server (v0.5.17 above), then:
 
 ```sh
 export LITESTREAM_ACCESS_KEY_ID=PASTE-ACCESS-KEY-ID
@@ -281,7 +413,11 @@ sqlite3 /tmp/restore/users/$ID.db '.tables' 'select count(*) from tasks;'
 ```
 
 If both open and the rows look right, the drill passes. To restore to an earlier moment, add
-`-timestamp 2026-01-01T12:00:00Z` before the URL.
+`-timestamp YYYY-MM-DDTHH:MM:SSZ` (a UTC time within the last 30 days) before the URL.
+
+The drill also covers the sweep from section 10. On the server, run
+`whatnow-backup-sweep --dry-run` and read the output: it should report `0 to delete` (or name only
+users you know have deleted their accounts), and it should say nothing is wrong with the Volume.
 
 Litestream can't restore every database in one command when it replicates a directory. To rebuild
 a whole server, list the users from the restored `accounts.db` and restore `users/<id>.db` for each.
@@ -289,7 +425,7 @@ Put the files at `/mnt/whatnow/accounts.db` and `/mnt/whatnow/users/<id>.db`, ow
 set `WHATNOW_SEAL_KEY` to your saved copy, and start the service. Stop `litestream` on the new
 server until the restore is done so it doesn't start replicating partial files.
 
-## 11. Deploy an update
+## 12. Deploy an update
 
 On your own machine:
 
