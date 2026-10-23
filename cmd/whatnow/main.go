@@ -197,6 +197,8 @@ func hostConfig(args []string, getenv func(string) string) (hostOptions, error) 
 	if err != nil || u.Scheme != "https" || u.Host == "" {
 		return o, fmt.Errorf("-public-url must be an https URL, got %q", *publicURL)
 	}
+	// Browsers send a lowercase Origin, which writes are compared against.
+	u.Host = strings.ToLower(u.Host)
 	o.publicURL = u
 	for name, dst := range map[string]*string{
 		"WHATNOW_GOOGLE_CLIENT_ID":     &o.clientID,

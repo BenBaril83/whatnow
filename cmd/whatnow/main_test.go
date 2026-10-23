@@ -152,3 +152,20 @@ func TestRefuseModelEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestHostConfigLowercasesThePublicHost(t *testing.T) {
+	getenv := func(k string) string {
+		return map[string]string{
+			"WHATNOW_GOOGLE_CLIENT_ID":     "id",
+			"WHATNOW_GOOGLE_CLIENT_SECRET": "secret",
+			"WHATNOW_SEAL_KEY":             validSealKey,
+		}[k]
+	}
+	cfg, err := hostConfig([]string{"-data", "/tmp/d", "-public-url", "https://Now.Example.COM"}, getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.publicURL.Host; got != "now.example.com" {
+		t.Fatalf("got host %q, want it lowercased", got)
+	}
+}
