@@ -20,6 +20,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/integrations/jira"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
+	"github.com/jameynakama/whatnow/internal/secrets"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
@@ -89,7 +90,7 @@ func newAPI(t *testing.T) *testAPI {
 		Planner: plans,
 		Agent:   agent.New(svc, api.hub, plans, testLoc, now),
 		Static:  http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, "static") }),
-		Integrations: integrations.NewRunner(db, svc, api.hub, testLoc, now,
+		Integrations: integrations.NewRunner(db, svc, api.hub, testLoc, now, secrets.Keychain{},
 			gcal.New(nil), jira.New(nil),
 		),
 	})

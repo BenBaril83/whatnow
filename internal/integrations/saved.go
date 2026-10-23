@@ -7,12 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-
-	"github.com/zalando/go-keyring"
 )
 
 // saved is an integration's settings as stored. Values and row values hold text fields only;
-// secrets are in the keychain.
+// secrets are in the secrets store.
 type saved struct {
 	Enabled bool              `json:"enabled"`
 	Values  map[string]string `json:"values"`
@@ -56,9 +54,7 @@ func newRowID() string {
 	return hex.EncodeToString(b)
 }
 
-const keychainService = "whatnow"
-
-// account names a secret in the keychain: one of the integration's own fields, or a row's.
+// account names a secret in the store: one of the integration's own fields, or a row's.
 func account(id, rowID, key string) string {
 	if rowID == "" {
 		return "integration/" + id + "/" + key
@@ -66,20 +62,11 @@ func account(id, rowID, key string) string {
 	return "integration/" + id + "/" + rowID + "/" + key
 }
 
-// secret reads a secret, returning "" when it isn't set.
-func secret(acct string) (string, error) {
-	v, err := keyring.Get(keychainService, acct)
-	if errors.Is(err, keyring.ErrNotFound) {
-		return "", nil
-	}
-	return v, err
-}
-
-// DeleteSecrets removes secrets from the keychain. One that isn't there is fine.
-func DeleteSecrets(accounts []string) error {
+// DeleteSecrets removes secrets from the store. One that isn't there is fine.
+func (r *Runner) DeleteSecrets(ctx context.Context, accounts []string) error {
 	var errs []error
 	for _, acct := range accounts {
-		if err := keyring.Delete(keychainService, acct); err != nil && !errors.Is(err, keyring.ErrNotFound) {
+		if err := r.vault.Delete(ctx, acct); err != nil {
 			errs = append(errs, err)
 		}
 	}

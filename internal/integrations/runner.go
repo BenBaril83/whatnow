@@ -8,25 +8,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zalando/go-keyring"
-
 	"github.com/jameynakama/whatnow/internal/domain"
+	"github.com/jameynakama/whatnow/internal/secrets"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/stream"
 )
 
 // Runner keeps each integration's settings and syncs what it pulls into today's events.
 type Runner struct {
-	db  *sql.DB
-	svc *service.Service
-	hub *stream.Hub
-	loc *time.Location
-	now func() time.Time
-	all []Integration
+	db    *sql.DB
+	svc   *service.Service
+	hub   *stream.Hub
+	loc   *time.Location
+	now   func() time.Time
+	vault secrets.Store
+	all   []Integration
 }
 
-func NewRunner(db *sql.DB, svc *service.Service, hub *stream.Hub, loc *time.Location, now func() time.Time, all ...Integration) *Runner {
-	return &Runner{db: db, svc: svc, hub: hub, loc: loc, now: now, all: all}
+func NewRunner(db *sql.DB, svc *service.Service, hub *stream.Hub, loc *time.Location, now func() time.Time, vault secrets.Store, all ...Integration) *Runner {
+	return &Runner{db: db, svc: svc, hub: hub, loc: loc, now: now, vault: vault, all: all}
 }
 
 // View is an integration as the settings screen sees it. Secrets show only whether they're set.
@@ -114,7 +114,7 @@ func (r *Runner) view(ctx context.Context, in Integration) (View, error) {
 			v.Values[f.Key] = s.Values[f.Key]
 			v.Ready = v.Ready && (!f.Required || s.Values[f.Key] != "")
 		case Secret:
-			val, err := secret(account(in.ID(), "", f.Key))
+			val, err := r.vault.Get(ctx, account(in.ID(), "", f.Key))
 			if err != nil {
 				return View{}, err
 			}
@@ -126,7 +126,7 @@ func (r *Runner) view(ctx context.Context, in Integration) (View, error) {
 				rv := RowView{ID: row.ID, Values: map[string]string{}, Secrets: map[string]bool{}}
 				for _, c := range f.Fields {
 					if c.Kind == Secret {
-						val, err := secret(account(in.ID(), row.ID, c.Key))
+						val, err := r.vault.Get(ctx, account(in.ID(), row.ID, c.Key))
 						if err != nil {
 							return View{}, err
 						}
@@ -193,7 +193,7 @@ func (r *Runner) Save(ctx context.Context, id string, u Update) (View, error) {
 				writes[account(id, "", f.Key)] = v
 			}
 		case List:
-			rows, err := listRows(id, f, s.Lists[f.Key], u.Lists[f.Key], writes)
+			rows, err := r.listRows(ctx, id, f, s.Lists[f.Key], u.Lists[f.Key], writes)
 			if err != nil {
 				return View{}, err
 			}
@@ -201,7 +201,7 @@ func (r *Runner) Save(ctx context.Context, id string, u Update) (View, error) {
 		}
 	}
 	for acct, v := range writes {
-		if err := keyring.Set(keychainService, acct, v); err != nil {
+		if err := r.vault.Set(ctx, acct, v); err != nil {
 			return View{}, err
 		}
 	}
@@ -209,7 +209,7 @@ func (r *Runner) Save(ctx context.Context, id string, u Update) (View, error) {
 		return View{}, err
 	}
 	gone := slices.DeleteFunc(rowSecrets(in, s), func(acct string) bool { return slices.Contains(rowSecrets(in, next), acct) })
-	if err := DeleteSecrets(gone); err != nil {
+	if err := r.DeleteSecrets(ctx, gone); err != nil {
 		return View{}, err
 	}
 	return r.view(ctx, in)
@@ -217,7 +217,7 @@ func (r *Runner) Save(ctx context.Context, id string, u Update) (View, error) {
 
 // listRows checks a list's updated rows against what's saved, giving each new row an ID and
 // adding the secrets to write.
-func listRows(id string, f Field, saved []Row, updates []RowUpdate, writes map[string]string) ([]Row, error) {
+func (r *Runner) listRows(ctx context.Context, id string, f Field, saved []Row, updates []RowUpdate, writes map[string]string) ([]Row, error) {
 	rows := []Row{}
 	for i, ru := range updates {
 		rowID := ru.ID
@@ -240,7 +240,7 @@ func listRows(id string, f Field, saved []Row, updates []RowUpdate, writes map[s
 				if v != "" {
 					writes[acct] = v
 				} else if ru.ID != "" {
-					old, err := secret(acct)
+					old, err := r.vault.Get(ctx, acct)
 					if err != nil {
 						return nil, err
 					}
@@ -282,7 +282,7 @@ func rowSecrets(in Integration, s saved) []string {
 	return accts
 }
 
-// Secrets names every secret the integrations could have in the keychain, for wiping.
+// Secrets names every secret the integrations could have in the store, for wiping.
 func (r *Runner) Secrets(ctx context.Context) ([]string, error) {
 	var accts []string
 	for _, in := range r.all {
@@ -301,14 +301,14 @@ func (r *Runner) Secrets(ctx context.Context) ([]string, error) {
 }
 
 // config fills in the saved settings' secrets.
-func config(in Integration, s saved) (Config, error) {
+func (r *Runner) config(ctx context.Context, in Integration, s saved) (Config, error) {
 	cfg := Config{Values: map[string]string{}, Lists: map[string][]Row{}}
 	for _, f := range in.Fields() {
 		switch f.Kind {
 		case Text:
 			cfg.Values[f.Key] = s.Values[f.Key]
 		case Secret:
-			v, err := secret(account(in.ID(), "", f.Key))
+			v, err := r.vault.Get(ctx, account(in.ID(), "", f.Key))
 			if err != nil {
 				return cfg, err
 			}
@@ -320,7 +320,7 @@ func config(in Integration, s saved) (Config, error) {
 					v := row.Values[c.Key]
 					if c.Kind == Secret {
 						var err error
-						if v, err = secret(account(in.ID(), row.ID, c.Key)); err != nil {
+						if v, err = r.vault.Get(ctx, account(in.ID(), row.ID, c.Key)); err != nil {
 							return cfg, err
 						}
 					}
@@ -377,7 +377,7 @@ func (r *Runner) Pull(ctx context.Context, id string) (PullResult, error) {
 	if err != nil {
 		return PullResult{}, err
 	}
-	cfg, err := config(in, s)
+	cfg, err := r.config(ctx, in, s)
 	if err != nil {
 		return PullResult{}, err
 	}

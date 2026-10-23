@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
@@ -131,7 +130,7 @@ func (s *Server) deleteData(w http.ResponseWriter, r *http.Request) {
 			log.Printf("delete %s key: %v", p, err)
 		}
 	}
-	if err := integrations.DeleteSecrets(secrets); err != nil {
+	if err := s.Integrations.DeleteSecrets(r.Context(), secrets); err != nil {
 		log.Printf("delete integration secrets: %v", err)
 	}
 	s.Hub.Publish(stream.Message{Type: "data.reset"})

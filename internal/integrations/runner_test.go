@@ -13,6 +13,7 @@ import (
 
 	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/integrations"
+	"github.com/jameynakama/whatnow/internal/secrets"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/store"
 	"github.com/jameynakama/whatnow/internal/stream"
@@ -95,6 +96,11 @@ type env struct {
 func newEnv(t *testing.T) env {
 	t.Helper()
 	keyring.MockInit()
+	return newEnvWith(t, func(*sql.DB) secrets.Store { return secrets.Keychain{} })
+}
+
+func newEnvWith(t *testing.T, vaultFor func(*sql.DB) secrets.Store) env {
+	t.Helper()
 	db, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +111,7 @@ func newEnv(t *testing.T) env {
 	hub := stream.NewHub()
 	f := &fake{feeds: map[string][]integrations.Event{}}
 	b := &board{}
-	return env{runner: integrations.NewRunner(db, svc, hub, loc, clock, f, b), svc: svc, hub: hub, fake: f, board: b, db: db}
+	return env{runner: integrations.NewRunner(db, svc, hub, loc, clock, vaultFor(db), f, b), svc: svc, hub: hub, fake: f, board: b, db: db}
 }
 
 func at(hour int) time.Time { return time.Date(2026, 10, 5, hour, 0, 0, 0, loc) }
@@ -412,6 +418,26 @@ func TestSkipNeedsAKeyAndALiveEvent(t *testing.T) {
 	}
 }
 
+func TestRunnerKeepsSecretsInItsStore(t *testing.T) {
+	keyring.MockInit()
+	ctx := context.Background()
+	var vault secrets.Store
+	e := newEnvWith(t, func(db *sql.DB) secrets.Store {
+		vault = secrets.NewSealed(db, [32]byte{1})
+		return vault
+	})
+	if _, err := e.runner.Save(ctx, "fake", integrations.Update{Values: map[string]string{"token": "t0k"}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := vault.Get(ctx, "integration/fake/token")
+	if err != nil || got != "t0k" {
+		t.Errorf("store has %q, %v; want the token", got, err)
+	}
+	if v, err := (secrets.Keychain{}).Get(ctx, "integration/fake/token"); err != nil || v != "" {
+		t.Errorf("keychain has %q, %v; want nothing", v, err)
+	}
+}
+
 func TestSecretsNamesEverySavedSecret(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
@@ -424,7 +450,7 @@ func TestSecretsNamesEverySavedSecret(t *testing.T) {
 	if diff := cmp.Diff(want, accts); diff != "" {
 		t.Errorf("secrets (-want +got):\n%s", diff)
 	}
-	if err := integrations.DeleteSecrets(accts); err != nil {
+	if err := e.runner.DeleteSecrets(ctx, accts); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ := e.runner.View(ctx, "fake"); v.Lists["calendars"][0].Secrets["feed"] {

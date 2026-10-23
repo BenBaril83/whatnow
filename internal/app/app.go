@@ -18,6 +18,7 @@ import (
 	"github.com/jameynakama/whatnow/internal/integrations/reviewqueue"
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/planner"
+	"github.com/jameynakama/whatnow/internal/secrets"
 	"github.com/jameynakama/whatnow/internal/service"
 	"github.com/jameynakama/whatnow/internal/settings"
 	"github.com/jameynakama/whatnow/internal/store"
@@ -97,7 +98,7 @@ func Open(o Options) (*App, error) {
 		Loc:       o.Loc,
 		Clients:   clients,
 		newClient: o.NewClient,
-		Integrations: integrations.NewRunner(db, svc, hub, o.Loc, o.Now,
+		Integrations: integrations.NewRunner(db, svc, hub, o.Loc, o.Now, secrets.Keychain{},
 			gcal.New(nil), jira.New(nil), reviewqueue.New(nil),
 		),
 	}
