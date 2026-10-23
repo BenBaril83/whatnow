@@ -268,11 +268,17 @@ func runHost(args []string, getenv func(string) string) error {
 	}, hostIdle, time.Now)
 	go registry.Run(ctx)
 
+	// Shutdown doesn't cancel requests, so without this an open event stream would hold it up until
+	// the deadline. Cancelling every request's context ends the streams.
+	requests, cancelRequests := context.WithCancel(context.Background())
+	defer cancelRequests()
 	srv := &http.Server{
 		Addr:              o.addr,
 		Handler:           host.New(host.Config{PublicURL: o.publicURL, MaxUsers: o.maxUsers, Provider: google, Static: web.Handler()}, accounts, registry),
 		ReadHeaderTimeout: 5 * time.Second,
+		BaseContext:       func(net.Listener) context.Context { return requests },
 	}
+	srv.RegisterOnShutdown(cancelRequests)
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.ListenAndServe() }()
 	log.Printf("whatnow hosting on http://%s for %s (data %s)", o.addr, o.publicURL, o.dataDir)
@@ -280,11 +286,14 @@ func runHost(args []string, getenv func(string) string) error {
 	select {
 	case err = <-serveErr:
 	case <-ctx.Done():
-		// The registry's Close isn't terminal, so it waits until the server takes no more requests.
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		err = srv.Shutdown(shutdown)
+		if err = srv.Shutdown(shutdown); errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("requests still running after 10s; closing them")
+			err = srv.Close()
+		}
 	}
+	// The registry's Close isn't terminal, so it waits until the server takes no more requests.
 	registry.Close()
 	return err
 }
