@@ -4,6 +4,10 @@
 	import { page } from '$app/state';
 	import '#lib/tokens.css';
 	import '#lib/themes.css';
+	// Vaporwave's face. A browser fetches these files only when a page uses the font.
+	import '@fontsource/comic-neue/400.css';
+	import '@fontsource/comic-neue/700.css';
+	import '@fontsource/comic-neue/700-italic.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import Landing from '#lib/components/Landing.svelte';
 	import Toasts from '#lib/components/Toasts.svelte';

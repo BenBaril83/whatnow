@@ -30,6 +30,7 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"dependencies": {
+		"@fontsource/comic-neue": "^5.3.0",
 		"canvas-confetti": "^1.9.4"
 	}
 }
