@@ -23,21 +23,31 @@ type Config struct {
 	Provider  Provider
 	// Static serves the web client.
 	Static http.Handler
+	// now is the rate limiters' clock, which tests freeze. Nil is time.Now.
+	now func() time.Time
 }
 
 const maxBody = 1 << 20
 
-// modelCalls are the requests that can call the model, which a user's limiter meters.
-var modelCalls = map[string]bool{
-	"POST /api/v1/tasks":         true,
-	"POST /api/v1/today/start":   true,
-	"POST /api/v1/today/replan":  true,
-	"POST /api/v1/today/wrap":    true,
-	"POST /api/v1/whatnow":       true,
-	"POST /api/v1/chat":          true,
-	"POST /api/v1/settings/test": true,
-	"PUT /api/v1/today/pace":     true,
-}
+// limited matches the requests a user's limiter meters: those that can call the model, and
+// integration pulls, which make the server fetch addresses the user chose.
+var limited = func() *http.ServeMux {
+	mux := http.NewServeMux()
+	for _, pattern := range []string{
+		"POST /api/v1/tasks",
+		"POST /api/v1/today/start",
+		"POST /api/v1/today/replan",
+		"POST /api/v1/today/wrap",
+		"POST /api/v1/whatnow",
+		"POST /api/v1/chat",
+		"POST /api/v1/settings/test",
+		"PUT /api/v1/today/pace",
+		"POST /api/v1/integrations/{id}/pull",
+	} {
+		mux.HandleFunc(pattern, func(http.ResponseWriter, *http.Request) {})
+	}
+	return mux
+}()
 
 // frontDoor is what every hosted request passes through: it checks where the request came
 // from, finds the user from the session, and hands the request to that user's App.
@@ -46,6 +56,7 @@ type frontDoor struct {
 	registry *Registry
 	host     string
 	origin   string
+	now      func() time.Time
 
 	mu sync.Mutex
 	// limiters outlive an App's eviction, so closing and reopening it doesn't reset the limit.
@@ -59,7 +70,11 @@ func New(cfg Config, accounts *Accounts, registry *Registry) http.Handler {
 		registry: registry,
 		host:     cfg.PublicURL.Host,
 		origin:   cfg.PublicURL.Scheme + "://" + cfg.PublicURL.Host,
+		now:      cfg.now,
 		limiters: map[string]*rate.Limiter{},
+	}
+	if f.now == nil {
+		f.now = time.Now
 	}
 	mux := http.NewServeMux()
 	(&signIn{accounts, registry, cfg.Provider, cfg.MaxUsers}).register(mux)
@@ -116,9 +131,9 @@ func (f *frontDoor) withUser(next func(http.ResponseWriter, *http.Request, User)
 	}
 }
 
-// dispatch hands the request to the user's App, once the user's limiter allows a model call.
+// dispatch hands the request to the user's App, once the user's limiter allows a metered one.
 func (f *frontDoor) dispatch(w http.ResponseWriter, r *http.Request, u User) {
-	if modelCalls[r.Method+" "+r.URL.Path] && !f.limiter(u.ID).Allow() {
+	if _, pattern := limited.Handler(r); pattern != "" && !f.limiter(u.ID).AllowN(f.now(), 1) {
 		writeJSON(w, http.StatusTooManyRequests, errorBody{"too many requests; wait a minute and try again"})
 		return
 	}

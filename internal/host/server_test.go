@@ -51,7 +51,9 @@ func newFrontTest(t *testing.T) *frontTest {
 		t.Fatal(err)
 	}
 	static := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, "static") })
-	f.handler = New(Config{PublicURL: u, MaxUsers: 10, Provider: &fakeProvider{}, Static: static}, f.accounts, f.registry)
+	// A frozen limiter clock refills nothing, so a burst can't be outpaced by a slow test run.
+	limiterNow := func() time.Time { return frontNow }
+	f.handler = New(Config{PublicURL: u, MaxUsers: 10, Provider: &fakeProvider{}, Static: static, now: limiterNow}, f.accounts, f.registry)
 	return f
 }
 
@@ -407,6 +409,9 @@ func TestRateLimited(t *testing.T) {
 	}
 	f.want(f.do(http.MethodPost, "/api/v1/whatnow", c, map[string]any{}), http.StatusTooManyRequests)
 	f.want(f.do(http.MethodPut, "/api/v1/today/pace", c, map[string]any{"pace": 3}), http.StatusTooManyRequests)
+	for _, id := range []string{"gcal", "jira"} {
+		f.want(f.do(http.MethodPost, "/api/v1/integrations/"+id+"/pull", c, nil), http.StatusTooManyRequests)
+	}
 	for range 40 {
 		f.want(f.do(http.MethodGet, "/api/v1/tasks", c, nil), http.StatusOK)
 	}
