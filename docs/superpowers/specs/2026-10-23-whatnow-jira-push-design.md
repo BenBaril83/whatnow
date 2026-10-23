@@ -147,7 +147,7 @@ saved with the card's other values through the existing `PUT /integrations/{id}`
 
 **Vitest:** the card shows the right fields for each mode, and the "sent" line's today/date wording.
 
-**Playwright (hosted):** switch Jira to "from my computer", create a key, push a list with the key
+**A Go flow test in `internal/host`** (the Playwright harness only runs `whatnow serve`): switch Jira to "from my computer", create a key, push a list with the key
 from the test, pull from the morning, add one ticket, skip another, push again: neither comes
 back.
 
