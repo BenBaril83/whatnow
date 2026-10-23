@@ -1,4 +1,5 @@
 import { api, type BatchApplied, type Mutation } from './api';
+import { session, sessionEnded } from './session.svelte';
 
 export interface Toast {
 	id: number;
@@ -66,6 +67,10 @@ export class Toasts {
 	}
 
 	error(err: unknown): void {
+		if (sessionEnded(session.value, err)) {
+			location.assign('/');
+			return;
+		}
 		this.#add({ text: err instanceof Error ? err.message : String(err), error: true });
 	}
 

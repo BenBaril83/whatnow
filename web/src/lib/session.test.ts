@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Session } from '#lib/api.ts';
-import { showLanding, signInURL } from '#lib/session.svelte.ts';
+import { ApiError, type Session } from '#lib/api.ts';
+import { sessionEnded, showLanding, signInURL } from '#lib/session.svelte.ts';
 
 const signedOut: Session = { hosted: true, user: null };
 const signedIn: Session = {
@@ -34,5 +34,26 @@ describe('signInURL', () => {
 		expect(signInURL('America/New_York')).toBe(
 			'/auth/google?tz=America%2FNew_York',
 		);
+	});
+});
+
+describe('sessionEnded', () => {
+	it('Should be true for a 401 in hosted mode', () => {
+		expect(sessionEnded(signedIn, new ApiError(401, 'sign in first'))).toBe(true);
+	});
+
+	it('Should never be true in local mode', () => {
+		expect(sessionEnded({ hosted: false, user: null }, new ApiError(401, 'no'))).toBe(false);
+	});
+
+	it.each([
+		['another status', new ApiError(500, 'oops')],
+		['an error that is not from the API', new Error('401')],
+	])('Should be false for %s', (_, err) => {
+		expect(sessionEnded(signedIn, err)).toBe(false);
+	});
+
+	it('Should be false before the session is known', () => {
+		expect(sessionEnded(null, new ApiError(401, 'sign in first'))).toBe(false);
 	});
 });

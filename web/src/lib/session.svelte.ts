@@ -1,4 +1,4 @@
-import { api, type Session } from '#lib/api.ts';
+import { api, ApiError, type Session } from '#lib/api.ts';
 
 /** Who is using the page, known once the root layout has asked the server. */
 class SessionState {
@@ -19,4 +19,12 @@ export function signInURL(tz: string): string {
 /** A signed-out visitor to a hosted server sees the landing page, except on the privacy page. */
 export function showLanding(s: Session, path: string): boolean {
 	return s.hosted && s.user === null && path !== '/privacy';
+}
+
+/**
+ * A hosted session can end mid-page, when it expires or the account is deleted elsewhere. The
+ * server then answers 401, and the visitor belongs back at sign-in rather than in a pile of toasts.
+ */
+export function sessionEnded(s: Session | null, err: unknown): boolean {
+	return s?.hosted === true && err instanceof ApiError && err.status === 401;
 }
