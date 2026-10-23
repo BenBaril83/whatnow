@@ -153,6 +153,21 @@ func (r *Registry) Evict(userID string) {
 	}
 }
 
+// EvictIfMoved evicts the user's App when the time zone saved in its database is no longer the
+// one it opened with, since an App's zone is fixed when it opens. With no App open, or one still
+// opening, there is nothing to do: the next one opens with the saved zone.
+func (r *Registry) EvictIfMoved(ctx context.Context, userID string) {
+	r.mu.Lock()
+	var a *app.App
+	if e := r.entries[userID]; e != nil {
+		a = e.app
+	}
+	r.mu.Unlock()
+	if a != nil && app.SavedLoc(ctx, a.DB).String() != a.Loc.String() {
+		r.Evict(userID)
+	}
+}
+
 // Delete closes the user's App for good, as Evict does, and removes the database. No later
 // Serve opens it again.
 func (r *Registry) Delete(userID string) error {

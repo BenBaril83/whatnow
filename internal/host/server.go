@@ -141,11 +141,11 @@ func (f *frontDoor) dispatch(w http.ResponseWriter, r *http.Request, u User) {
 		f.registry.Serve(w, r, u.ID)
 		return
 	}
-	// An App's time zone is fixed when it opens, so saved settings reopen it.
+	// An App's time zone is fixed when it opens, so a saved move to another zone reopens it.
 	sw := &statusWriter{ResponseWriter: w}
 	f.registry.Serve(sw, r, u.ID)
 	if sw.status >= 200 && sw.status < 300 {
-		f.registry.Evict(u.ID)
+		f.registry.EvictIfMoved(r.Context(), u.ID)
 	}
 }
 

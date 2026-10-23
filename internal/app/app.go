@@ -95,12 +95,7 @@ func Open(o Options) (*App, error) {
 		clients = settings.Clients{Keys: settings.SealedKeys(sealed), HTTP: outbound.Client(0)}
 		guarded := outbound.Client(30 * time.Second)
 		pulls = []integrations.Integration{gcal.New(guarded), jira.New(guarded)}
-		loc = time.UTC
-		if saved, err := settings.Load(context.Background(), db); err == nil && saved.TimeZone != "" {
-			if l, err := time.LoadLocation(saved.TimeZone); err == nil {
-				loc = l
-			}
-		}
+		loc = SavedLoc(context.Background(), db)
 	}
 	svc := service.New(db, o.Now)
 	hub := stream.NewHub()
@@ -142,6 +137,16 @@ func Open(o Options) (*App, error) {
 		plans.Run(ctx, watched)
 	}()
 	return a, nil
+}
+
+// SavedLoc is the time zone saved in a hosted user's settings, or UTC when none is.
+func SavedLoc(ctx context.Context, db *sql.DB) *time.Location {
+	if saved, err := settings.Load(ctx, db); err == nil && saved.TimeZone != "" {
+		if l, err := time.LoadLocation(saved.TimeZone); err == nil {
+			return l
+		}
+	}
+	return time.UTC
 }
 
 // NewClient builds the model client for s from this app's keys and HTTP client.

@@ -397,6 +397,22 @@ func TestTimeZoneChangeReopens(t *testing.T) {
 	}
 }
 
+func TestSettingsSaveKeepsApp(t *testing.T) {
+	f := newFrontTest(t)
+	u, c := f.signIn("a")
+	st := settings.Defaults()
+	st.TimeZone = "Pacific/Kiritimati"
+	f.want(f.do(http.MethodPut, "/api/v1/settings", c, st), http.StatusOK)
+	f.do(http.MethodGet, "/api/v1/today", c, nil)
+
+	st.Theme = settings.ThemeNeon
+	f.want(f.do(http.MethodPut, "/api/v1/settings", c, st), http.StatusOK)
+	f.do(http.MethodGet, "/api/v1/today", c, nil)
+	if n := f.openCount(u.ID); n != 2 {
+		t.Errorf("opened %d times, want 2: only the zone change reopens", n)
+	}
+}
+
 func TestRateLimited(t *testing.T) {
 	f := newFrontTest(t)
 	_, c := f.signIn("a")
