@@ -12,11 +12,11 @@
 	--should: #d8ecff;
 	--could: #ffffff;
 	--chip: #ffd84d;
-	--primary: #7b5cff;
+	--primary: #6f4ef5;
 	--on-primary: #ffffff;
 	--now: #ff4d6d;
 	--event: #e3ffd8;
-	--danger: #ff4d6d;
+	--danger: #d92547;
 	--backdrop: var(--paper);
 
 	--line: 2px solid var(--ink);

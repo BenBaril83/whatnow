@@ -287,6 +287,10 @@
 	.choice.on {
 		background: var(--chip);
 	}
+	/* Soft text is tuned for the page and cards, not every theme's chip. */
+	.choice.on .muted {
+		color: inherit;
+	}
 	.nav {
 		display: flex;
 		align-items: center;

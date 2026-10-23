@@ -122,7 +122,7 @@
 	--paper-deep: #ece7da;
 	--card: #fbf9f3;
 	--ink: #3b3b3b;
-	--ink-soft: #8a857a;
+	--ink-soft: #67635a;
 	--must: #fbf9f3;
 	--should: #fbf9f3;
 	--could: #fbf9f3;
@@ -155,12 +155,13 @@
 	--should: #9ff3ff;
 	--could: #fff0fb;
 	--chip: #fffb96;
-	--primary: #b967ff;
+	--primary: #6417b5;
 	--on-primary: #ffffff;
 	--now: #ff2e88;
 	--event: #b9ffdf;
-	--danger: #ff2e88;
-	--backdrop: linear-gradient(180deg, #ff71ce 0%, #b967ff 55%, #01cdfe 100%) fixed;
+	--danger: #b8005a;
+	/* Pastel stops: links and soft text sit straight on the backdrop and must stay readable. */
+	--backdrop: linear-gradient(180deg, #ffa6e4 0%, #d9b3ff 55%, #8eecff 100%) fixed;
 
 	--shadow: 4px 4px 0 #01cdfe;
 	--shadow-sm: 2px 2px 0 #01cdfe;
