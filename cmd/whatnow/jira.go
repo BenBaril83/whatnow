@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/x/term"
+
 	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/integrations/jira"
 	"github.com/jameynakama/whatnow/internal/secrets"
@@ -82,6 +84,11 @@ func setup(ctx context.Context, in io.Reader, out io.Writer, dir string, vault s
 		return err
 	}
 	lines := bufio.NewScanner(in)
+	// Typed at a terminal, the key and the token don't echo, so they stay off the screen.
+	tty, _ := in.(*os.File)
+	if tty != nil && !term.IsTerminal(tty.Fd()) {
+		tty = nil
+	}
 	ask := func(prompt, current string, secret bool) string {
 		switch {
 		case secret && current != "":
@@ -90,6 +97,14 @@ func setup(ctx context.Context, in io.Reader, out io.Writer, dir string, vault s
 			fmt.Fprintf(out, "%s [%s]: ", prompt, current)
 		default:
 			fmt.Fprintf(out, "%s: ", prompt)
+		}
+		if secret && tty != nil {
+			b, err := term.ReadPassword(tty.Fd())
+			fmt.Fprintln(out)
+			if v := strings.TrimSpace(string(b)); err == nil && v != "" {
+				return v
+			}
+			return current
 		}
 		if lines.Scan() {
 			if v := strings.TrimSpace(lines.Text()); v != "" {
