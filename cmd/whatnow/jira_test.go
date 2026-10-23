@@ -102,7 +102,8 @@ func TestPushErrors(t *testing.T) {
 	}{
 		"jira unreachable": {"http://127.0.0.1:1", http.StatusNoContent, "", "", "Can't reach Jira — on the VPN?"},
 		"bad key":          {jira.URL, http.StatusUnauthorized, "application/json", `{"error":"unknown key"}`, "whatnow didn't accept the key — create a new one in Jira settings"},
-		"direct mode":      {jira.URL, http.StatusConflict, "application/json", `{"error":"off"}`, "Jira on {host} is set to reach Jira directly — switch it to From my computer"},
+		"direct mode":      {jira.URL, http.StatusConflict, "application/json", `{"error":"conflict: Jira is set to reach it directly — switch it to From my computer"}`, "Jira is set to reach it directly — switch it to From my computer"},
+		"jira off":         {jira.URL, http.StatusConflict, "application/json", `{"error":"conflict: Jira is off in whatnow settings — turn it on"}`, "Jira is off in whatnow settings — turn it on"},
 		"html page":        {jira.URL, http.StatusOK, "text/html", "<html>hi</html>", "couldn't read whatnow's answer — is the address right?"},
 		"html not found":   {jira.URL, http.StatusNotFound, "text/html", "<html>404</html>", "couldn't read whatnow's answer — is the address right?"},
 	}

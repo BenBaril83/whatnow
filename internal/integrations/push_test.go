@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -196,5 +197,25 @@ func TestHintCarried(t *testing.T) {
 
 	if src := e.pullFrom(t, "board").Sources[0]; src.Hint != "computer" {
 		t.Errorf("source = %+v", src)
+	}
+}
+
+func TestReceiveSaysWhyItRefused(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	if _, err := e.runner.SetVia(ctx, "board", integrations.ViaComputer); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.runner.Receive(ctx, "board", nil, 0); err == nil || !strings.Contains(err.Error(), "Board is off in whatnow settings — turn it on") {
+		t.Errorf("off: %v", err)
+	}
+	if _, err := e.runner.SetVia(ctx, "board", integrations.ViaDirect); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.runner.SetEnabled(ctx, "board", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.runner.Receive(ctx, "board", nil, 0); err == nil || !strings.Contains(err.Error(), "Board is set to reach it directly — switch it to From my computer") {
+		t.Errorf("direct: %v", err)
 	}
 }

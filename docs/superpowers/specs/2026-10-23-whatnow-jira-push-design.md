@@ -100,8 +100,9 @@ right away.
 sends the result, and prints one line: "Sent 7 tickets to whatnow.day" (plus "12 more matched —
 narrow the search" when Jira's total exceeds 50), or the error. Errors read like the hosted
 card's: Jira's errors as the Jira spec words them, and for whatnow, "whatnow didn't accept the key —
-create a new one in Jira settings" on `401`, and "Jira on whatnow.day is set to reach Jira
-directly — switch it to From my computer" on `409`. Neither the Jira token nor the key appears in
+create a new one in Jira settings" on `401`, and on `409` whatnow's own reason: "Jira is off in
+whatnow settings — turn it on", or "Jira is set to reach it directly — switch it to From my
+computer". Neither the Jira token nor the key appears in
 any output.
 
 ## Server

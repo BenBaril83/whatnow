@@ -62,8 +62,11 @@ func (r *Runner) Receive(ctx context.Context, id string, tickets []Ticket, more 
 	if err != nil {
 		return err
 	}
-	if !s.Enabled || s.Via != ViaComputer {
-		return fmt.Errorf("%w: %s is off or set to reach it directly", service.ErrConflict, in.Name())
+	if !s.Enabled {
+		return fmt.Errorf("%w: %s is off in whatnow settings — turn it on", service.ErrConflict, in.Name())
+	}
+	if s.Via != ViaComputer {
+		return fmt.Errorf("%w: %s is set to reach it directly — switch it to From my computer", service.ErrConflict, in.Name())
 	}
 	if len(tickets) > maxPushed {
 		return fmt.Errorf("%w: at most %d tickets at once", service.ErrInvalid, maxPushed)

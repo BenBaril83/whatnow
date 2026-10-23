@@ -160,13 +160,21 @@ func push(ctx context.Context, cfg pushConfig, key, token string, client *http.C
 	if err != nil {
 		return fmt.Errorf("Can't reach whatnow at %s", base.Host)
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusNoContent:
 	case http.StatusUnauthorized:
 		return errors.New("whatnow didn't accept the key — create a new one in Jira settings")
 	case http.StatusConflict:
-		return fmt.Errorf("Jira on %s is set to reach Jira directly — switch it to From my computer", base.Host)
+		// whatnow says which: Jira is off, or set to reach Jira directly.
+		var body struct {
+			Error string `json:"error"`
+		}
+		if json.NewDecoder(resp.Body).Decode(&body) == nil && body.Error != "" {
+			msg, _ := strings.CutPrefix(body.Error, "conflict: ")
+			return errors.New(msg)
+		}
+		return errors.New("couldn't read whatnow's answer — is the address right?")
 	default:
 		return errors.New("couldn't read whatnow's answer — is the address right?")
 	}
