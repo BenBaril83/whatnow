@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Field, Integration, PullResult } from './api';
-import { formFrom, isOn, newRow, picked, withoutEvent, withoutTicket } from './integrations';
+import { formFrom, isOn, newRow, picked, sentLabel, withoutEvent, withoutTicket } from './integrations';
 
 const calendars: Field = {
 	key: 'calendars',
@@ -23,7 +23,9 @@ const gcal: Integration = {
 	values: { team: 'Platform' },
 	secrets: { token: true },
 	lists: { calendars: [{ id: 'r1', values: { label: 'Work' }, secrets: { url: true } }] },
-	skipped: []
+	skipped: [],
+	via: 'direct',
+	sent_at: null
 };
 
 describe('formFrom', () => {
@@ -88,5 +90,16 @@ describe('tickets', () => {
 
 	it('Should drop a skipped ticket from the result', () => {
 		expect(withoutTicket(result, 'A-2').sources[0].tickets).toEqual([tk('A-1'), tk('A-3')]);
+	});
+});
+
+describe('sentLabel', () => {
+	it.each([
+		['a send earlier today', new Date(2026, 9, 23, 8, 2), new Date(2026, 9, 23, 14, 0), 'today 8:02am'],
+		['an afternoon send', new Date(2026, 9, 23, 13, 30), new Date(2026, 9, 23, 14, 0), 'today 1:30pm'],
+		['a send on another day', new Date(2026, 9, 21, 8, 2), new Date(2026, 9, 23, 14, 0), 'Oct 21, 8:02am'],
+		['a send just before midnight', new Date(2026, 9, 22, 23, 59), new Date(2026, 9, 23, 0, 1), 'Oct 22, 11:59pm']
+	])('Should label %s', (_, sent, now, want) => {
+		expect(sentLabel(sent.toISOString(), now)).toBe(want);
 	});
 });

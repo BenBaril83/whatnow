@@ -53,3 +53,13 @@ export function withoutTicket(result: PullResult, key: string): PullResult {
 		sources: result.sources.map((s) => ({ ...s, tickets: s.tickets.filter((t) => t.key !== key) }))
 	};
 }
+
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** When the user's computer sent its tickets: "today 8:02am", or "Oct 21, 8:02am" on another day. */
+export function sentLabel(sentAt: string, now: Date): string {
+	const at = new Date(sentAt);
+	const h = at.getHours();
+	const time = `${h % 12 || 12}:${String(at.getMinutes()).padStart(2, '0')}${h < 12 ? 'am' : 'pm'}`;
+	return at.toDateString() === now.toDateString() ? `today ${time}` : `${months[at.getMonth()]} ${at.getDate()}, ${time}`;
+}

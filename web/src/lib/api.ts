@@ -242,6 +242,18 @@ export interface Integration {
 	skipped: Skip[];
 	/** Whether a pull writes events or offers tickets to pick. */
 	pulls: 'events' | 'tickets';
+	/** How it's reached: by the server, or from the user's computer, which sends what it pulled. */
+	via: Via;
+	/** When the user's computer last sent tickets. */
+	sent_at: string | null;
+}
+
+export type Via = 'direct' | 'computer';
+
+/** The key `whatnow jira push` sends with. Only the server ever sees the key itself again. */
+export interface PushKey {
+	created_at: string;
+	last_used_at: string | null;
 }
 
 /** What saving an integration sends. A blank secret keeps the saved one; a row with no id is new. */
@@ -277,6 +289,10 @@ export interface PullSource {
 	tickets: Ticket[];
 	/** How many more tickets matched than were returned. */
 	more: number;
+	/** Another way in that might get past the error: sending from the user's computer. */
+	hint?: 'computer';
+	/** When the user's computer sent these tickets. */
+	sent_at?: string;
 }
 
 export interface PullResult {
@@ -360,7 +376,12 @@ export const api = {
 	saveIntegration: (id: string, u: IntegrationUpdate) => request<Integration>('PUT', `/integrations/${id}`, u),
 	enableIntegration: (id: string, enabled: boolean) =>
 		request<Integration>('PUT', `/integrations/${id}/enabled`, { enabled }),
+	setVia: (id: string, via: Via) => request<Integration>('PUT', `/integrations/${id}/via`, { via }),
 	pull: (id: string) => request<PullResult>('POST', `/integrations/${id}/pull`),
+	pushKey: () => request<{ key: PushKey | null }>('GET', '/integrations/jira/key'),
+	/** A new key, replacing the old one. This is the only time it's shown. */
+	createPushKey: () => request<{ key: string }>('POST', '/integrations/jira/key'),
+	revokePushKey: () => request<void>('DELETE', '/integrations/jira/key'),
 	addTickets: (id: string, tickets: Ticket[]) => request<Mutation>('POST', `/integrations/${id}/add`, { tickets }),
 	skip: (id: string, key: string, title: string, event_id?: number) =>
 		request<Mutation>('POST', `/integrations/${id}/skipped`, { key, title, event_id }),

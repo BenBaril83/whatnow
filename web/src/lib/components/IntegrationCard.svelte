@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { api, type Integration, type PullResult } from '#lib/api.ts';
-	import { formFrom, isOn, newRow } from '#lib/integrations.ts';
+	import { api, type Integration, type PullResult, type PushKey, type Via } from '#lib/api.ts';
+	import { formFrom, isOn, newRow, sentLabel } from '#lib/integrations.ts';
+	import { session } from '#lib/session.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import PullResults from './PullResults.svelte';
 	import TicketPicker from './TicketPicker.svelte';
@@ -15,6 +16,51 @@
 	let saving = $state(false);
 	let pulling = $state(false);
 	let result = $state<PullResult | null>(null);
+
+	// Hosted, a ticket integration can be reached from the user's own computer instead, for a Jira
+	// behind a VPN that the server can't see.
+	const offersVia = $derived(!!session.value?.hosted && integration.pulls === 'tickets');
+	const computer = $derived(offersVia && integration.via === 'computer');
+	let pushKey = $state<PushKey | null>(null);
+	/** A key just made, shown this once. */
+	let newKey = $state('');
+
+	$effect(() => {
+		if (!computer) return;
+		api.pushKey().then(
+			(r) => (pushKey = r.key),
+			(err) => toasts.error(err)
+		);
+	});
+
+	// The choice saves at once, like the toggle, so setting up the command right after works.
+	async function setVia(via: Via) {
+		try {
+			integration = await api.setVia(integration.id, via);
+			result = null;
+		} catch (err) {
+			toasts.error(err);
+		}
+	}
+
+	async function createKey() {
+		try {
+			newKey = (await api.createPushKey()).key;
+			pushKey = (await api.pushKey()).key;
+		} catch (err) {
+			toasts.error(err);
+		}
+	}
+
+	async function revokeKey() {
+		try {
+			await api.revokePushKey();
+			pushKey = null;
+			newKey = '';
+		} catch (err) {
+			toasts.error(err);
+		}
+	}
 
 	/** Whether a list row's secret column is saved, so a blank input keeps it. */
 	const savedSecret = (list: string, rowID: string, column: string) =>
@@ -80,6 +126,45 @@
 	</header>
 	{#if open}
 		<form onsubmit={save}>
+			{#if offersVia}
+				<fieldset class="via">
+					<legend class="label">How whatnow reaches {integration.name}</legend>
+					<label class="choice">
+						<input type="radio" name="via-{integration.id}" checked={!computer} onchange={() => setVia('direct')} />
+						Directly
+					</label>
+					<label class="choice">
+						<input type="radio" name="via-{integration.id}" checked={computer} onchange={() => setVia('computer')} />
+						From my computer
+					</label>
+				</fieldset>
+			{/if}
+			{#if computer}
+				<p class="muted hint">Useful when your Jira is behind a VPN or on an intranet.</p>
+				<p class="hint">On a Mac: <code>brew install jameynakama/tap/whatnow</code>, then <code>whatnow jira setup</code>.</p>
+				<div class="key">
+					<span class="label">Key</span>
+					{#if newKey}
+						<p class="hint">Paste this into <code>whatnow jira setup</code>. It won't be shown again.</p>
+						<code class="shown">{newKey}</code>
+					{:else if pushKey}
+						<p class="muted hint">
+							{pushKey.last_used_at ? `Last used ${sentLabel(pushKey.last_used_at, new Date())}` : 'Not used yet'}
+						</p>
+					{/if}
+					<div class="actions">
+						<button type="button" class="btn" onclick={createKey}>{pushKey ? 'Replace key' : 'Create key'}</button>
+						{#if pushKey}<button type="button" class="link" onclick={revokeKey}>Revoke</button>{/if}
+					</div>
+				</div>
+				<p class="muted hint">
+					{#if integration.sent_at}
+						Last sent from your computer: {sentLabel(integration.sent_at, new Date())}
+					{:else}
+						Nothing sent yet: run <code>whatnow jira push</code>
+					{/if}
+				</p>
+			{:else}
 			{#each integration.fields as f (f.key)}
 				{#if f.kind === 'list'}
 					<fieldset>
@@ -121,6 +206,7 @@
 					</label>
 				{/if}
 			{/each}
+			{/if}
 			{#if integration.skipped.length}
 				<div>
 					<span class="label">Skipped</span>
@@ -132,14 +218,16 @@
 				</div>
 			{/if}
 			<div class="actions">
-				<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+				{#if !computer}
+					<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+				{/if}
 				<button type="button" class="btn" disabled={!isOn(integration) || pulling} onclick={pull}>
 					{pulling ? 'Pulling…' : integration.pulls === 'tickets' ? 'Pull' : 'Pull today'}
 				</button>
 			</div>
 		</form>
 		{#if result && integration.pulls === 'tickets'}
-			<TicketPicker id={integration.id} bind:result retry={pull} />
+			<TicketPicker id={integration.id} bind:result retry={pull} onHint={offersVia ? () => setVia('computer') : undefined} />
 		{:else if result}
 			<PullResults id={integration.id} bind:result retry={pull} />
 		{/if}
@@ -251,5 +339,19 @@
 		display: flex;
 		gap: 10px;
 		flex-wrap: wrap;
+	}
+	.via .choice {
+		flex-direction: row;
+		align-items: center;
+		gap: 6px;
+	}
+	.key {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.shown {
+		overflow-wrap: anywhere;
+		user-select: all;
 	}
 </style>

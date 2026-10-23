@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
 	import { api, type PullResult, type Ticket } from '#lib/api.ts';
-	import { picked, withoutTicket } from '#lib/integrations.ts';
+	import { picked, sentLabel, withoutTicket } from '#lib/integrations.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
 	interface Props {
@@ -10,8 +10,12 @@
 		result: PullResult;
 		/** Pulls again, for a pull that failed. */
 		retry: () => void;
+		/** Switches to sending from the user's computer. Without it, the hint links to settings. */
+		onHint?: () => void;
 	}
-	let { id, result = $bindable(), retry }: Props = $props();
+	let { id, result = $bindable(), retry, onHint }: Props = $props();
+
+	const hint = 'Behind a VPN or on an intranet? Send tickets from your computer instead';
 
 	const ticked = new SvelteSet<string>();
 	let added = $state(0);
@@ -46,10 +50,20 @@
 			<section>
 				{#if source.error}
 					<p class="bad">{source.error} <button class="link" onclick={retry}>Retry</button></p>
+					{#if source.hint === 'computer'}
+						{#if onHint}
+							<button class="link" onclick={onHint}>{hint}</button>
+						{:else}
+							<a class="link" href="/settings/integrations">{hint}</a>
+						{/if}
+					{/if}
 				{:else if source.tickets.length === 0}
 					<p class="muted">Nothing new in {source.label}.</p>
 				{:else}
-					<h3 class="label">{`${source.label} · ${source.tickets.length}`}</h3>
+					<h3 class="label">
+						{`${source.label} · ${source.tickets.length}`}
+						{#if source.sent_at}<span class="muted">sent {sentLabel(source.sent_at, new Date())}</span>{/if}
+					</h3>
 					<ul>
 						{#each source.tickets as t (t.key)}
 							<li>
