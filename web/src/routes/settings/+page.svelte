@@ -6,6 +6,7 @@
 	import NotifyPermission from '#lib/components/NotifyPermission.svelte';
 	import ThemePicker from '#lib/components/ThemePicker.svelte';
 	import { live } from '#lib/live.svelte.ts';
+	import { session } from '#lib/session.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
 	let view = $state<SettingsView | null>(null);
@@ -26,13 +27,22 @@
 	});
 
 	const provider = $derived((view?.settings.provider || 'anthropic') as Provider);
+	const hosted = $derived(session.value?.hosted ?? false);
 	const keyNote = $derived(
 		view?.keys[provider] === 'env'
 			? 'from env'
-			: view?.keys[provider] === 'keychain'
-				? 'saved'
-				: 'not set'
+			: view?.keys[provider] === 'saved'
+				? 'Saved, encrypted on the server'
+				: view?.keys[provider] === 'keychain'
+					? 'saved'
+					: 'not set'
 	);
+	// A saved zone the browser doesn't list (such as UTC) still shows up as the selection.
+	const zones = $derived.by(() => {
+		const all = Intl.supportedValuesOf('timeZone');
+		const current = view?.settings.time_zone;
+		return current && !all.includes(current) ? [current, ...all] : all;
+	});
 
 	// PUT takes the whole settings object, so this sends back everything GET returned. The key
 	// is saved first, so whatever happens next, the key note is refetched to match.
@@ -124,6 +134,16 @@
 					<input class="field" type="number" min="1" max="60" required bind:value={view.settings.alert_lead_minutes} />
 				</label>
 			</div>
+			{#if hosted}
+				<label>
+					<span class="label">Time zone</span>
+					<select class="field" bind:value={view.settings.time_zone}>
+						{#each zones as zone (zone)}
+							<option value={zone}>{zone}</option>
+						{/each}
+					</select>
+				</label>
+			{/if}
 
 			<h2 class="label">Nudges</h2>
 			<label class="check">
@@ -140,6 +160,7 @@
 			</label>
 			<div><NotifyPermission /></div>
 
+			{#if !hosted}
 			<h2 class="label">Remote access</h2>
 			<label>
 				<span class="label">Allowed hosts, one per line</span>
@@ -157,6 +178,7 @@
 					<code>tailscale serve</code>. Anyone who can reach one gets full access.
 				</span>
 			</label>
+			{/if}
 
 			<div class="actions">
 				<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>

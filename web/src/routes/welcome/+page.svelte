@@ -7,6 +7,7 @@
 	import IntegrationCard from '#lib/components/IntegrationCard.svelte';
 	import NotifyPermission from '#lib/components/NotifyPermission.svelte';
 	import { live } from '#lib/live.svelte.ts';
+	import { session } from '#lib/session.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
 	const steps = ['provider', 'key', 'test', 'you', 'integrations', 'nudges', 'ready'] as const;
@@ -41,7 +42,9 @@
 	const modelsSet = $derived(
 		!!view?.settings[provider].main_model.trim() && !!view?.settings[provider].light_model.trim()
 	);
-	const keyReady = $derived(fromEnv || key.trim() !== '' || view?.keys[provider] === 'keychain');
+	const hosted = $derived(session.value?.hosted ?? false);
+	const keySaved = $derived(view?.keys[provider] === 'keychain' || view?.keys[provider] === 'saved');
+	const keyReady = $derived(fromEnv || key.trim() !== '' || keySaved);
 
 	/** Saves the form's settings. Returns whether it worked. */
 	async function save(): Promise<boolean> {
@@ -156,14 +159,18 @@
 					<p>Found your key in <code>{envVar}</code>.</p>
 					<button class="link" onclick={() => (ownKey = true)}>Use a different key</button>
 				{:else}
-					<p>It stays in your system keychain, never in whatnow's database.</p>
+					<p>
+						{hosted
+							? "It's stored encrypted on the server, and only used to talk to your model provider."
+							: "It stays in your system keychain, never in whatnow's database."}
+					</p>
 					<input
 						class="field"
 						type="password"
 						bind:value={key}
 						autocomplete="off"
 						aria-label="API key"
-						placeholder={view.keys[provider] === 'keychain' ? 'Saved. Leave blank to keep' : ''}
+						placeholder={keySaved ? 'Saved. Leave blank to keep' : ''}
 					/>
 				{/if}
 			{:else if step === 'test'}

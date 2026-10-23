@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { api } from '#lib/api.ts';
+	import { session } from '#lib/session.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
-	const phrase = 'delete everything';
+	const hosted = $derived(session.value?.hosted ?? false);
+	const phrase = $derived(hosted ? 'delete my account' : 'delete everything');
 	let typed = $state('');
 	let deleting = $state(false);
 
@@ -21,15 +23,21 @@
 <section class="sticker danger">
 	<h2 class="label">Danger zone</h2>
 	<p>
-		Deletes every task, event, day, plan, chat, and summary, your settings, the saved keys, and your
-		integrations' saved addresses. There's no undo.
+		{#if hosted}
+			Deletes your account and everything in it: every task, event, day, plan, chat, and summary,
+			your settings, the saved keys, and your integrations' saved addresses. Backups are gone within
+			30 days. There's no undo.
+		{:else}
+			Deletes every task, event, day, plan, chat, and summary, your settings, the saved keys, and your
+			integrations' saved addresses. There's no undo.
+		{/if}
 	</p>
 	<label>
 		<span class="muted">Type <strong>{phrase}</strong> to confirm</span>
 		<input class="field" bind:value={typed} autocomplete="off" />
 	</label>
 	<button class="btn wipe" disabled={typed !== phrase || deleting} onclick={wipe}>
-		{deleting ? 'Deleting…' : 'Delete everything'}
+		{deleting ? 'Deleting…' : hosted ? 'Delete my account' : 'Delete everything'}
 	</button>
 </section>
 
