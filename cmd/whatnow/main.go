@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -215,9 +216,30 @@ func hostConfig(args []string, getenv func(string) string) (hostOptions, error) 
 	return o, nil
 }
 
+// refuseModelEnvironment refuses to host while any ANTHROPIC_ or OPENAI_ variable is set. The
+// model SDKs read those as defaults, so a server's own key, base URL, or headers could otherwise
+// ride along on a user's requests to the provider they chose.
+func refuseModelEnvironment(environ []string) error {
+	var set []string
+	for _, kv := range environ {
+		name, _, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(name, "ANTHROPIC_") || strings.HasPrefix(name, "OPENAI_") {
+			set = append(set, name)
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	slices.Sort(set)
+	return fmt.Errorf("unset %s: hosted users bring their own model settings", strings.Join(set, ", "))
+}
+
 func runHost(args []string, getenv func(string) string) error {
 	o, err := hostConfig(args, getenv)
 	if err != nil {
+		return err
+	}
+	if err := refuseModelEnvironment(os.Environ()); err != nil {
 		return err
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

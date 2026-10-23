@@ -125,3 +125,30 @@ func TestHostConfigReadsFlagsAndEnvironment(t *testing.T) {
 		t.Fatalf("got redirect %q", got)
 	}
 }
+
+func TestRefuseModelEnvironment(t *testing.T) {
+	tests := []struct {
+		name    string
+		environ []string
+		want    string
+	}{
+		{name: "clean", environ: []string{"HOME=/root", "WHATNOW_SEAL_KEY=k", "MY_OPENAI_NOTE=x"}},
+		{name: "anthropic", environ: []string{"HOME=/root", "ANTHROPIC_BASE_URL=https://proxy"}, want: "ANTHROPIC_BASE_URL"},
+		{name: "openai, even empty", environ: []string{"OPENAI_ORG_ID="}, want: "OPENAI_ORG_ID"},
+		{name: "several", environ: []string{"OPENAI_API_KEY=k", "ANTHROPIC_CUSTOM_HEADERS=x"}, want: "ANTHROPIC_CUSTOM_HEADERS, OPENAI_API_KEY"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := refuseModelEnvironment(tt.environ)
+			if tt.want == "" {
+				if err != nil {
+					t.Fatalf("got %v, want none", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("got %v, want an error naming %q", err, tt.want)
+			}
+		})
+	}
+}

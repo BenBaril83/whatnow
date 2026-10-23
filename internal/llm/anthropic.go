@@ -15,13 +15,17 @@ type anthropicClient struct {
 }
 
 // NewAnthropic returns a Client for the Claude API. An empty baseURL uses the default endpoint, and a nil hc the SDK's HTTP client.
+//
+// A caller that brings its own hc owns the requests, so the SDK's defaults from the environment
+// and profile files (ANTHROPIC_AUTH_TOKEN, custom headers, and the like) are left out. Hosted mode
+// relies on this: nothing of the server's reaches a user's requests.
 func NewAnthropic(apiKey, baseURL string, hc *http.Client) Client {
 	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
 	if baseURL != "" {
 		opts = append(opts, option.WithBaseURL(baseURL))
 	}
 	if hc != nil {
-		opts = append(opts, option.WithHTTPClient(hc))
+		opts = append(opts, option.WithHTTPClient(hc), option.WithoutEnvironmentDefaults())
 	}
 	return &anthropicClient{client: anthropic.NewClient(opts...)}
 }

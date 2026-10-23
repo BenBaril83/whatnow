@@ -141,6 +141,10 @@ ls -l /etc/whatnow.env   # -rw------- root root
 systemd reads this file as root and hands the values to the service, so the `whatnow` user never
 needs to read it.
 
+Leave every `ANTHROPIC_*` and `OPENAI_*` variable out of this file and the unit. The model SDKs
+would read them as defaults for every user's requests, so `whatnow host` refuses to start while any
+is set.
+
 ## 7. Install the binary and the systemd unit
 
 On your own machine, from the repo:

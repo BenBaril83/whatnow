@@ -226,3 +226,19 @@ func TestOpenAISkipsAnEmptySystemMessage(t *testing.T) {
 		t.Error("response_format sent without a schema")
 	}
 }
+
+func TestAnthropicWithOwnHTTPClientIgnoresTheEnvironment(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("ANTHROPIC_AUTH_TOKEN", "server-token")
+	api := &fakeAPI{status: 200, reply: anthropicReply("end_turn", `{"ok":true}`)}
+
+	if _, err := llm.NewAnthropic("sk-user", api.start(t), &http.Client{}).Complete(context.Background(), request()); err != nil {
+		t.Fatal(err)
+	}
+	if got := api.header.Get("Authorization"); got != "" {
+		t.Errorf("Authorization = %q, want the server's token kept out", got)
+	}
+	if got := api.header.Get("X-Api-Key"); got != "sk-user" {
+		t.Errorf("X-Api-Key = %q, want the user's key", got)
+	}
+}
