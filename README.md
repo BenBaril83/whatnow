@@ -29,6 +29,10 @@ For a feel of a whole day, from the morning brain dump to the wrap-up, read [dem
   address, no OAuth), and pick tasks from Jira tickets (by your own JQL search) and from the PRs
   a running [Review Queue](https://github.com/oreillymedia-ai-transformation/review-queue) ranks
   for your review. Pulls happen only when you ask, from the morning brain dump or from settings.
+  When hosted whatnow can't reach your Jira, because it's behind a VPN or on an intranet, set
+  Jira to *From my computer* and run `whatnow jira setup` once on a Mac that can reach it (install
+  with `brew install jameynakama/tap/whatnow`). After that, `whatnow jira push` sends your search
+  and the next pull offers it.
 
 You can shape it in settings. *Assistant style* sets its voice ("playful and friendly, with the
 odd koan"). *About me* tells the planner how you work ("my focus peaks before lunch", "meetings

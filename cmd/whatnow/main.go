@@ -37,7 +37,7 @@ var newClient = settings.NewClient
 
 const defaultAddr = "127.0.0.1:7777"
 
-const usage = "usage: whatnow [-addr 127.0.0.1:7777] [-db PATH]        the terminal view, serving the web UI if nothing else is\n       whatnow serve [-addr 127.0.0.1:7777] [-db PATH]  the web UI only\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]    same as bare whatnow\n       whatnow host -data DIR -public-url https://HOST [-addr 127.0.0.1:8080] [-max-users 100]  hosted, for many Google-signed-in users\n       whatnow version"
+const usage = "usage: whatnow [-addr 127.0.0.1:7777] [-db PATH]        the terminal view, serving the web UI if nothing else is\n       whatnow serve [-addr 127.0.0.1:7777] [-db PATH]  the web UI only\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]    same as bare whatnow\n       whatnow host -data DIR -public-url https://HOST [-addr 127.0.0.1:8080] [-max-users 100]  hosted, for many Google-signed-in users\n       whatnow jira setup|push                     send Jira tickets from this computer to hosted whatnow\n       whatnow version"
 
 func main() {
 	cmd, args := command(os.Args[1:])
@@ -55,6 +55,8 @@ func main() {
 		err = runTUI(*addr, *dbPath)
 	case "host":
 		err = runHost(args, os.Getenv)
+	case "jira":
+		err = jiraCommand(args)
 	case "version":
 		fmt.Println(Version)
 	default:
@@ -64,6 +66,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func jiraCommand(args []string) error {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return err
+	}
+	return runJira(context.Background(), args, os.Stdin, os.Stdout, filepath.Join(dir, "whatnow"), secrets.Keychain{}, nil)
 }
 
 // command splits off the subcommand. With none, or only flags, it's the TUI.
