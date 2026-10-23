@@ -19,7 +19,10 @@ import (
 // maxResults caps a pull. A pick list longer than this means the search is too broad.
 const maxResults = 50
 
-var errUnreachable = errors.New("Can't reach Jira — on the VPN?")
+var (
+	errUnreachable = errors.New("Can't reach Jira — on the VPN?")
+	errRejected    = errors.New("Jira rejected the token")
+)
 
 // Jira is the Jira integration.
 type Jira struct {
@@ -50,6 +53,11 @@ func (*Jira) Fields() []integrations.Field {
 func (j *Jira) Pull(ctx context.Context, cfg integrations.Config, _, _ time.Time) []integrations.Source {
 	src := integrations.Source{Label: "Jira"}
 	src.Tickets, src.More, src.Err = j.search(ctx, cfg)
+	// A Jira behind a VPN looks unreachable from a server outside it, or its network's edge turns
+	// the server away before Jira sees the token.
+	if errors.Is(src.Err, errUnreachable) || errors.Is(src.Err, errRejected) {
+		src.Hint = "computer"
+	}
 	return []integrations.Source{src}
 }
 
@@ -88,7 +96,7 @@ func (j *Jira) search(ctx context.Context, cfg integrations.Config) ([]integrati
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusUnauthorized:
-		return nil, 0, errors.New("Jira rejected the token")
+		return nil, 0, errRejected
 	case http.StatusBadRequest:
 		var bad struct {
 			ErrorMessages []string `json:"errorMessages"`

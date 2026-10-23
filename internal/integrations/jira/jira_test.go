@@ -73,11 +73,12 @@ func TestPullExplainsWhatWentWrongWithoutTheToken(t *testing.T) {
 		status int
 		body   string
 		want   string
+		hint   string
 	}{
-		"bad token":   {http.StatusUnauthorized, "", "Jira rejected the token"},
-		"bad search":  {http.StatusBadRequest, string(bad), "Field 'sprnt' does not exist. Try again."},
-		"server down": {http.StatusInternalServerError, "", "Jira answered 500"},
-		"login page":  {http.StatusOK, "<html>Sign in</html>", "couldn't read Jira's answer — is the address right?"},
+		"bad token":   {http.StatusUnauthorized, "", "Jira rejected the token", "computer"},
+		"bad search":  {http.StatusBadRequest, string(bad), "Field 'sprnt' does not exist. Try again.", ""},
+		"server down": {http.StatusInternalServerError, "", "Jira answered 500", ""},
+		"login page":  {http.StatusOK, "<html>Sign in</html>", "couldn't read Jira's answer — is the address right?", ""},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -86,14 +87,17 @@ func TestPullExplainsWhatWentWrongWithoutTheToken(t *testing.T) {
 			if src.Err == nil || src.Err.Error() != c.want {
 				t.Errorf("err = %v, want %q", src.Err, c.want)
 			}
+			if src.Hint != c.hint {
+				t.Errorf("hint = %q, want %q", src.Hint, c.hint)
+			}
 		})
 	}
 }
 
 func TestPullBlamesTheNetworkWhenJiraIsOutOfReach(t *testing.T) {
 	src := pull(t, cfg("http://127.0.0.1:1"))
-	if src.Err == nil || src.Err.Error() != "Can't reach Jira — on the VPN?" || strings.Contains(src.Err.Error(), token) {
-		t.Errorf("err = %v", src.Err)
+	if src.Err == nil || src.Err.Error() != "Can't reach Jira — on the VPN?" || strings.Contains(src.Err.Error(), token) || src.Hint != "computer" {
+		t.Errorf("source = %+v", src)
 	}
 }
 
@@ -109,7 +113,7 @@ func TestPullGivesUpOnASlowJira(t *testing.T) {
 func TestPullSaysWhenTheAddressIsntAURL(t *testing.T) {
 	for _, addr := range []string{"intranet.example.com/jira", "https://"} {
 		src := pull(t, cfg(addr))
-		if src.Err == nil || src.Err.Error() != "that address isn't a URL, such as https://jira.example.com" {
+		if src.Err == nil || src.Err.Error() != "that address isn't a URL, such as https://jira.example.com" || src.Hint != "" {
 			t.Errorf("%s: err = %v", addr, src.Err)
 		}
 	}

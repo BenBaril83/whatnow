@@ -188,3 +188,51 @@ func TestPickingJiraTickets(t *testing.T) {
 		t.Errorf("pull after add and skip = %+v", res.Sources[0].Tickets)
 	}
 }
+
+func TestSetVia(t *testing.T) {
+	keyring.MockInit()
+	api := newAPI(t)
+	rec := api.do(http.MethodPut, "/api/v1/integrations/jira/via", map[string]string{"via": "computer"})
+	wantStatus(t, rec, http.StatusOK)
+	if v := decodeAs[integrations.View](t, rec); v.Via != "computer" {
+		t.Errorf("view = %+v", v)
+	}
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/integrations/jira/via", map[string]string{"via": "x"}), http.StatusBadRequest)
+}
+
+func TestReceivedHostedOnly(t *testing.T) {
+	keyring.MockInit()
+	push := map[string]any{"tickets": []integrations.Ticket{{Key: "FLEX1-7", Title: "FLEX1-7 Pushed"}}, "more": 0}
+
+	local := newAPI(t)
+	if rec := local.do(http.MethodPost, "/api/v1/integrations/jira/received", push); rec.Code == http.StatusNoContent {
+		t.Error("a local server received a push")
+	}
+
+	api := newAPIHosted(t, true)
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/integrations/jira/via", map[string]string{"via": "computer"}), http.StatusOK)
+	wantStatus(t, api.do(http.MethodPut, "/api/v1/integrations/jira/enabled", map[string]bool{"enabled": true}), http.StatusOK)
+	wantStatus(t, api.do(http.MethodPost, "/api/v1/integrations/jira/received", push), http.StatusNoContent)
+
+	res := decodeAs[integrations.PullResult](t, api.do(http.MethodPost, "/api/v1/integrations/jira/pull", nil))
+	if len(res.Sources) != 1 || len(res.Sources[0].Tickets) != 1 || res.Sources[0].Tickets[0].Key != "FLEX1-7" {
+		t.Errorf("pull = %+v", res)
+	}
+}
+
+func TestHintOnlyWhenHosted(t *testing.T) {
+	keyring.MockInit()
+	for _, hosted := range []bool{false, true} {
+		api := newAPIHosted(t, hosted)
+		wantStatus(t, api.do(http.MethodPut, "/api/v1/integrations/jira", integrations.Update{Values: map[string]string{
+			"url": "http://127.0.0.1:1", "token": "pat-token", "jql": "project = FLEX1",
+		}}), http.StatusOK)
+		wantStatus(t, api.do(http.MethodPut, "/api/v1/integrations/jira/enabled", map[string]bool{"enabled": true}), http.StatusOK)
+
+		rec := api.do(http.MethodPost, "/api/v1/integrations/jira/pull", nil)
+		wantStatus(t, rec, http.StatusOK)
+		if got := strings.Contains(rec.Body.String(), `"hint":"computer"`); got != hosted {
+			t.Errorf("hosted %v: pull = %s", hosted, rec.Body)
+		}
+	}
+}

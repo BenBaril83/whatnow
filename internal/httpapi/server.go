@@ -100,6 +100,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/v1/integrations", s.listIntegrations)
 	mux.HandleFunc("PUT /api/v1/integrations/{id}", s.saveIntegration)
 	mux.HandleFunc("PUT /api/v1/integrations/{id}/enabled", s.enableIntegration)
+	mux.HandleFunc("PUT /api/v1/integrations/{id}/via", s.setVia)
 	mux.HandleFunc("POST /api/v1/integrations/{id}/pull", s.pullIntegration)
 	mux.HandleFunc("POST /api/v1/integrations/{id}/add", s.addTickets)
 	mux.HandleFunc("POST /api/v1/integrations/{id}/skipped", s.skipIntegration)
@@ -109,6 +110,8 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/v1/session", s.session)
 	mux.Handle("GET /", d.Static)
 	if d.Hosted {
+		// Only the front door reaches this, for a push made with the user's key.
+		mux.HandleFunc("POST /api/v1/integrations/{id}/received", s.receiveTickets)
 		return mux
 	}
 	return s.localOnly(mux)

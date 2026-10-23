@@ -53,7 +53,46 @@ func (s *Server) pullIntegration(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	// Sending from your computer is for a server that can't see what yours can.
+	if !s.Hosted {
+		for i := range res.Sources {
+			res.Sources[i].Hint = ""
+		}
+	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+func (s *Server) setVia(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Via string `json:"via"`
+	}
+	if err := decode(r, &body); err != nil {
+		writeError(w, err)
+		return
+	}
+	v, err := s.Integrations.SetVia(r.Context(), r.PathValue("id"), body.Via)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
+// receiveTickets keeps what the user's computer sent, for the next pull to offer.
+func (s *Server) receiveTickets(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Tickets []integrations.Ticket `json:"tickets"`
+		More    int                   `json:"more"`
+	}
+	if err := decode(r, &body); err != nil {
+		writeError(w, err)
+		return
+	}
+	if err := s.Integrations.Receive(r.Context(), r.PathValue("id"), body.Tickets, body.More); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // addTickets makes tasks of the tickets the user picked from a pull. The client sends back what
