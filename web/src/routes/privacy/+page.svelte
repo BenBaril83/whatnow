@@ -8,11 +8,15 @@
 	<h2>What's stored</h2>
 	<p>
 		Your tasks, your calendar events, how you feel about them, and your settings. Each person's data is
-		kept in a file of their own.
+		kept in a file of their own. Your account keeps the name and email address Google shares when you
+		sign in.
 	</p>
 
-	<h2>Your API keys</h2>
-	<p>The model provider keys you paste in are encrypted before they are saved.</p>
+	<h2>Your keys and secrets</h2>
+	<p>
+		The model provider keys you paste in are encrypted before they are saved, and so are your
+		integrations' secrets, such as calendar addresses and Jira tokens.
+	</p>
 
 	<h2>Your model provider</h2>
 	<p>
@@ -25,8 +29,8 @@
 
 	<h2>Deleting your account</h2>
 	<p>
-		In Settings, use Delete my account. It removes your data and your sign-in. Copies already in backups
-		expire within 30 days.
+		In Settings, use Delete my account. It removes your data, your sign-in, and your name and email
+		address. Copies already in backups, including your account's, expire within 30 days.
 	</p>
 
 	<p><a href="/">Back to whatnow</a></p>
