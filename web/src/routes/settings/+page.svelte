@@ -4,6 +4,7 @@
 	import AboutYou from '#lib/components/AboutYou.svelte';
 	import DangerZone from '#lib/components/DangerZone.svelte';
 	import NotifyPermission from '#lib/components/NotifyPermission.svelte';
+	import SupportWhatnow from '#lib/components/SupportWhatnow.svelte';
 	import ThemePicker from '#lib/components/ThemePicker.svelte';
 	import { live } from '#lib/live.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
@@ -185,6 +186,9 @@
 			</div>
 		</form>
 		<ThemePicker bind:theme={view.settings.theme} />
+		{#if hosted}
+			<SupportWhatnow />
+		{/if}
 		<DangerZone />
 	{:else}
 		<p class="muted">Loading…</p>
