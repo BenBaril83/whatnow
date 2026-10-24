@@ -47,10 +47,10 @@ describe('Toasts', () => {
 		expect(t.items.map((x) => x.batch)).toEqual([4]);
 	});
 
-	it('Should dismiss itself after about 8 seconds', () => {
+	it('Should dismiss itself after about 5 seconds', () => {
 		const t = new Toasts();
 		t.show('Pushed', 3);
-		vi.advanceTimersByTime(7999);
+		vi.advanceTimersByTime(4999);
 		expect(t.items.length).toBe(1);
 		vi.advanceTimersByTime(1);
 		expect(t.items.length).toBe(0);
@@ -58,13 +58,13 @@ describe('Toasts', () => {
 	it('Should stand still while paused, then finish only the time it had left', () => {
 		const t = new Toasts();
 		t.show('Pushed', 3);
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(3000);
 		t.pause(t.items[0].id);
 		vi.advanceTimersByTime(60_000);
 		expect(t.items).toMatchObject([{ paused: true }]);
 
 		t.resume(t.items[0].id);
-		vi.advanceTimersByTime(2999);
+		vi.advanceTimersByTime(1999);
 		expect(t.items.length).toBe(1);
 		vi.advanceTimersByTime(1);
 		expect(t.items.length).toBe(0);

@@ -16,7 +16,7 @@ export interface Toast {
 	action?: { label: string; run: () => void };
 }
 
-const lifetime = 8000;
+const lifetime = 5000;
 /** A nudge stays longer: it arrives unasked, often while you're looking elsewhere. */
 const nudgeLifetime = 30_000;
 
