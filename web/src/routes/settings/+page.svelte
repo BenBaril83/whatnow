@@ -186,9 +186,7 @@
 			</div>
 		</form>
 		<ThemePicker bind:theme={view.settings.theme} />
-		{#if hosted}
-			<SupportWhatnow />
-		{/if}
+		<SupportWhatnow {hosted} />
 		<DangerZone />
 	{:else}
 		<p class="muted">Loading…</p>

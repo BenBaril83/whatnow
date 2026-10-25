@@ -78,6 +78,11 @@ test('wrap-up suggests rolling over what is left, and wraps the day', async ({ p
 	// The goodnight screen shows the reflection; the summary is the planner's, not the user's.
 	await expect(page.getByText(fake.reflection)).toBeVisible();
 	await expect(page.getByText(fake.sentence)).toHaveCount(0);
+
+	// Day's done links the source everywhere, but asks for tips only on the hosted server.
+	await page.getByRole('button', { name: 'Goodnight →' }).click();
+	await expect(page.getByRole('link', { name: 'source on GitHub' })).toBeVisible();
+	await expect(page.getByRole('link', { name: /Ko-fi/ })).toHaveCount(0);
 });
 
 test('the end-of-day label stays inside the strip on a phone', async ({ page, request }) => {
