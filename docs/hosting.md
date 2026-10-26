@@ -111,7 +111,7 @@ whatnow signs people in with Google.
 ## 6. Generate the seal key and write the environment file
 
 whatnow encrypts each user's secrets (model API keys, and integration secrets such as calendar
-addresses and Jira tokens) with a seal key before storing them in their database. Each account's
+addresses and Jira and Linear tokens) with a seal key before storing them in their database. Each account's
 Google name and email are stored in `accounts.db` unencrypted, so the app can show who is signed
 in; deleting the account removes them, and older backup copies of `accounts.db` age out within 30
 days. Generate the key on your own machine or the droplet:
