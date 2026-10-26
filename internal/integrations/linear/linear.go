@@ -5,6 +5,7 @@ package linear
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +33,10 @@ const (
 	viewQuery = `query($id: String!) { customView(id: $id) { ` +
 		`shown: issues(first: 50) ` + shownFields + ` ` +
 		`rest: issues(first: 250) {nodes{id}} } }`
+	// viewFilterQuery is viewQuery with the filter Linear's UI adds to a view's address.
+	viewFilterQuery = `query($id: String!, $filter: IssueFilter) { customView(id: $id) { ` +
+		`shown: issues(first: 50, filter: $filter) ` + shownFields + ` ` +
+		`rest: issues(first: 250, filter: $filter) {nodes{id}} } }`
 )
 
 var (
@@ -110,33 +115,60 @@ type answer struct {
 }
 
 // viewID is the slug ID of a view's address: the part after the last "-" of its last path segment.
-func viewID(addr string) (string, bool) {
+// A "filter" in the address's query is returned as the object it encodes, nil when there is none.
+func viewID(addr string) (string, map[string]any, bool) {
 	u, err := url.Parse(strings.TrimSpace(addr))
 	if err != nil || u.Scheme != "https" || u.Host != "linear.app" {
-		return "", false
+		return "", nil, false
 	}
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(parts) != 3 || parts[0] == "" || parts[1] != "view" || parts[2] == "" {
-		return "", false
+		return "", nil, false
 	}
 	slug := parts[2]
 	id := slug[strings.LastIndex(slug, "-")+1:]
-	return id, id != ""
+	if id == "" {
+		return "", nil, false
+	}
+	encoded := u.Query().Get("filter")
+	if encoded == "" {
+		return id, nil, true
+	}
+	filter, ok := decodeFilter(encoded)
+	return id, filter, ok
+}
+
+// decodeFilter reads a JSON object from base64, standard or URL-safe, padded or not. A query string
+// turns a standard "+" into a space, so that is undone first.
+func decodeFilter(encoded string) (map[string]any, bool) {
+	encoded = strings.NewReplacer(" ", "-", "+", "-", "/", "_").Replace(strings.TrimRight(encoded, "="))
+	raw, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, false
+	}
+	var filter map[string]any
+	if json.Unmarshal(raw, &filter) != nil || filter == nil {
+		return nil, false
+	}
+	return filter, true
 }
 
 // search returns the matching tickets, assigned ones first, and how many more matched. Its errors
 // never wrap the client's, and never hold the key.
 func (l *Linear) search(ctx context.Context, cfg integrations.Config) ([]integrations.Ticket, int, error) {
 	payload := struct {
-		Query     string            `json:"query"`
-		Variables map[string]string `json:"variables,omitempty"`
+		Query     string         `json:"query"`
+		Variables map[string]any `json:"variables,omitempty"`
 	}{Query: activeQuery}
 	if addr := strings.TrimSpace(cfg.Values["view"]); addr != "" {
-		id, ok := viewID(addr)
+		id, filter, ok := viewID(addr)
 		if !ok {
 			return nil, 0, errBadView
 		}
-		payload.Query, payload.Variables = viewQuery, map[string]string{"id": id}
+		payload.Query, payload.Variables = viewQuery, map[string]any{"id": id}
+		if filter != nil {
+			payload.Query, payload.Variables["filter"] = viewFilterQuery, filter
+		}
 	}
 	reqBody, err := json.Marshal(payload)
 	if err != nil {

@@ -2,10 +2,12 @@ package linear
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +23,7 @@ const key = "lin_api_secret"
 type request struct {
 	Header http.Header
 	Query  string
-	Vars   map[string]string
+	Vars   map[string]any
 }
 
 // server answers every request with status and body, and records the last request.
@@ -31,8 +33,8 @@ func server(t *testing.T, status int, body string) (*httptest.Server, *request) 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		var sent struct {
-			Query     string            `json:"query"`
-			Variables map[string]string `json:"variables"`
+			Query     string         `json:"query"`
+			Variables map[string]any `json:"variables"`
 		}
 		json.Unmarshal(raw, &sent)
 		*got = request{Header: r.Header.Clone(), Query: sent.Query, Vars: sent.Variables}
@@ -102,8 +104,60 @@ func TestPullAsksForAViewByItsSlugID(t *testing.T) {
 				t.Errorf("source = %+v", src)
 			}
 			wantQuery := `query($id: String!) { customView(id: $id) { shown: issues(first: 50) {nodes{identifier title description url assignee{id}}} rest: issues(first: 250) {nodes{id}} } }`
-			if got.Query != wantQuery || !cmp.Equal(got.Vars, map[string]string{"id": id}) {
+			if got.Query != wantQuery || !cmp.Equal(got.Vars, map[string]any{"id": id}) {
 				t.Errorf("query = %q, variables = %v", got.Query, got.Vars)
+			}
+		})
+	}
+}
+
+func TestPullAppliesTheFilterInAViewsAddress(t *testing.T) {
+	const view = `{"data": {"customView": {"shown": {"nodes": []}, "rest": {"nodes": []}}}}`
+	const filter = `{"and":[{"assignee":{"or":[{"id":{"in":["86e915b6-ac3c-47ec-b97c-ffc4a1fe30e7"]}}]}}]}`
+	const base = "https://linear.app/realm/view/current-cycle-top-prios-open-4a6ba4535d33?filter="
+	for name, encoded := range map[string]string{
+		"url-safe unpadded": base64.RawURLEncoding.EncodeToString([]byte(filter)),
+		"standard padded":   url.QueryEscape(base64.StdEncoding.EncodeToString([]byte(`{"a":"~~~?"}`))),
+	} {
+		t.Run(name, func(t *testing.T) {
+			want := filter
+			if name == "standard padded" {
+				want = `{"a":"~~~?"}`
+			}
+			srv, got := server(t, http.StatusOK, view)
+			if src := pull(t, srv.URL, cfg(base+encoded)); src.Err != nil {
+				t.Fatalf("err = %v", src.Err)
+			}
+			wantQuery := `query($id: String!, $filter: IssueFilter) { customView(id: $id) { shown: issues(first: 50, filter: $filter) {nodes{identifier title description url assignee{id}}} rest: issues(first: 250, filter: $filter) {nodes{id}} } }`
+			wantVars := `{"filter":` + want + `,"id":"4a6ba4535d33"}`
+			gotVars, _ := json.Marshal(got.Vars)
+			if got.Query != wantQuery || string(gotVars) != wantVars {
+				t.Errorf("query = %q, variables = %s", got.Query, gotVars)
+			}
+		})
+	}
+}
+
+func TestPullKeepsTheViewQueryWhenTheFilterIsEmpty(t *testing.T) {
+	srv, got := server(t, http.StatusOK, `{"data": {"customView": {"shown": {"nodes": []}, "rest": {"nodes": []}}}}`)
+	pull(t, srv.URL, cfg("https://linear.app/acme/view/my-bugs-0a1b2c3d4e5f?filter="))
+	if got.Query != viewQuery || !cmp.Equal(got.Vars, map[string]any{"id": "0a1b2c3d4e5f"}) {
+		t.Errorf("query = %q, variables = %v", got.Query, got.Vars)
+	}
+}
+
+func TestPullRefusesAFilterThatIsntAnObject(t *testing.T) {
+	for name, encoded := range map[string]string{
+		"not base64": "!!!",
+		"not json":   base64.RawURLEncoding.EncodeToString([]byte("nope")),
+		"an array":   base64.RawURLEncoding.EncodeToString([]byte(`[1]`)),
+		"null":       base64.RawURLEncoding.EncodeToString([]byte(`null`)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, got := server(t, http.StatusOK, mine)
+			src := pull(t, srv.URL, cfg("https://linear.app/acme/view/my-bugs-0a1b?filter="+encoded))
+			if src.Err == nil || src.Err.Error() != "that isn't a Linear view's address" || got.Query != "" {
+				t.Errorf("err = %v, asked %q", src.Err, got.Query)
 			}
 		})
 	}

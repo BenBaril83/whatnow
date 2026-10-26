@@ -33,7 +33,9 @@ unchanged. This spec covers only what differs.
   - No view: `viewer { assignedIssues(filter: {state: {type: {in: ["unstarted", "started"]}}}) }`.
   - A view: `customView(id: $id) { issues }`, where `$id` is the address's last path segment's
     final `-`-separated part (the slug ID). An address that isn't `https://linear.app/<ws>/view/…`
-    is "that isn't a Linear view's address".
+    is "that isn't a Linear view's address". A `filter` in the address (base64 JSON that Linear's UI
+    adds, std or URL-safe, padded or not) is sent as `$filter: IssueFilter` on both aliases; one that
+    isn't a JSON object is the same error.
 - **Each issue becomes** `{Key: identifier, Title: "ENG-123 title", Notes: description, URL: url}`.
   A null description is empty notes; the Markdown is kept as is.
 - **Assigned issues sort before unassigned ones**, in Linear's order otherwise.
