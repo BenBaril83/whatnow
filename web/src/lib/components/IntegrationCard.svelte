@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
 	import { api, type Integration, type PullResult, type PushKey, type Via } from '#lib/api.ts';
 	import { formFrom, isOn, newRow, sentLabel } from '#lib/integrations.ts';
 	import { session } from '#lib/session.svelte.ts';
@@ -16,11 +15,7 @@
 	let form = $state(formFrom(integration));
 	let saving = $state(false);
 	let pulling = $state(false);
-	/** Shows ✓ Saved in the header after a save, until the timer or the next open or edit. */
-	let saved = $state(false);
-	let savedTimer: ReturnType<typeof setTimeout> | undefined;
 	let result = $state<PullResult | null>(null);
-	let disclose = $state<HTMLButtonElement>();
 
 	// Hosted, an integration that takes a push can be reached from the user's own computer instead,
 	// for a Jira behind a VPN that the server can't see.
@@ -83,28 +78,12 @@
 		}
 	}
 
-	function clearSaved() {
-		clearTimeout(savedTimer);
-		saved = false;
-	}
-
-	onDestroy(() => clearTimeout(savedTimer));
-
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
 		saving = true;
 		try {
 			integration = await api.saveIntegration(integration.id, form);
 			form = formFrom(integration);
-			// The card closes on save, so say it worked, and what's left before a pull.
-			open = false;
-			result = null;
-			clearSaved();
-			saved = true;
-			savedTimer = setTimeout(clearSaved, 4000);
-			toasts.success(integration.ready && !integration.enabled ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`);
-			await tick();
-			disclose?.focus();
 		} catch (err) {
 			toasts.error(err);
 		} finally {
@@ -136,21 +115,17 @@
 
 <section class="sticker card">
 	<header>
-		<button class="disclose" bind:this={disclose} aria-expanded={open} onclick={() => {
-				open = !open;
-				if (open) clearSaved();
-			}}>
+		<button class="disclose" aria-expanded={open} onclick={() => (open = !open)}>
 			{open ? '▾' : '▸'}
 			{integration.name}
 		</button>
-		{#if saved}<span class="saved" aria-hidden="true"><span aria-hidden="true">✓</span> Saved</span>{/if}
 		<label class="switch">
 			<input type="checkbox" role="switch" checked={integration.enabled} onchange={toggle} />
 			{integration.enabled ? 'On' : 'Off'}
 		</label>
 	</header>
 	{#if open}
-		<form onsubmit={save} oninput={clearSaved}>
+		<form onsubmit={save}>
 			{#if offered}
 				<fieldset class="via">
 					<legend class="label">How whatnow reaches {integration.name}</legend>
@@ -278,29 +253,6 @@
 		padding: 0;
 		font-size: 17px;
 		font-weight: var(--heavy);
-	}
-	.saved {
-		margin-right: auto;
-		background: var(--success);
-		border: var(--line);
-		border-radius: var(--pill);
-		padding: 1px 10px;
-		font-size: 13px;
-		font-weight: var(--heavy);
-		animation: fade-in 0.2s;
-	}
-	.saved span {
-		color: var(--success-ink);
-	}
-	@keyframes fade-in {
-		from {
-			opacity: 0;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.saved {
-			animation: none;
-		}
 	}
 	.switch {
 		display: flex;

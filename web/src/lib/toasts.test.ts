@@ -39,15 +39,6 @@ describe('Toasts', () => {
 		expect(t.items[0].batch).toBeUndefined();
 	});
 
-	it('Should show a success toast with no undo', () => {
-		const t = new Toasts();
-		t.success('Saved Jira');
-		expect(t.items).toMatchObject([{ text: 'Saved Jira', success: true }]);
-		expect(t.items[0].batch).toBeUndefined();
-		vi.advanceTimersByTime(5000);
-		expect(t.items.length).toBe(0);
-	});
-
 	it('Should drop the toast when its batch is undone, from any tab', () => {
 		const t = new Toasts();
 		t.show('Pushed', 3);

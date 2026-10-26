@@ -37,8 +37,6 @@ test('a calendar pulls into the morning, and always skip keeps a series out', as
 		await page.getByLabel('Name').fill('Work');
 		await page.getByLabel('Secret address').fill(url);
 		await page.getByRole('button', { name: 'Save' }).click();
-		await expect(page.getByText('Saved Google Calendar')).toBeVisible();
-		await page.getByRole('button', { name: /Google Calendar/ }).click();
 		await expect(page.getByPlaceholder('•••••••• saved')).toBeVisible();
 		await page.locator('.card', { hasText: 'Google Calendar' }).getByRole('switch').check();
 		await expect(page.getByRole('button', { name: 'Pull today' })).toBeEnabled();

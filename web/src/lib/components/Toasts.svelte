@@ -12,7 +12,6 @@
 		<div
 			class="sticker toast"
 			class:error={toast.error}
-			class:success={toast.success}
 			class:nudge={toast.nudge}
 			class:paused={toast.paused}
 			style:--lifetime="{toast.life}ms"
@@ -23,7 +22,6 @@
 			onfocusout={() => toasts.resume(toast.id)}
 		>
 			<span class="fill" aria-hidden="true"></span>
-			{#if toast.success}<span class="tick" aria-hidden="true">✓</span>{/if}
 			<span class="text">{toast.text}</span>
 			{#if toast.action}
 				<button
@@ -95,14 +93,6 @@
 	}
 	.nudge {
 		background: var(--chip);
-	}
-	.success {
-		background: var(--success);
-	}
-	.tick {
-		color: var(--success-ink);
-		font-size: 18px;
-		line-height: 1;
 	}
 	.close {
 		background: none;
