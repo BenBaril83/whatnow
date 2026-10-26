@@ -84,6 +84,8 @@
 		try {
 			integration = await api.saveIntegration(integration.id, form);
 			form = formFrom(integration);
+			// The secret fields clear on save, so say it worked, and what's left before a pull.
+			toasts.show(integration.ready && !integration.enabled ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`);
 		} catch (err) {
 			toasts.error(err);
 		} finally {

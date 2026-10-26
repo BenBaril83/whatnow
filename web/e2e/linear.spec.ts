@@ -35,6 +35,7 @@ test('Linear issues are picked in the morning, and neither a pick nor a skip com
 		await card.getByRole('button', { name: /Linear/ }).click();
 		await card.getByLabel('API key').fill('lin_api_e2e');
 		await card.getByRole('button', { name: 'Save' }).click();
+		await expect(page.getByText('Saved Linear — switch it on to pull')).toBeVisible();
 		await card.getByRole('switch').check();
 		await expect(card.getByRole('button', { name: 'Pull', exact: true })).toBeEnabled();
 

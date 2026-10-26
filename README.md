@@ -26,9 +26,9 @@ For a feel of a whole day, from the morning brain dump to the wrap-up, read [dem
 - **Nudges:** before events, when they end, and as the day winds down, in the web UI.
 - **Wrap up:** see what you got done, triage what's left, and leave a note for tomorrow.
 - **Integrations:** pull today's meetings from Google Calendar (by each calendar's secret iCal
-  address, no OAuth), and pick tasks from Jira tickets (by your own JQL search), from Linear issues (by API key, optionally
-  a view), and from the PRs a running [Review Queue](https://github.com/oreillymedia-ai-transformation/review-queue) ranks
-  for your review. Pulls happen only when you ask, from the morning brain dump or from settings.
+  address, no OAuth), and pick tasks from Jira tickets (by your own JQL search), from Linear
+  issues (your active ones, or a view's), and from the PRs a running
+  [Review Queue](https://github.com/oreillymedia-ai-transformation/review-queue) ranks for your review. Pulls happen only when you ask, from the morning brain dump or from settings.
   When hosted whatnow can't reach your Jira, because it's behind a VPN or on an intranet, set
   Jira to *From my computer* and run `whatnow jira setup` once on a Mac that can reach it (install
   with `brew install jameynakama/tap/whatnow`). After that, `whatnow jira push` sends your search
