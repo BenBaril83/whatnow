@@ -16,7 +16,7 @@
 	let form = $state(formFrom(integration));
 	let saving = $state(false);
 	let pulling = $state(false);
-	/** The header's ✓ Saved, until the timer or the next open or edit. */
+	/** The header's ✓ Saved, until the timer or the card next opens, by the disclose button or the switch. */
 	let saved = $state(false);
 	let savedTimer: ReturnType<typeof setTimeout> | undefined;
 	let result = $state<PullResult | null>(null);
@@ -76,7 +76,7 @@
 		const input = e.currentTarget;
 		try {
 			integration = await api.enableIntegration(integration.id, input.checked);
-			if (integration.enabled) open = true;
+			if (integration.enabled) openCard();
 		} catch (err) {
 			toasts.error(err);
 			input.checked = integration.enabled;
@@ -86,6 +86,16 @@
 	function clearSaved() {
 		clearTimeout(savedTimer);
 		saved = false;
+	}
+
+	function openCard() {
+		open = true;
+		clearSaved();
+	}
+
+	function toggleOpen() {
+		if (open) open = false;
+		else openCard();
 	}
 
 	onDestroy(() => clearTimeout(savedTimer));
@@ -102,7 +112,8 @@
 			clearSaved();
 			saved = true;
 			savedTimer = setTimeout(clearSaved, 4000);
-			toasts.success(integration.ready && !integration.enabled ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`);
+			const message = integration.ready && !integration.enabled ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`;
+			toasts.success(message);
 			await tick();
 			disclose?.focus();
 		} catch (err) {
@@ -136,10 +147,7 @@
 
 <section class="sticker card">
 	<header>
-		<button class="disclose" bind:this={disclose} aria-expanded={open} onclick={() => {
-				open = !open;
-				if (open) clearSaved();
-			}}>
+		<button class="disclose" bind:this={disclose} aria-expanded={open} onclick={toggleOpen}>
 			{open ? '▾' : '▸'}
 			{integration.name}
 		</button>
@@ -150,7 +158,7 @@
 		</label>
 	</header>
 	{#if open}
-		<form onsubmit={save} oninput={clearSaved}>
+		<form onsubmit={save}>
 			{#if offersVia}
 				<fieldset class="via">
 					<legend class="label">How whatnow reaches {integration.name}</legend>

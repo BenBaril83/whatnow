@@ -32,10 +32,10 @@ test('Jira tickets are picked in the morning, and neither a pick nor a skip come
 		await card.getByRole('button', { name: 'Save' }).click();
 		await expect(card.getByText('✓ Saved')).toBeVisible();
 		await expect(page.getByText('Saved Jira — switch it on to pull')).toBeVisible();
-		await card.getByRole('button', { name: /Jira/ }).click();
+		await card.getByRole('switch').check();
+		await expect(card.getByText('✓ Saved')).toBeHidden();
 		await expect(token).toHaveValue('');
 		await expect(token).toHaveAttribute('placeholder', 'Leave blank to keep');
-		await card.getByRole('switch').check();
 		await expect(card.getByRole('button', { name: 'Pull', exact: true })).toBeEnabled();
 
 		await page.goto('/morning');
