@@ -17,6 +17,8 @@
 	--now: #ff4d6d;
 	--event: #e3ffd8;
 	--danger: #d92547;
+	--success: #c9f5d3;
+	--success-ink: #1a8a3a;
 	--backdrop: var(--paper);
 
 	--line: 2px solid var(--ink);
