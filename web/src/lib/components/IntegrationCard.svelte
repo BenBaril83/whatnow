@@ -112,8 +112,8 @@
 			clearSaved();
 			saved = true;
 			savedTimer = setTimeout(clearSaved, 4000);
-			const message = integration.ready && !integration.enabled ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`;
-			toasts.success(message);
+			const needsSwitch = integration.ready && !integration.enabled;
+			toasts.success(needsSwitch ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`);
 			await tick();
 			disclose?.focus();
 		} catch (err) {
