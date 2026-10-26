@@ -53,22 +53,28 @@ unchanged. This spec covers only what differs.
   to implements `integrations.Pushable` (a marker method, `Pushable()`). Jira does; Linear and Review
   Queue don't. The view carries `pushable: bool`. `SetVia` and `Receive` refuse an integration that
   isn't pushable with `ErrInvalid`. The settings card offers "From my computer" only when hosted and
-  `pushable`.
+  `pushable`. The push key routes in `internal/host` and `web/src/lib/api.ts` stay Jira-specific
+  (`/integrations/jira/key`), since Jira is the only pushable integration; a second one would need them
+  generalized.
 
 ## Wiring
 
-Linear is in both lists in `internal/app/app.go`: local with `linear.New(nil)`, hosted with
-`linear.New(guarded)`, after Jira. The e2e build (`cmd/whatnow/e2e.go`) points Linear at
-`WHATNOW_E2E_LINEAR_URL` when it's set.
+Linear is in both lists in `internal/app/app.go`: local as `linear.NewAt(nil, o.LinearURL)`, hosted as
+`linear.NewAt(guarded, o.LinearURL)`, after Jira. A blank `LinearURL` is the real Linear.
+`cmd/whatnow/main.go` sets it from its `linearURL` var, which only the e2e build (`cmd/whatnow/e2e.go`)
+fills, from `WHATNOW_E2E_LINEAR_URL`.
 
 ## Testing
 
-- **Go, `linear` over `httptest`:** mapping (key-first title, URL, null description), the header
-  with no `Bearer`, default query vs. view query and the slug ID sent, assigned first, `More`, and
-  each error: unreachable, timeout, `401`, `AUTHENTICATION_ERROR` in a `200`, other GraphQL errors,
-  `500`, non-JSON, a bad view address. No error contains the key.
-- **Go, `integrations`/`httpapi`:** `pushable` in the view; `SetVia` and `Receive` refuse a
-  non-pushable ticket integration.
-- **Vitest:** the card offers "From my computer" only for a pushable integration.
-- **Playwright:** a fake Linear GraphQL server from Node; set Linear up in settings, pull from the
-  morning, skip one, add one, pull again: neither comes back.
+- **Go, `linear` over `httptest`:** mapping (key-first title, URL, null description), the header with
+  no `Bearer`, the default query, a view's query with the slug ID or UUID sent, your issues first and
+  the rest in order, `More`, a view address's filter (applied, empty, not an object), and each error:
+  unreachable, timeout, `401` and `400`, `AUTHENTICATION_ERROR` in a `200`, other GraphQL errors, `500`,
+  non-JSON, missing data, a bad view address. No error contains the key.
+- **Go, `integrations`:** `runner_test.go` checks `pushable` in the view; `push_test.go` checks that
+  `Receive` refuses a non-pushable ticket integration with `ErrInvalid`. The Vitest card logic isn't
+  tested; the pushable rule is covered in Go.
+- **Vitest:** `integrations.test.ts` covers the shared ticket helpers (pick in order shown, drop a skip).
+- **Playwright:** `linear.spec.ts` runs a fake Linear GraphQL server from Node that lists an unassigned
+  issue before yours: set Linear up in settings, pull from the morning, see yours first, skip one, add
+  one, pull again: neither comes back.

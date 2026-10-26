@@ -4,14 +4,15 @@ import { expect, setUp, test } from './fixtures';
 /** Where the e2e server's Linear points, from web/playwright.config.ts. */
 const addr = { host: '127.0.0.1', port: 7790 };
 
-/** The default pull: one issue of the user's and one up for grabs, with two more behind them. */
+/** The default pull: an issue up for grabs listed ahead of the user's own, with two more behind them. */
 const answer = JSON.stringify({
 	data: {
 		viewer: {
+			id: 'u1',
 			shown: {
 				nodes: [
-					{ id: 'a1', identifier: 'ENG-1', title: 'Mine', description: 'See https://example.com', url: 'https://linear.app/acme/issue/ENG-1', assignee: { id: 'u1' } },
-					{ id: 'a2', identifier: 'ENG-2', title: 'Up for grabs', description: null, url: 'https://linear.app/acme/issue/ENG-2', assignee: null }
+					{ id: 'a2', identifier: 'ENG-2', title: 'Up for grabs', description: null, url: 'https://linear.app/acme/issue/ENG-2', assignee: null },
+					{ id: 'a1', identifier: 'ENG-1', title: 'Mine', description: 'See https://example.com', url: 'https://linear.app/acme/issue/ENG-1', assignee: { id: 'u1' } }
 				]
 			},
 			rest: { nodes: [{ id: 'b1' }, { id: 'b2' }] }
@@ -43,6 +44,8 @@ test('Linear issues are picked in the morning, and neither a pick nor a skip com
 		await chip.click();
 		await expect(page.getByText('Linear · 2')).toBeVisible();
 		expect(auth).toEqual(['lin_api_e2e']);
+		const picks = await page.getByRole('checkbox', { name: /^Pick ENG-/ }).evaluateAll((boxes) => boxes.map((box) => box.getAttribute('aria-label')));
+		expect(picks).toEqual(['Pick ENG-1', 'Pick ENG-2']);
 		await page.getByRole('button', { name: 'Skip ENG-2' }).click();
 		await page.getByRole('checkbox', { name: 'Pick ENG-1' }).check();
 		await page.getByRole('button', { name: 'Add 1' }).click();
