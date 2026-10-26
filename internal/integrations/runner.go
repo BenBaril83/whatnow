@@ -46,6 +46,8 @@ type View struct {
 	// Via is how the integration is reached, and SentAt when the user's computer last sent to it.
 	Via    string     `json:"via"`
 	SentAt *time.Time `json:"sent_at"`
+	// Pushable says whether the user's computer can send to it.
+	Pushable bool `json:"pushable"`
 }
 
 type RowView struct {
@@ -103,10 +105,11 @@ func (r *Runner) view(ctx context.Context, in Integration) (View, error) {
 	if err != nil {
 		return View{}, err
 	}
+	_, pushable := in.(Pushable)
 	v := View{
 		ID: in.ID(), Name: in.Name(), Fields: in.Fields(), Enabled: s.Enabled, Ready: true,
 		Values: map[string]string{}, Secrets: map[string]bool{}, Lists: map[string][]RowView{}, Skipped: s.Skipped,
-		Pulls: in.Pulls(), Via: ViaDirect,
+		Pulls: in.Pulls(), Via: ViaDirect, Pushable: pushable,
 	}
 	if s.Via != "" {
 		v.Via = s.Via

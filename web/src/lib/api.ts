@@ -246,6 +246,8 @@ export interface Integration {
 	via: Via;
 	/** When the user's computer last sent tickets. */
 	sent_at: string | null;
+	/** Whether the user's computer can send to it, such as a Jira behind a VPN. */
+	pushable: boolean;
 }
 
 export type Via = 'direct' | 'computer';

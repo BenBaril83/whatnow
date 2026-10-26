@@ -40,6 +40,7 @@ func New(client *http.Client) *Jira {
 func (*Jira) ID() string                { return "jira" }
 func (*Jira) Name() string              { return "Jira" }
 func (*Jira) Pulls() integrations.Pulls { return integrations.PullsTickets }
+func (*Jira) Pushable()                 {}
 
 func (*Jira) Fields() []integrations.Field {
 	return []integrations.Field{

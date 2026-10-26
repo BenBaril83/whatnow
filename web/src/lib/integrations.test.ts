@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Field, Integration, PullResult } from './api';
-import { formFrom, isOn, newRow, picked, sentLabel, withoutEvent, withoutTicket } from './integrations';
+import { formFrom, isOn, newRow, offersVia, picked, sentLabel, withoutEvent, withoutTicket } from './integrations';
 
 const calendars: Field = {
 	key: 'calendars',
@@ -25,7 +25,8 @@ const gcal: Integration = {
 	lists: { calendars: [{ id: 'r1', values: { label: 'Work' }, secrets: { url: true } }] },
 	skipped: [],
 	via: 'direct',
-	sent_at: null
+	sent_at: null,
+	pushable: false
 };
 
 describe('formFrom', () => {
@@ -57,6 +58,16 @@ describe('isOn', () => {
 		[false, true, false]
 	])('Should be on only when enabled (%s) and ready (%s)', (enabled, ready, want) => {
 		expect(isOn({ ...gcal, enabled, ready })).toBe(want);
+	});
+});
+
+describe('offersVia', () => {
+	it.each([
+		[true, true, true],
+		[true, false, false],
+		[false, true, false]
+	])('Should offer only when hosted (%s) and pushable (%s)', (hosted, pushable, want) => {
+		expect(offersVia(hosted, { ...gcal, pushable })).toBe(want);
 	});
 });
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { api, type Integration, type PullResult, type PushKey, type Via } from '#lib/api.ts';
-	import { formFrom, isOn, newRow, sentLabel } from '#lib/integrations.ts';
+	import { formFrom, isOn, newRow, offersVia, sentLabel } from '#lib/integrations.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import PullResults from './PullResults.svelte';
@@ -17,10 +17,10 @@
 	let pulling = $state(false);
 	let result = $state<PullResult | null>(null);
 
-	// Hosted, a ticket integration can be reached from the user's own computer instead, for a Jira
-	// behind a VPN that the server can't see.
-	const offersVia = $derived(!!session.value?.hosted && integration.pulls === 'tickets');
-	const computer = $derived(offersVia && integration.via === 'computer');
+	// Hosted, an integration that takes a push can be reached from the user's own computer instead,
+	// for a Jira behind a VPN that the server can't see.
+	const offered = $derived(offersVia(!!session.value?.hosted, integration));
+	const computer = $derived(offered && integration.via === 'computer');
 	let pushKey = $state<PushKey | null>(null);
 	/** A key just made, shown this once. */
 	let newKey = $state('');
@@ -126,7 +126,7 @@
 	</header>
 	{#if open}
 		<form onsubmit={save}>
-			{#if offersVia}
+			{#if offered}
 				<fieldset class="via">
 					<legend class="label">How whatnow reaches {integration.name}</legend>
 					<label class="choice">
@@ -227,7 +227,7 @@
 			</div>
 		</form>
 		{#if result && integration.pulls === 'tickets'}
-			<TicketPicker id={integration.id} bind:result retry={pull} onHint={offersVia ? () => setVia('computer') : undefined} />
+			<TicketPicker id={integration.id} bind:result retry={pull} onHint={offered ? () => setVia('computer') : undefined} />
 		{:else if result}
 			<PullResults id={integration.id} bind:result retry={pull} />
 		{/if}

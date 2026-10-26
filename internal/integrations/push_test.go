@@ -187,6 +187,9 @@ func TestSetViaRefused(t *testing.T) {
 	if _, err := e.runner.SetVia(ctx, "fake", integrations.ViaComputer); !errors.Is(err, service.ErrInvalid) {
 		t.Errorf("events integration: %v", err)
 	}
+	if _, err := e.runner.SetVia(ctx, "desk", integrations.ViaComputer); !errors.Is(err, service.ErrInvalid) {
+		t.Errorf("ticket integration that isn't pushable: %v", err)
+	}
 }
 
 func TestHintCarried(t *testing.T) {
@@ -217,5 +220,12 @@ func TestReceiveSaysWhyItRefused(t *testing.T) {
 	}
 	if err := e.runner.Receive(ctx, "board", nil, 0); err == nil || !strings.Contains(err.Error(), "Board is set to reach it directly — switch it to From my computer") {
 		t.Errorf("direct: %v", err)
+	}
+}
+
+func TestReceiveRefusedForNonPushable(t *testing.T) {
+	e := newEnv(t)
+	if err := e.runner.Receive(context.Background(), "desk", []integrations.Ticket{ticket("FLEX1-1")}, 0); !errors.Is(err, service.ErrInvalid) {
+		t.Errorf("Receive = %v, want %v", err, service.ErrInvalid)
 	}
 }

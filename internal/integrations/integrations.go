@@ -18,6 +18,9 @@ type Integration interface {
 	Pull(ctx context.Context, cfg Config, from, to time.Time) []Source
 }
 
+// Pushable is an integration the user's computer can send to, such as a Jira behind a VPN.
+type Pushable interface{ Pushable() }
+
 // Pulls is what an integration brings in.
 type Pulls string
 

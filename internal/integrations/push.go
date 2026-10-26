@@ -37,7 +37,7 @@ func (r *Runner) SetVia(ctx context.Context, id, via string) (View, error) {
 	if via != ViaDirect && via != ViaComputer {
 		return View{}, fmt.Errorf("%w: no way to reach %s called %q", service.ErrInvalid, in.Name(), via)
 	}
-	if in.Pulls() != PullsTickets {
+	if _, ok := in.(Pushable); !ok {
 		return View{}, fmt.Errorf("%w: %s can't be sent from your computer", service.ErrInvalid, in.Name())
 	}
 	s, err := load(ctx, r.db, id)
@@ -57,6 +57,9 @@ func (r *Runner) Receive(ctx context.Context, id string, tickets []Ticket, more 
 	in, err := r.find(id)
 	if err != nil {
 		return err
+	}
+	if _, ok := in.(Pushable); !ok {
+		return fmt.Errorf("%w: %s can't be sent from your computer", service.ErrInvalid, in.Name())
 	}
 	s, err := load(ctx, r.db, id)
 	if err != nil {
