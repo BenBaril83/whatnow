@@ -67,7 +67,7 @@ export class Toasts {
 		this.#add({ text, batch });
 	}
 
-	/** A write that worked, shown as a win rather than a plain note. */
+	/** A write that worked, with no Undo. */
 	success(text: string): void {
 		this.#add({ text, success: true });
 	}

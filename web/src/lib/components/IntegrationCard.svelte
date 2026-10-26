@@ -16,7 +16,7 @@
 	let form = $state(formFrom(integration));
 	let saving = $state(false);
 	let pulling = $state(false);
-	/** Shows ✓ Saved in the header after a save, until the timer or the next open or edit. */
+	/** The header's ✓ Saved, until the timer or the next open or edit. */
 	let saved = $state(false);
 	let savedTimer: ReturnType<typeof setTimeout> | undefined;
 	let result = $state<PullResult | null>(null);
@@ -96,7 +96,7 @@
 		try {
 			integration = await api.saveIntegration(integration.id, form);
 			form = formFrom(integration);
-			// The card closes on save, so say it worked, and what's left before a pull.
+			// The card closes on save, so say it worked and what's left before a pull, and keep focus on its header.
 			open = false;
 			result = null;
 			clearSaved();
