@@ -72,8 +72,8 @@ fills, from `WHATNOW_E2E_LINEAR_URL`.
   unreachable, timeout, `401` and `400`, `AUTHENTICATION_ERROR` in a `200`, other GraphQL errors, `500`,
   non-JSON, missing data, a bad view address. No error contains the key.
 - **Go, `integrations`:** `runner_test.go` checks `pushable` in the view; `push_test.go` checks that
-  `Receive` refuses a non-pushable ticket integration with `ErrInvalid`. The Vitest card logic isn't
-  tested; the pushable rule is covered in Go.
+  `SetVia` and `Receive` refuse a non-pushable ticket integration with `ErrInvalid`. The card's
+  one-line `hosted && pushable` check has no test of its own.
 - **Vitest:** `integrations.test.ts` covers the shared ticket helpers (pick in order shown, drop a skip).
 - **Playwright:** `linear.spec.ts` runs a fake Linear GraphQL server from Node that lists an unassigned
   issue before yours: set Linear up in settings, pull from the morning, see yours first, skip one, add
