@@ -23,7 +23,7 @@ import (
 const defaultEndpoint = "https://api.linear.app/graphql"
 
 // Linear has no total count, so one request asks twice: the issues to show, and more ids to count
-// what the pick list leaves out. Past the second count, the number undercounts.
+// what the pick list leaves out. Past 250 issues, the number undercounts.
 const (
 	shownFields = `{nodes{identifier title description url assignee{id}}}`
 	activeState = `filter: {state: {type: {in: ["unstarted", "started"]}}}`
