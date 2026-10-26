@@ -30,7 +30,7 @@ test('Jira tickets are picked in the morning, and neither a pick nor a skip come
 		await token.fill('pat');
 		await card.getByLabel('Search (JQL)').fill('project = FLEX1');
 		await card.getByRole('button', { name: 'Save' }).click();
-		await expect(card.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+		await expect(card.getByText('✓ Saved')).toBeVisible();
 		await expect(page.getByText('Saved Jira — switch it on to pull')).toBeVisible();
 		await card.getByRole('button', { name: /Jira/ }).click();
 		await expect(token).toHaveValue('');

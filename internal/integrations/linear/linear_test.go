@@ -19,6 +19,10 @@ import (
 
 const key = "lin_api_secret"
 
+const uuidView = "86e915b6-ac3c-47ec-b97c-ffc4a1fe30e7"
+
+const viewQueryWant = `query($id: String!, $filter: IssueFilter) { viewer { id } customView(id: $id) { shown: issues(first: 50, filter: $filter) {nodes{identifier title description url assignee{id}}} rest: issues(first: 250, filter: $filter) {nodes{id}} } }`
+
 // request is what the fake Linear last received.
 type request struct {
 	Header http.Header
@@ -59,7 +63,9 @@ func pull(t *testing.T, url string, c integrations.Config) integrations.Source {
 }
 
 const mine = `{"data": {"viewer": {
+	"id": "u1",
 	"shown": {"nodes": [
+		{"identifier": "ENG-3", "title": "A teammate's", "description": null, "url": "https://linear.app/acme/issue/ENG-3", "assignee": {"id": "u2"}},
 		{"identifier": "ENG-2", "title": "Unassigned one", "description": null, "url": "https://linear.app/acme/issue/ENG-2", "assignee": null},
 		{"identifier": "ENG-1", "title": "Fix the **login**", "description": "See [doc](https://x.test/doc)", "url": "https://linear.app/acme/issue/ENG-1", "assignee": {"id": "u1"}}
 	]},
@@ -72,15 +78,16 @@ func TestPullOffersAssignedIssuesMineFirst(t *testing.T) {
 
 	want := []integrations.Ticket{
 		{Key: "ENG-1", Title: "ENG-1 Fix the **login**", Notes: "See [doc](https://x.test/doc)", URL: "https://linear.app/acme/issue/ENG-1"},
+		{Key: "ENG-3", Title: "ENG-3 A teammate's", Notes: "", URL: "https://linear.app/acme/issue/ENG-3"},
 		{Key: "ENG-2", Title: "ENG-2 Unassigned one", Notes: "", URL: "https://linear.app/acme/issue/ENG-2"},
 	}
-	if diff := cmp.Diff(want, src.Tickets); diff != "" || src.Err != nil || src.More != 3 {
+	if diff := cmp.Diff(want, src.Tickets); diff != "" || src.Err != nil || src.More != 2 {
 		t.Errorf("err %v, more %d, tickets (-want +got):\n%s", src.Err, src.More, diff)
 	}
 	if got.Header.Get("Authorization") != key || got.Header.Get("Content-Type") != "application/json" {
 		t.Errorf("headers = %v", got.Header)
 	}
-	wantQuery := `query { viewer { shown: assignedIssues(first: 50, filter: {state: {type: {in: ["unstarted", "started"]}}}) {nodes{identifier title description url assignee{id}}} ` +
+	wantQuery := `query { viewer { id shown: assignedIssues(first: 50, filter: {state: {type: {in: ["unstarted", "started"]}}}) {nodes{identifier title description url assignee{id}}} ` +
 		`rest: assignedIssues(first: 250, filter: {state: {type: {in: ["unstarted", "started"]}}}) {nodes{id}} } }`
 	if got.Query != wantQuery || got.Vars != nil {
 		t.Errorf("query = %q, variables = %v", got.Query, got.Vars)
@@ -88,13 +95,14 @@ func TestPullOffersAssignedIssuesMineFirst(t *testing.T) {
 }
 
 func TestPullAsksForAViewByItsSlugID(t *testing.T) {
-	const view = `{"data": {"customView": {"shown": {"nodes": [
+	const view = `{"data": {"viewer": {"id": "u1"}, "customView": {"shown": {"nodes": [
 		{"identifier": "BE-9", "title": "Late", "description": "", "url": "https://linear.app/acme/issue/BE-9", "assignee": null}
 	]}, "rest": {"nodes": [{"id": "a"}]}}}}`
 	addrs := map[string]string{
 		"https://linear.app/acme/view/my-bugs-0a1b2c3d4e5f":    "0a1b2c3d4e5f",
 		"https://linear.app/acme/view/0a1b2c3d4e5f":            "0a1b2c3d4e5f",
 		"  https://linear.app/acme/view/my-bugs-0a1b2c3d4e5f/": "0a1b2c3d4e5f",
+		"https://linear.app/acme/view/" + uuidView:             uuidView,
 	}
 	for addr, id := range addrs {
 		t.Run(addr, func(t *testing.T) {
@@ -103,11 +111,27 @@ func TestPullAsksForAViewByItsSlugID(t *testing.T) {
 			if src.Err != nil || len(src.Tickets) != 1 || src.Tickets[0].Key != "BE-9" || src.More != 0 {
 				t.Errorf("source = %+v", src)
 			}
-			wantQuery := `query($id: String!) { customView(id: $id) { shown: issues(first: 50) {nodes{identifier title description url assignee{id}}} rest: issues(first: 250) {nodes{id}} } }`
-			if got.Query != wantQuery || !cmp.Equal(got.Vars, map[string]any{"id": id}) {
+			if got.Query != viewQueryWant || !cmp.Equal(got.Vars, map[string]any{"id": id}) {
 				t.Errorf("query = %q, variables = %v", got.Query, got.Vars)
 			}
 		})
+	}
+}
+
+func TestPullKeepsUnassignedIssuesInOrderBehindYours(t *testing.T) {
+	const body = `{"data": {"viewer": {"id": "u1"}, "customView": {"shown": {"nodes": [
+		{"identifier": "A-1", "title": "t", "assignee": null},
+		{"identifier": "A-2", "title": "t", "assignee": {"id": "u2"}},
+		{"identifier": "A-3", "title": "t", "assignee": null},
+		{"identifier": "A-4", "title": "t", "assignee": {"id": "u1"}}
+	]}, "rest": {"nodes": []}}}}`
+	srv, _ := server(t, http.StatusOK, body)
+	var keys []string
+	for _, tk := range pull(t, srv.URL, cfg("https://linear.app/acme/view/my-bugs-0a1b2c3d4e5f")).Tickets {
+		keys = append(keys, tk.Key)
+	}
+	if diff := cmp.Diff([]string{"A-4", "A-1", "A-2", "A-3"}, keys); diff != "" {
+		t.Errorf("order (-want +got):\n%s", diff)
 	}
 }
 
@@ -115,23 +139,19 @@ func TestPullAppliesTheFilterInAViewsAddress(t *testing.T) {
 	const view = `{"data": {"customView": {"shown": {"nodes": []}, "rest": {"nodes": []}}}}`
 	const filter = `{"and":[{"assignee":{"or":[{"id":{"in":["86e915b6-ac3c-47ec-b97c-ffc4a1fe30e7"]}}]}}]}`
 	const base = "https://linear.app/realm/view/current-cycle-top-prios-open-4a6ba4535d33?filter="
-	for name, encoded := range map[string]string{
-		"url-safe unpadded": base64.RawURLEncoding.EncodeToString([]byte(filter)),
-		"standard padded":   url.QueryEscape(base64.StdEncoding.EncodeToString([]byte(`{"a":"~~~?"}`))),
+	for _, c := range []struct{ name, address, want string }{
+		{"url-safe unpadded", base + base64.RawURLEncoding.EncodeToString([]byte(filter)), filter},
+		{"standard padded", base + url.QueryEscape(base64.StdEncoding.EncodeToString([]byte(`{"a":"~~~?"}`))), `{"a":"~~~?"}`},
 	} {
-		t.Run(name, func(t *testing.T) {
-			want := filter
-			if name == "standard padded" {
-				want = `{"a":"~~~?"}`
-			}
+		t.Run(c.name, func(t *testing.T) {
+			want := c.want
 			srv, got := server(t, http.StatusOK, view)
-			if src := pull(t, srv.URL, cfg(base+encoded)); src.Err != nil {
+			if src := pull(t, srv.URL, cfg(c.address)); src.Err != nil {
 				t.Fatalf("err = %v", src.Err)
 			}
-			wantQuery := `query($id: String!, $filter: IssueFilter) { customView(id: $id) { shown: issues(first: 50, filter: $filter) {nodes{identifier title description url assignee{id}}} rest: issues(first: 250, filter: $filter) {nodes{id}} } }`
 			wantVars := `{"filter":` + want + `,"id":"4a6ba4535d33"}`
 			gotVars, _ := json.Marshal(got.Vars)
-			if got.Query != wantQuery || string(gotVars) != wantVars {
+			if got.Query != viewQueryWant || string(gotVars) != wantVars {
 				t.Errorf("query = %q, variables = %s", got.Query, gotVars)
 			}
 		})

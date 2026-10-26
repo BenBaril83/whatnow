@@ -1,5 +1,5 @@
 // Package linear offers tickets from Linear, through a personal API key: the issues assigned to
-// you that are active, or the issues of a view.
+// you that are active, or the issues of a view, yours first.
 package linear
 
 import (
@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -27,14 +28,11 @@ const (
 	shownFields = `{nodes{identifier title description url assignee{id}}}`
 	activeState = `filter: {state: {type: {in: ["unstarted", "started"]}}}`
 
-	activeQuery = `query { viewer { ` +
+	activeQuery = `query { viewer { id ` +
 		`shown: assignedIssues(first: 50, ` + activeState + `) ` + shownFields + ` ` +
 		`rest: assignedIssues(first: 250, ` + activeState + `) {nodes{id}} } }`
-	viewQuery = `query($id: String!) { customView(id: $id) { ` +
-		`shown: issues(first: 50) ` + shownFields + ` ` +
-		`rest: issues(first: 250) {nodes{id}} } }`
-	// viewFilterQuery is viewQuery with the filter Linear's UI adds to a view's address.
-	viewFilterQuery = `query($id: String!, $filter: IssueFilter) { customView(id: $id) { ` +
+	// $filter is the one Linear's UI adds to a view's address. Left out, it is null.
+	viewQuery = `query($id: String!, $filter: IssueFilter) { viewer { id } customView(id: $id) { ` +
 		`shown: issues(first: 50, filter: $filter) ` + shownFields + ` ` +
 		`rest: issues(first: 250, filter: $filter) {nodes{id}} } }`
 )
@@ -59,6 +57,9 @@ func New(client *http.Client) *Linear {
 
 // NewAt is New for a Linear at another address, such as a fake in a test.
 func NewAt(client *http.Client, endpoint string) *Linear {
+	if endpoint == "" {
+		endpoint = defaultEndpoint
+	}
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
@@ -97,6 +98,7 @@ type issues struct {
 }
 
 type scope struct {
+	ID    string `json:"id"`
 	Shown issues `json:"shown"`
 	Rest  issues `json:"rest"`
 }
@@ -114,8 +116,11 @@ type answer struct {
 	} `json:"errors"`
 }
 
-// viewID is the slug ID of a view's address: the part after the last "-" of its last path segment.
-// A "filter" in the address's query is returned as the object it encodes, nil when there is none.
+var uuid = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// viewID is the ID of a view's address: its last path segment whole when that is a UUID, else the
+// slug ID after the segment's last "-". A "filter" in the address's query is returned as the object
+// it encodes, nil when there is none. A filter that doesn't decode to an object is not ok.
 func viewID(addr string) (string, map[string]any, bool) {
 	u, err := url.Parse(strings.TrimSpace(addr))
 	if err != nil || u.Scheme != "https" || u.Host != "linear.app" {
@@ -126,7 +131,10 @@ func viewID(addr string) (string, map[string]any, bool) {
 		return "", nil, false
 	}
 	slug := parts[2]
-	id := slug[strings.LastIndex(slug, "-")+1:]
+	id := slug
+	if !uuid.MatchString(slug) {
+		id = slug[strings.LastIndex(slug, "-")+1:]
+	}
 	if id == "" {
 		return "", nil, false
 	}
@@ -153,21 +161,23 @@ func decodeFilter(encoded string) (map[string]any, bool) {
 	return filter, true
 }
 
-// search returns the matching tickets, assigned ones first, and how many more matched. Its errors
+// search returns the matching tickets, yours first, and how many more matched. Its errors
 // never wrap the client's, and never hold the key.
 func (l *Linear) search(ctx context.Context, cfg integrations.Config) ([]integrations.Ticket, int, error) {
 	payload := struct {
 		Query     string         `json:"query"`
 		Variables map[string]any `json:"variables,omitempty"`
 	}{Query: activeQuery}
+	isView := false
 	if addr := strings.TrimSpace(cfg.Values["view"]); addr != "" {
 		id, filter, ok := viewID(addr)
 		if !ok {
 			return nil, 0, errBadView
 		}
+		isView = true
 		payload.Query, payload.Variables = viewQuery, map[string]any{"id": id}
 		if filter != nil {
-			payload.Query, payload.Variables["filter"] = viewFilterQuery, filter
+			payload.Variables["filter"] = filter
 		}
 	}
 	reqBody, err := json.Marshal(payload)
@@ -209,9 +219,13 @@ func (l *Linear) search(ctx context.Context, cfg integrations.Config) ([]integra
 		return nil, 0, fmt.Errorf("Linear answered %d", resp.StatusCode)
 	}
 	var found *scope
+	viewer := ""
 	if parsed && res.Data != nil {
 		found = res.Data.Viewer
-		if payload.Variables != nil {
+		if found != nil {
+			viewer = found.ID
+		}
+		if isView {
 			found = res.Data.CustomView
 		}
 	}
@@ -219,15 +233,15 @@ func (l *Linear) search(ctx context.Context, cfg integrations.Config) ([]integra
 		return nil, 0, errUnreadable
 	}
 	tickets := make([]integrations.Ticket, 0, len(found.Shown.Nodes))
-	assigned := map[string]bool{}
+	mine := map[string]bool{}
 	for _, is := range found.Shown.Nodes {
 		t := integrations.Ticket{Key: is.Identifier, Title: is.Identifier + " " + is.Title, URL: is.URL}
 		if is.Description != nil {
 			t.Notes = *is.Description
 		}
-		assigned[is.Identifier] = is.Assignee != nil
+		mine[is.Identifier] = is.Assignee != nil && is.Assignee.ID == viewer
 		tickets = append(tickets, t)
 	}
-	sort.SliceStable(tickets, func(a, b int) bool { return assigned[tickets[a].Key] && !assigned[tickets[b].Key] })
+	sort.SliceStable(tickets, func(a, b int) bool { return mine[tickets[a].Key] && !mine[tickets[b].Key] })
 	return tickets, max(len(found.Rest.Nodes)-len(found.Shown.Nodes), 0), nil
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { api, type Integration, type PullResult, type PushKey, type Via } from '#lib/api.ts';
-	import { formFrom, isOn, newRow, offersVia, sentLabel } from '#lib/integrations.ts';
+	import { formFrom, isOn, newRow, sentLabel } from '#lib/integrations.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import PullResults from './PullResults.svelte';
@@ -20,10 +20,11 @@
 	let saved = $state(false);
 	let savedTimer: ReturnType<typeof setTimeout> | undefined;
 	let result = $state<PullResult | null>(null);
+	let disclose = $state<HTMLButtonElement>();
 
 	// Hosted, an integration that takes a push can be reached from the user's own computer instead,
 	// for a Jira behind a VPN that the server can't see.
-	const offered = $derived(offersVia(!!session.value?.hosted, integration));
+	const offered = $derived(!!session.value?.hosted && integration.pushable);
 	const computer = $derived(offered && integration.via === 'computer');
 	let pushKey = $state<PushKey | null>(null);
 	/** A key just made, shown this once. */
@@ -97,10 +98,13 @@
 			form = formFrom(integration);
 			// The card closes on save, so say it worked, and what's left before a pull.
 			open = false;
+			result = null;
 			clearSaved();
 			saved = true;
 			savedTimer = setTimeout(clearSaved, 4000);
 			toasts.success(integration.ready && !integration.enabled ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`);
+			await tick();
+			disclose?.focus();
 		} catch (err) {
 			toasts.error(err);
 		} finally {
@@ -132,14 +136,14 @@
 
 <section class="sticker card">
 	<header>
-		<button class="disclose" aria-expanded={open} onclick={() => {
+		<button class="disclose" bind:this={disclose} aria-expanded={open} onclick={() => {
 				open = !open;
 				if (open) clearSaved();
 			}}>
 			{open ? '▾' : '▸'}
 			{integration.name}
 		</button>
-		{#if saved}<span class="saved" role="status"><span aria-hidden="true">✓</span> Saved</span>{/if}
+		{#if saved}<span class="saved" aria-hidden="true"><span aria-hidden="true">✓</span> Saved</span>{/if}
 		<label class="switch">
 			<input type="checkbox" role="switch" checked={integration.enabled} onchange={toggle} />
 			{integration.enabled ? 'On' : 'Off'}

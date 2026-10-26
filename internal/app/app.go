@@ -5,7 +5,6 @@ package app
 import (
 	"context"
 	"database/sql"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -70,13 +69,6 @@ type App struct {
 	running   sync.WaitGroup
 }
 
-func newLinear(client *http.Client, url string) *linear.Linear {
-	if url == "" {
-		return linear.New(client)
-	}
-	return linear.NewAt(client, url)
-}
-
 // Open opens the database and starts the cleanup runner and the replan watcher.
 func Open(o Options) (*App, error) {
 	path := o.DBPath
@@ -97,7 +89,7 @@ func Open(o Options) (*App, error) {
 
 	clients := settings.Clients{Keys: settings.LocalKeys()}
 	var vault secrets.Store = secrets.Keychain{}
-	pulls := []integrations.Integration{gcal.New(nil), jira.New(nil), newLinear(nil, o.LinearURL), reviewqueue.New(nil)}
+	pulls := []integrations.Integration{gcal.New(nil), jira.New(nil), linear.NewAt(nil, o.LinearURL), reviewqueue.New(nil)}
 	loc := o.Loc
 	if o.Hosted != nil {
 		sealed := secrets.NewSealed(db, o.Hosted.SealKey)
@@ -105,7 +97,7 @@ func Open(o Options) (*App, error) {
 		// A streamed chat reply can outlast any overall timeout, so the model clients get none.
 		clients = settings.Clients{Keys: settings.SealedKeys(sealed), HTTP: outbound.Client(0)}
 		guarded := outbound.Client(30 * time.Second)
-		pulls = []integrations.Integration{gcal.New(guarded), jira.New(guarded), newLinear(guarded, o.LinearURL)}
+		pulls = []integrations.Integration{gcal.New(guarded), jira.New(guarded), linear.NewAt(guarded, o.LinearURL)}
 		loc = SavedLoc(context.Background(), db)
 	}
 	svc := service.New(db, o.Now)

@@ -33,11 +33,6 @@ export function isOn(i: Integration): boolean {
 	return i.enabled && i.ready;
 }
 
-/** Whether the card offers reaching an integration from the user's computer: hosted, and it takes a push. */
-export function offersVia(hosted: boolean, i: Integration): boolean {
-	return hosted && i.pushable;
-}
-
 /** The result without one event, after it was removed or its series skipped. */
 export function withoutEvent(result: PullResult, id: number): PullResult {
 	return {

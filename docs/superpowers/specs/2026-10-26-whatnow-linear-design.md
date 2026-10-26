@@ -31,14 +31,16 @@ unchanged. This spec covers only what differs.
   never below 0. Linear has no total count; past 250 the number undercounts, which is fine for
   "narrow the search".
   - No view: `viewer { assignedIssues(filter: {state: {type: {in: ["unstarted", "started"]}}}) }`.
-  - A view: `customView(id: $id) { issues }`, where `$id` is the address's last path segment's
-    final `-`-separated part (the slug ID). An address that isn't `https://linear.app/<ws>/view/…`
+  - A view: one query, `viewer { id } customView(id: $id) { issues(filter: $filter) }`, where `$id` is
+    the address's last path segment whole when it is a UUID, else its final `-`-separated part (the
+    slug ID). An address that isn't `https://linear.app/<ws>/view/…`
     is "that isn't a Linear view's address". A `filter` in the address (base64 JSON that Linear's UI
-    adds, std or URL-safe, padded or not) is sent as `$filter: IssueFilter` on both aliases; one that
+    adds, std or URL-safe, padded or not) is sent as the nullable `$filter: IssueFilter` on both aliases, and left out when there is none; one that
     isn't a JSON object is the same error.
 - **Each issue becomes** `{Key: identifier, Title: "ENG-123 title", Notes: description, URL: url}`.
   A null description is empty notes; the Markdown is kept as is.
-- **Assigned issues sort before unassigned ones**, in Linear's order otherwise.
+- **Your issues sort first**, by `assignee.id` matching the `viewer { id }` fetched in the same
+  request, in Linear's order otherwise.
 - **Errors never contain the key:** no response or a timeout is "Can't reach Linear"; `401`, or a
   GraphQL error whose `extensions.code` is `AUTHENTICATION_ERROR`, is "Linear rejected the API
   key"; other GraphQL errors are their `message`s joined, which is how a missing view explains
