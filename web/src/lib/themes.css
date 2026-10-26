@@ -18,6 +18,8 @@
 	--now: #cc0000;
 	--event: #ffffff;
 	--danger: #cc0000;
+	--success: #ffffff;
+	--success-ink: #008000;
 
 	--line: 1px solid #808080;
 	--shadow: none;
@@ -76,6 +78,8 @@
 	--now: #ff2e88;
 	--event: #0f3d2a;
 	--danger: #ff4d6d;
+	--success: #0f3d2a;
+	--success-ink: #5dffa8;
 
 	--line: 2px solid #7df9ff;
 	--shadow: 3px 3px 0 #ff2e88;
@@ -99,6 +103,8 @@
 	--now: #ffb000;
 	--event: #000000;
 	--danger: #ff5555;
+	--success: #000000;
+	--success-ink: #33ff66;
 
 	--line: 1px solid var(--ink);
 	--shadow: none;
@@ -132,6 +138,8 @@
 	--now: #b5523b;
 	--event: #fbf9f3;
 	--danger: #b5523b;
+	--success: #fbf9f3;
+	--success-ink: #2f6f3e;
 
 	--line: 1px solid #cfc8b8;
 	--shadow: none;
@@ -160,6 +168,8 @@
 	--now: #ff2e88;
 	--event: #b9ffdf;
 	--danger: #b8005a;
+	--success: #b9ffdf;
+	--success-ink: #076a3a;
 	/* Pastel stops: links and soft text sit straight on the backdrop and must stay readable. */
 	--backdrop: linear-gradient(180deg, #ffa6e4 0%, #d9b3ff 55%, #8eecff 100%) fixed;
 
