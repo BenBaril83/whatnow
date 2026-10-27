@@ -19,8 +19,8 @@
 
 	// Hosted, an integration that takes a push can be reached from the user's own computer instead,
 	// for a Jira behind a VPN that the server can't see.
-	const offered = $derived(!!session.value?.hosted && integration.pushable);
-	const computer = $derived(offered && integration.via === 'computer');
+	const offersVia = $derived(!!session.value?.hosted && integration.pushable);
+	const computer = $derived(offersVia && integration.via === 'computer');
 	let pushKey = $state<PushKey | null>(null);
 	/** A key just made, shown this once. */
 	let newKey = $state('');
@@ -126,7 +126,7 @@
 	</header>
 	{#if open}
 		<form onsubmit={save}>
-			{#if offered}
+			{#if offersVia}
 				<fieldset class="via">
 					<legend class="label">How whatnow reaches {integration.name}</legend>
 					<label class="choice">
@@ -227,7 +227,7 @@
 			</div>
 		</form>
 		{#if result && integration.pulls === 'tickets'}
-			<TicketPicker id={integration.id} bind:result retry={pull} onHint={offered ? () => setVia('computer') : undefined} />
+			<TicketPicker id={integration.id} bind:result retry={pull} onHint={offersVia ? () => setVia('computer') : undefined} />
 		{:else if result}
 			<PullResults id={integration.id} bind:result retry={pull} />
 		{/if}
