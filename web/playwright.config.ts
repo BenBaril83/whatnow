@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 // is rebuilt on every run, because an untagged binary would wipe the real keychain's whatnow keys.
 const addr = '127.0.0.1:7788';
 // The Linear spec's fake listens here, because the server needs the address before any test runs.
-const linearAddr = '127.0.0.1:7790';
+export const linearAddr = { host: '127.0.0.1', port: 7790 };
 
 export default defineConfig({
 	testDir: 'e2e',
@@ -13,7 +13,7 @@ export default defineConfig({
 	use: { baseURL: `http://${addr}`, trace: 'retain-on-failure' },
 	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 	webServer: {
-		command: `cd .. && export WHATNOW_E2E_LINEAR_URL=http://${linearAddr} && go build -tags e2e -o whatnow-e2e ./cmd/whatnow && exec ./whatnow-e2e serve -addr ${addr} -db "$(mktemp -d)/whatnow.db"`,
+		command: `cd .. && export WHATNOW_E2E_LINEAR_URL=http://${linearAddr.host}:${linearAddr.port} && go build -tags e2e -o whatnow-e2e ./cmd/whatnow && exec ./whatnow-e2e serve -addr ${addr} -db "$(mktemp -d)/whatnow.db"`,
 		url: `http://${addr}/api/v1/settings`
 	}
 });

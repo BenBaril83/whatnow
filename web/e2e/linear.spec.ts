@@ -1,8 +1,6 @@
 import { createServer } from 'node:http';
+import { linearAddr as addr } from '../playwright.config';
 import { expect, setUp, test } from './fixtures';
-
-/** Where the e2e server's Linear points, from web/playwright.config.ts. */
-const addr = { host: '127.0.0.1', port: 7790 };
 
 /** The default pull: an issue up for grabs listed ahead of the user's own, with two more behind them. */
 const answer = JSON.stringify({
