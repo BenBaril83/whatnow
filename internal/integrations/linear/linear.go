@@ -50,12 +50,8 @@ type Linear struct {
 	endpoint string
 }
 
-// New returns the integration. A nil client means one that gives up after 30 seconds.
-func New(client *http.Client) *Linear {
-	return NewAt(client, defaultEndpoint)
-}
-
-// NewAt is New for a Linear at another address, such as a fake in a test.
+// NewAt returns the integration at endpoint, blank for the real Linear, or a fake in a test. A nil
+// client means one that gives up after 30 seconds.
 func NewAt(client *http.Client, endpoint string) *Linear {
 	if endpoint == "" {
 		endpoint = defaultEndpoint
