@@ -7,3 +7,4 @@ internal/web/dist/*
 /.demo/
 tui.log
 /dist/
+.env

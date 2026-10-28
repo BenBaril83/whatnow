@@ -1,0 +1,3 @@
+{$WHATNOW_DOMAIN} {
+	reverse_proxy whatnow:8080
+}
