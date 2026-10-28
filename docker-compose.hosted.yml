@@ -1,0 +1,45 @@
+# Runs the hosted server (`whatnow host`, for many Google-signed-in users) behind Caddy, which gets and renews the HTTPS certificate on its own.
+#   cp .env.hosted.example .env.hosted    # then fill it in
+#   docker compose -f docker-compose.hosted.yml --env-file .env.hosted up -d --build
+# Ports 80 and 443 must be open and WHATNOW_DOMAIN must already point at this machine.
+# See docs/hosting.md for the Google OAuth client and the seal key.
+
+services:
+  whatnow:
+    build:
+      context: .
+      args:
+        VERSION: ${WHATNOW_VERSION:-dev}
+    restart: unless-stopped
+    # Reads WHATNOW_GOOGLE_CLIENT_ID, WHATNOW_GOOGLE_CLIENT_SECRET and WHATNOW_SEAL_KEY. Don't add
+    # ANTHROPIC_* or OPENAI_* variables: the server refuses to start while any is set.
+    env_file: .env.hosted
+    command: ["host", "-addr", "0.0.0.0:8080", "-data", "/data", "-public-url", "https://${WHATNOW_DOMAIN:?set WHATNOW_DOMAIN in .env.hosted}", "-max-users", "${WHATNOW_MAX_USERS:-100}"]
+    volumes:
+      - whatnow-data:/data
+    # Only Caddy reaches it, over the compose network.
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - whatnow
+    environment:
+      WHATNOW_DOMAIN: ${WHATNOW_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  # accounts.db and one users/<id>.db per person. Back this up (see docs/hosting.md, section 9).
+  whatnow-data:
+  # Holds Caddy's certificates; losing it only means fetching new ones.
+  caddy-data:
+  caddy-config:

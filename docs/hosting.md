@@ -485,8 +485,9 @@ signed in across a restart, because sessions live in `accounts.db`.
 
 ## Running in Docker instead
 
-The repo's `Dockerfile` builds the same `whatnow host` server as a small image, as an alternative to
-the systemd setup above. The container listens on `0.0.0.0:8080` and keeps its databases in the
+The repo's `Dockerfile` builds an image that can also run the `whatnow host` server, as an alternative
+to the systemd setup above. (Run on its own it starts `whatnow serve`, the single-user mode in the
+README, so the commands below name `host` explicitly.) The container listens on `0.0.0.0:8080` and keeps its databases in the
 `/data` volume. It does no TLS, so put Caddy or another HTTPS proxy in front, and pass that
 proxy's URL as `-public-url`.
 
@@ -499,7 +500,7 @@ WHATNOW_SEAL_KEY=paste-the-output-of-openssl
 ENV
 docker run -d --name whatnow --restart unless-stopped \
   -p 127.0.0.1:8080:8080 -v whatnow-data:/data --env-file whatnow.env \
-  whatnow -public-url https://whatnow.example.com -max-users 100
+  whatnow host -addr 0.0.0.0:8080 -data /data -public-url https://whatnow.example.com -max-users 100
 ```
 
 Sections 5 and 6 (Google client, seal key) still apply, and so does the warning about
@@ -508,15 +509,15 @@ against the volume's path on the host (section 9).
 
 ### With Docker Compose
 
-`docker-compose.yml` runs the image together with Caddy, which handles HTTPS, so there is no
-separate proxy to set up. Copy `.env.example` to `.env`, fill in the domain, the Google client and
+`docker-compose.hosted.yml` runs the image together with Caddy, which handles HTTPS, so there is no
+separate proxy to set up. Copy `.env.hosted.example` to `.env.hosted`, fill in the domain, the Google client and
 the seal key (sections 5 and 6), open ports 80 and 443, and start it:
 
 ```sh
-cp .env.example .env
-docker compose up -d --build
-docker compose logs -f
+cp .env.hosted.example .env.hosted
+docker compose -f docker-compose.hosted.yml --env-file .env.hosted up -d --build
+docker compose -f docker-compose.hosted.yml --env-file .env.hosted logs -f
 ```
 
 The databases live in the `whatnow-data` volume. To deploy an update, `git pull` and run
-`docker compose up -d --build` again; users stay signed in, because sessions live in `accounts.db`.
+the same `up -d --build` command again; users stay signed in, because sessions live in `accounts.db`.
