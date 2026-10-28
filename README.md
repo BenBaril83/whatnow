@@ -129,6 +129,13 @@ Then open <http://localhost:7777>. The database lives in the `whatnow-data` volu
 published on this machine only, so the same rules as above apply to reaching it from elsewhere.
 Set `TZ` (for example `TZ=America/New_York`) so "today" matches your clock.
 
+On a machine with no browser, set `WHATNOW_ALLOWED_HOSTS` to the name or address you will browse to,
+such as `192.168.1.20` or `nas.local` (comma-separate several), and `WHATNOW_BIND` to an address that
+machine can be reached on (the default, `127.0.0.1`, only answers the machine itself). Without an
+allowed host, a browser elsewhere gets "requests must come from this machine or an allowed host".
+`WHATNOW_ALLOWED_HOSTS` works with a plain `whatnow serve` too. There is no sign-in, so only do
+this on a network you trust.
+
 Open the web UI once to set up a model. After that, use either UI, or both at once, since they
 stay in sync. In the terminal, press `?` for the keys.
 

@@ -51,6 +51,9 @@ type Deps struct {
 	// Hosted serves one user of a shared server: the front door has already authenticated the
 	// request, so there is no local-only guard and no allowed hosts to set.
 	Hosted bool
+	// AllowedHosts are hostnames the server answers besides loopback and the ones saved in
+	// settings. They let a headless machine be reached before anyone can open its settings.
+	AllowedHosts []string
 }
 
 type Server struct {
@@ -147,16 +150,20 @@ func isLoopback(hostport string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// isAllowed reports whether the request's Host is one of the allowed hosts in settings. Settings
-// that can't be read allow nothing.
+// isAllowed reports whether the request's Host is allowed by the server's own configuration or
+// by the allowed hosts in settings. Settings that can't be read allow nothing.
 func (s *Server) isAllowed(r *http.Request) bool {
+	host := hostname(r.Host)
+	matches := func(h string) bool { return strings.EqualFold(h, host) }
+	if slices.ContainsFunc(s.Deps.AllowedHosts, matches) {
+		return true
+	}
 	saved, err := settings.Load(r.Context(), s.DB)
 	if err != nil {
 		log.Printf("load settings for allowed hosts: %v", err)
 		return false
 	}
-	host := hostname(r.Host)
-	return slices.ContainsFunc(saved.AllowedHosts, func(h string) bool { return strings.EqualFold(h, host) })
+	return slices.ContainsFunc(saved.AllowedHosts, matches)
 }
 
 // hostname strips the port and any IPv6 brackets from a Host header.

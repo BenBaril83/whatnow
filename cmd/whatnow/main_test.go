@@ -169,3 +169,13 @@ func TestHostConfigLowercasesThePublicHost(t *testing.T) {
 		t.Fatalf("got host %q, want it lowercased", got)
 	}
 }
+
+func TestAllowedHostsFromEnv(t *testing.T) {
+	got := allowedHostsFromEnv(" box.lan, ,nas.local ,")
+	if want := []string{"box.lan", "nas.local"}; !slices.Equal(got, want) {
+		t.Errorf("allowedHostsFromEnv = %q, want %q", got, want)
+	}
+	if got := allowedHostsFromEnv(""); len(got) != 0 {
+		t.Errorf("empty list = %q, want none", got)
+	}
+}

@@ -107,10 +107,22 @@ func serve(addr, dbPath string) error {
 
 func newServer(a *app.App, addr string) *http.Server {
 	// No WriteTimeout: it would cut off the long-lived SSE stream.
-	return &http.Server{Addr: addr, Handler: apiHandler(a, false), ReadHeaderTimeout: 5 * time.Second}
+	return &http.Server{Addr: addr, Handler: apiHandler(a, false, allowedHostsFromEnv(os.Getenv("WHATNOW_ALLOWED_HOSTS"))), ReadHeaderTimeout: 5 * time.Second}
 }
 
-func apiHandler(a *app.App, hosted bool) http.Handler {
+// allowedHostsFromEnv splits a comma-separated list of hostnames, which lets a server on a
+// machine with no browser be reached before its settings can be opened.
+func allowedHostsFromEnv(list string) []string {
+	var hosts []string
+	for _, h := range strings.Split(list, ",") {
+		if h = strings.TrimSpace(h); h != "" {
+			hosts = append(hosts, h)
+		}
+	}
+	return hosts
+}
+
+func apiHandler(a *app.App, hosted bool, allowedHosts []string) http.Handler {
 	return httpapi.New(httpapi.Deps{
 		Service:      a.Service,
 		Hub:          a.Hub,
@@ -126,6 +138,7 @@ func apiHandler(a *app.App, hosted bool) http.Handler {
 		Integrations: a.Integrations,
 		Static:       web.Handler(),
 		Hosted:       hosted,
+		AllowedHosts: allowedHosts,
 	})
 }
 
@@ -277,7 +290,7 @@ func runHost(args []string, getenv func(string) string) error {
 		if err != nil {
 			return nil, nil, err
 		}
-		return a, apiHandler(a, true), nil
+		return a, apiHandler(a, true, nil), nil
 	}, hostIdle, time.Now)
 	go registry.Run(ctx)
 

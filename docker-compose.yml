@@ -10,10 +10,17 @@ services:
       args:
         VERSION: ${WHATNOW_VERSION:-dev}
     restart: unless-stopped
-    # Published on this machine only. whatnow has no sign-in, so don't widen this to 0.0.0.0.
+    # Published on this machine only. whatnow has no sign-in, so anyone who can reach the port has
+    # full access: to open it from another machine, set WHATNOW_BIND to that machine's address on
+    # a network you trust (or 0.0.0.0 behind a firewall), and WHATNOW_ALLOWED_HOSTS to the name
+    # or address you browse to.
     ports:
-      - "127.0.0.1:7777:7777"
+      - "${WHATNOW_BIND:-127.0.0.1}:7777:7777"
     environment:
+      # Hostnames besides localhost the server answers, comma-separated, such as 192.168.1.20 or
+      # nas.local. Without one, a browser on another machine gets "requests must come from this
+      # machine or an allowed host". Settings > Remote access can add more once you're in.
+      WHATNOW_ALLOWED_HOSTS:
       # The container has no OS keychain, so give the model key here (or in a .env file)
       # instead of saving it in Settings. Set whichever provider you use.
       ANTHROPIC_API_KEY:
