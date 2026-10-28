@@ -482,3 +482,26 @@ just deploy root@whatnow.example.com
 It runs the tests, builds the Linux binary, copies it up, restarts the service, and checks the site answers. If the
 service doesn't come back, it prints the last lines of `journalctl -u whatnow` and fails. Users stay
 signed in across a restart, because sessions live in `accounts.db`.
+
+## Running in Docker instead
+
+The repo's `Dockerfile` builds the same `whatnow host` server as a small image, as an alternative to
+the systemd setup above. The container listens on `0.0.0.0:8080` and keeps its databases in the
+`/data` volume. It does no TLS, so put Caddy or another HTTPS proxy in front, and pass that
+proxy's URL as `-public-url`.
+
+```sh
+docker build -t whatnow .
+cat > whatnow.env <<'ENV'
+WHATNOW_GOOGLE_CLIENT_ID=paste-the-client-id
+WHATNOW_GOOGLE_CLIENT_SECRET=paste-the-client-secret
+WHATNOW_SEAL_KEY=paste-the-output-of-openssl
+ENV
+docker run -d --name whatnow --restart unless-stopped \
+  -p 127.0.0.1:8080:8080 -v whatnow-data:/data --env-file whatnow.env \
+  whatnow -public-url https://whatnow.example.com -max-users 100
+```
+
+Sections 5 and 6 (Google client, seal key) still apply, and so does the warning about
+`ANTHROPIC_*` and `OPENAI_*`: don't pass them to the container. For backups, run Litestream
+against the volume's path on the host (section 9).
