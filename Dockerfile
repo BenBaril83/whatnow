@@ -1,6 +1,9 @@
-# Builds the hosted server (`whatnow host`) as a small image. See docs/hosting.md for what it needs.
+# Builds whatnow as a small image. By default it runs `whatnow serve`, the same as on your own
+# machine, with its database in the /data volume:
 #   docker build -t whatnow .
-#   docker run -p 8080:8080 -v whatnow-data:/data --env-file whatnow.env whatnow -public-url https://whatnow.example.com
+#   docker run -p 127.0.0.1:7777:7777 -v whatnow-data:/data whatnow
+# Then open http://localhost:7777. The hosted server (`whatnow host`) runs from the same image:
+# see docs/hosting.md.
 
 FROM node:22-alpine AS web
 WORKDIR /src/web
@@ -27,7 +30,8 @@ RUN apk add --no-cache ca-certificates tzdata \
 COPY --from=build /whatnow /usr/local/bin/whatnow
 USER whatnow
 VOLUME /data
-EXPOSE 8080
-# TLS is terminated by a proxy in front (Caddy, a load balancer), so -public-url must be its https URL.
-# WHATNOW_GOOGLE_CLIENT_ID, WHATNOW_GOOGLE_CLIENT_SECRET and WHATNOW_SEAL_KEY come from the environment.
-ENTRYPOINT ["whatnow", "host", "-addr", "0.0.0.0:8080", "-data", "/data"]
+EXPOSE 7777
+# Listens on every interface so Docker can reach it. Keep the published port on 127.0.0.1: the
+# server rejects requests whose Host isn't this machine, but nothing else guards it.
+ENTRYPOINT ["whatnow"]
+CMD ["serve", "-addr", "0.0.0.0:7777", "-db", "/data/whatnow.db"]

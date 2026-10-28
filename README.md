@@ -116,6 +116,19 @@ The server only answers this machine. To reach it from your phone over
 add the machine's Tailscale name (such as `my-mac.tail1234.ts.net`) under *Remote access* in
 settings. Anyone who can reach an allowed host gets full access, so don't put it behind a Funnel.
 
+### Docker
+
+To run the web UI in a container instead, as `whatnow serve` would on your machine:
+
+```sh
+export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY; a container has no keychain to save it in
+docker compose up -d --build
+```
+
+Then open <http://localhost:7777>. The database lives in the `whatnow-data` volume, and the port is
+published on this machine only, so the same rules as above apply to reaching it from elsewhere.
+Set `TZ` (for example `TZ=America/New_York`) so "today" matches your clock.
+
 Open the web UI once to set up a model. After that, use either UI, or both at once, since they
 stay in sync. In the terminal, press `?` for the keys.
 

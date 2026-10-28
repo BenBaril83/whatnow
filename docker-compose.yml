@@ -1,8 +1,7 @@
-# Runs whatnow behind Caddy, which gets and renews the HTTPS certificate on its own.
-#   cp .env.example .env    # then fill it in
+# Runs whatnow the way `whatnow serve` does on your own machine.
 #   docker compose up -d --build
-# Ports 80 and 443 must be open and WHATNOW_DOMAIN must already point at this machine.
-# See docs/hosting.md for the Google OAuth client and the seal key.
+# Then open http://localhost:7777.
+# For the hosted, multi-user server, see docker-compose.hosted.yml and docs/hosting.md.
 
 services:
   whatnow:
@@ -11,35 +10,19 @@ services:
       args:
         VERSION: ${WHATNOW_VERSION:-dev}
     restart: unless-stopped
-    # Reads WHATNOW_GOOGLE_CLIENT_ID, WHATNOW_GOOGLE_CLIENT_SECRET and WHATNOW_SEAL_KEY. Don't add
-    # ANTHROPIC_* or OPENAI_* variables: the server refuses to start while any is set.
-    env_file: .env
-    command: ["-public-url", "https://${WHATNOW_DOMAIN:?set WHATNOW_DOMAIN in .env}", "-max-users", "${WHATNOW_MAX_USERS:-100}"]
+    # Published on this machine only. whatnow has no sign-in, so don't widen this to 0.0.0.0.
+    ports:
+      - "127.0.0.1:7777:7777"
+    environment:
+      # The container has no OS keychain, so give the model key here (or in a .env file)
+      # instead of saving it in Settings. Set whichever provider you use.
+      ANTHROPIC_API_KEY:
+      OPENAI_API_KEY:
+      # Your time zone, for "today" and event times, e.g. America/New_York.
+      TZ: ${TZ:-UTC}
     volumes:
       - whatnow-data:/data
-    # Only Caddy reaches it, over the compose network.
-    expose:
-      - "8080"
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    depends_on:
-      - whatnow
-    environment:
-      WHATNOW_DOMAIN: ${WHATNOW_DOMAIN}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
 
 volumes:
-  # accounts.db and one users/<id>.db per person. Back this up (see docs/hosting.md, section 9).
+  # The SQLite database. `docker compose down` keeps it; `down -v` deletes it.
   whatnow-data:
-  # Holds Caddy's certificates; losing it only means fetching new ones.
-  caddy-data:
-  caddy-config:
