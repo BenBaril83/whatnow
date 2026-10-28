@@ -75,12 +75,24 @@ type board struct {
 func (*board) ID() string                { return "board" }
 func (*board) Name() string              { return "Board" }
 func (*board) Pulls() integrations.Pulls { return integrations.PullsTickets }
+func (*board) Pushable()                 {}
 func (*board) Fields() []integrations.Field {
 	return []integrations.Field{{Key: "jql", Label: "Search", Kind: integrations.Text, Required: true}}
 }
 func (b *board) Pull(context.Context, integrations.Config, time.Time, time.Time) []integrations.Source {
 	b.pulls++
 	return []integrations.Source{{Label: "Board", Tickets: b.tickets, More: b.more, Err: b.err, Hint: b.hint}}
+}
+
+// desk is a ticket integration the user's computer can't send to.
+type desk struct{}
+
+func (*desk) ID() string                   { return "desk" }
+func (*desk) Name() string                 { return "Desk" }
+func (*desk) Pulls() integrations.Pulls    { return integrations.PullsTickets }
+func (*desk) Fields() []integrations.Field { return nil }
+func (*desk) Pull(context.Context, integrations.Config, time.Time, time.Time) []integrations.Source {
+	return nil
 }
 
 func ticket(key string) integrations.Ticket {
@@ -114,7 +126,7 @@ func newEnvWith(t *testing.T, vaultFor func(*sql.DB) secrets.Store) env {
 	hub := stream.NewHub()
 	f := &fake{feeds: map[string][]integrations.Event{}}
 	b := &board{}
-	return env{runner: integrations.NewRunner(db, svc, hub, loc, clock, vaultFor(db), f, b), svc: svc, hub: hub, fake: f, board: b, db: db}
+	return env{runner: integrations.NewRunner(db, svc, hub, loc, clock, vaultFor(db), f, b, &desk{}), svc: svc, hub: hub, fake: f, board: b, db: db}
 }
 
 func at(hour int) time.Time { return time.Date(2026, 10, 5, hour, 0, 0, 0, loc) }
@@ -546,7 +558,7 @@ func TestViewsSayWhatEachIntegrationPulls(t *testing.T) {
 	for _, v := range views {
 		got[v.ID] = v.Pulls
 	}
-	if diff := cmp.Diff(map[string]integrations.Pulls{"fake": "events", "board": "tickets"}, got); diff != "" {
+	if diff := cmp.Diff(map[string]integrations.Pulls{"fake": "events", "board": "tickets", "desk": "tickets"}, got); diff != "" {
 		t.Errorf("pulls (-want +got):\n%s", diff)
 	}
 }
@@ -689,5 +701,18 @@ func TestARereviewComesBackPastADoneTaskButNotAnOpenOne(t *testing.T) {
 	}
 	if _, tasks, err = e.runner.Add(ctx, "board", e.board.tickets); err != nil || len(tasks) != 0 {
 		t.Errorf("adding again: tasks %+v, err %v", tasks, err)
+	}
+}
+
+func TestViewPushable(t *testing.T) {
+	e := newEnv(t)
+	for id, want := range map[string]bool{"board": true, "desk": false, "fake": false} {
+		v, err := e.runner.View(context.Background(), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.Pushable != want {
+			t.Errorf("%s pushable = %v, want %v", id, v.Pushable, want)
+		}
 	}
 }

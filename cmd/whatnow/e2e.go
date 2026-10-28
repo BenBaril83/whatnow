@@ -19,6 +19,7 @@ func init() {
 	keyring.MockInit()
 	os.Unsetenv("ANTHROPIC_API_KEY")
 	os.Unsetenv("OPENAI_API_KEY")
+	linearURL = os.Getenv("WHATNOW_E2E_LINEAR_URL")
 	newClient = func(ctx context.Context, c settings.Clients, s settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 		_, cfg, err := settings.NewClient(ctx, c, s)
 		if err != nil {

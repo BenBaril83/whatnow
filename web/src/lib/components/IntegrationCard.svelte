@@ -17,9 +17,9 @@
 	let pulling = $state(false);
 	let result = $state<PullResult | null>(null);
 
-	// Hosted, a ticket integration can be reached from the user's own computer instead, for a Jira
-	// behind a VPN that the server can't see.
-	const offersVia = $derived(!!session.value?.hosted && integration.pulls === 'tickets');
+	// Hosted, an integration that takes a push can be reached from the user's own computer instead,
+	// for a Jira behind a VPN that the server can't see.
+	const offersVia = $derived(!!session.value?.hosted && integration.pushable);
 	const computer = $derived(offersVia && integration.via === 'computer');
 	let pushKey = $state<PushKey | null>(null);
 	/** A key just made, shown this once. */

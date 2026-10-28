@@ -35,6 +35,9 @@ var Version = "dev"
 // newClient makes the model client. The e2e build swaps in the fake.
 var newClient = settings.NewClient
 
+// linearURL points Linear at a fake. The e2e build sets it.
+var linearURL string
+
 const defaultAddr = "127.0.0.1:7777"
 
 const usage = "usage: whatnow [-addr 127.0.0.1:7777] [-db PATH]        the terminal view, serving the web UI if nothing else is\n       whatnow serve [-addr 127.0.0.1:7777] [-db PATH]  the web UI only\n       whatnow tui [-addr 127.0.0.1:7777] [-db PATH]    same as bare whatnow\n       whatnow host -data DIR -public-url https://HOST [-addr 127.0.0.1:8080] [-max-users 100]  hosted, for many Google-signed-in users\n       whatnow jira setup|push                     send Jira tickets from this computer to hosted whatnow\n       whatnow version"
@@ -89,7 +92,7 @@ func open(dbPath string) (*app.App, error) {
 	if path := os.Getenv("WHATNOW_DEMO_CLOCK"); path != "" {
 		now = demoClock(path)
 	}
-	return app.Open(app.Options{DBPath: dbPath, NewClient: newClient, Now: now, Loc: time.Local})
+	return app.Open(app.Options{DBPath: dbPath, NewClient: newClient, LinearURL: linearURL, Now: now, Loc: time.Local})
 }
 
 func serve(addr, dbPath string) error {
@@ -270,7 +273,7 @@ func runHost(args []string, getenv func(string) string) error {
 		return err
 	}
 	registry := host.NewRegistry(o.dataDir, func(_, dbPath string) (*app.App, http.Handler, error) {
-		a, err := app.Open(app.Options{DBPath: dbPath, NewClient: newClient, Now: time.Now, Loc: time.UTC, Hosted: &app.Hosted{SealKey: o.sealKey}})
+		a, err := app.Open(app.Options{DBPath: dbPath, NewClient: newClient, LinearURL: linearURL, Now: time.Now, Loc: time.UTC, Hosted: &app.Hosted{SealKey: o.sealKey}})
 		if err != nil {
 			return nil, nil, err
 		}

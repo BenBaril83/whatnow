@@ -37,8 +37,8 @@ func (r *Runner) SetVia(ctx context.Context, id, via string) (View, error) {
 	if via != ViaDirect && via != ViaComputer {
 		return View{}, fmt.Errorf("%w: no way to reach %s called %q", service.ErrInvalid, in.Name(), via)
 	}
-	if in.Pulls() != PullsTickets {
-		return View{}, fmt.Errorf("%w: %s can't be sent from your computer", service.ErrInvalid, in.Name())
+	if err := needPushable(in); err != nil {
+		return View{}, err
 	}
 	s, err := load(ctx, r.db, id)
 	if err != nil {
@@ -56,6 +56,9 @@ func (r *Runner) SetVia(ctx context.Context, id, via string) (View, error) {
 func (r *Runner) Receive(ctx context.Context, id string, tickets []Ticket, more int) error {
 	in, err := r.find(id)
 	if err != nil {
+		return err
+	}
+	if err := needPushable(in); err != nil {
 		return err
 	}
 	s, err := load(ctx, r.db, id)
@@ -78,6 +81,13 @@ func (r *Runner) Receive(ctx context.Context, id string, tickets []Ticket, more 
 	}
 	s.Pushed = &Pushed{At: r.now(), Tickets: tickets, More: more}
 	return store(ctx, r.db, id, s)
+}
+
+func needPushable(in Integration) error {
+	if _, ok := in.(Pushable); !ok {
+		return fmt.Errorf("%w: %s can't be sent from your computer", service.ErrInvalid, in.Name())
+	}
+	return nil
 }
 
 // checkTicket refuses a ticket the pick list couldn't show: one without a key or title, or with a

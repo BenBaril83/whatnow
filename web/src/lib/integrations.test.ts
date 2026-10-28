@@ -25,7 +25,8 @@ const gcal: Integration = {
 	lists: { calendars: [{ id: 'r1', values: { label: 'Work' }, secrets: { url: true } }] },
 	skipped: [],
 	via: 'direct',
-	sent_at: null
+	sent_at: null,
+	pushable: false
 };
 
 describe('formFrom', () => {

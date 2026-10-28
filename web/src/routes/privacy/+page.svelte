@@ -15,7 +15,7 @@
 	<h2>Your keys and secrets</h2>
 	<p>
 		The model provider keys you paste in are encrypted before they are saved, and so are your
-		integrations' secrets, such as calendar addresses and Jira tokens.
+		integrations' secrets, such as calendar addresses and Jira and Linear tokens.
 	</p>
 
 	<h2>Your model provider</h2>
