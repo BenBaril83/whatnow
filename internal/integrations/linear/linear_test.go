@@ -21,10 +21,6 @@ const key = "lin_api_secret"
 
 const uuidView = "86e915b6-ac3c-47ec-b97c-ffc4a1fe30e7"
 
-// The query checks only name the field a pull reads, since the variable and
-// decoded-answer checks cover the rest without copying the query text.
-const viewQueryWant = "customView"
-
 // request is what the fake Linear last received.
 type request struct {
 	Header http.Header
@@ -111,7 +107,7 @@ func TestPullAsksForAViewByItsSlugID(t *testing.T) {
 			if src.Err != nil || len(src.Tickets) != 1 || src.Tickets[0].Key != "BE-9" || src.More != 0 {
 				t.Errorf("source = %+v", src)
 			}
-			if !strings.Contains(got.Query, viewQueryWant) || !cmp.Equal(got.Vars, map[string]any{"id": id}) {
+			if !strings.Contains(got.Query, "customView") || !cmp.Equal(got.Vars, map[string]any{"id": id}) {
 				t.Errorf("query = %q, variables = %v", got.Query, got.Vars)
 			}
 		})
@@ -151,7 +147,7 @@ func TestPullAppliesTheFilterInAViewsAddress(t *testing.T) {
 			}
 			wantVars := `{"filter":` + want + `,"id":"4a6ba4535d33"}`
 			gotVars, _ := json.Marshal(got.Vars)
-			if !strings.Contains(got.Query, viewQueryWant) || string(gotVars) != wantVars {
+			if !strings.Contains(got.Query, "customView") || string(gotVars) != wantVars {
 				t.Errorf("query = %q, variables = %s", got.Query, gotVars)
 			}
 		})
