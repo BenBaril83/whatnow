@@ -505,3 +505,18 @@ docker run -d --name whatnow --restart unless-stopped \
 Sections 5 and 6 (Google client, seal key) still apply, and so does the warning about
 `ANTHROPIC_*` and `OPENAI_*`: don't pass them to the container. For backups, run Litestream
 against the volume's path on the host (section 9).
+
+### With Docker Compose
+
+`docker-compose.yml` runs the image together with Caddy, which handles HTTPS, so there is no
+separate proxy to set up. Copy `.env.example` to `.env`, fill in the domain, the Google client and
+the seal key (sections 5 and 6), open ports 80 and 443, and start it:
+
+```sh
+cp .env.example .env
+docker compose up -d --build
+docker compose logs -f
+```
+
+The databases live in the `whatnow-data` volume. To deploy an update, `git pull` and run
+`docker compose up -d --build` again; users stay signed in, because sessions live in `accounts.db`.
