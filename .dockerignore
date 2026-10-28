@@ -1,0 +1,16 @@
+.git
+.github
+.demo
+dist
+docs
+packaging
+whatnow
+whatnow-e2e
+coverage.out
+tui.log
+web/node_modules
+web/build
+web/.svelte-kit
+web/e2e
+internal/web/dist/*
+!internal/web/dist/.gitkeep
