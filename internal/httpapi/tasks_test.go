@@ -205,3 +205,20 @@ func TestAllowsTheHostsInSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestConfiguredAllowedHostsAnswerWithoutSettings(t *testing.T) {
+	api := newAPIWith(t, false, []string{"box.lan"})
+	for host, want := range map[string]int{
+		"box.lan:7777": http.StatusOK,
+		"BOX.lan":      http.StatusOK,
+		"other.lan":    http.StatusForbidden,
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks", nil)
+		req.Host = host
+		rec := httptest.NewRecorder()
+		api.handler.ServeHTTP(rec, req)
+		if rec.Code != want {
+			t.Errorf("Host %q: status = %d, want %d", host, rec.Code, want)
+		}
+	}
+}

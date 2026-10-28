@@ -51,7 +51,10 @@ type testAPI struct {
 func newAPI(t *testing.T) *testAPI { return newAPIHosted(t, false) }
 
 // newAPIHosted is newAPI with the handler built as the hosted front door's inner handler is.
-func newAPIHosted(t *testing.T, hosted bool) *testAPI {
+func newAPIHosted(t *testing.T, hosted bool) *testAPI { return newAPIWith(t, hosted, nil) }
+
+// newAPIWith is newAPIHosted with hosts the server is configured to allow.
+func newAPIWith(t *testing.T, hosted bool, allowedHosts []string) *testAPI {
 	t.Helper()
 	db, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -76,15 +79,16 @@ func newAPIHosted(t *testing.T, hosted bool) *testAPI {
 	t.Cleanup(jiraSrv.Close)
 	api.jiraURL = jiraSrv.URL
 	api.handler = httpapi.New(httpapi.Deps{
-		Service:   svc,
-		Hub:       api.hub,
-		DB:        db,
-		Loc:       testLoc,
-		Now:       now,
-		OnCapture: func(task domain.Task) { api.captured = append(api.captured, task.ID) },
-		Clean:     runner.Clean,
-		Keys:      settings.LocalKeys(),
-		Hosted:    hosted,
+		Service:      svc,
+		Hub:          api.hub,
+		DB:           db,
+		Loc:          testLoc,
+		Now:          now,
+		OnCapture:    func(task domain.Task) { api.captured = append(api.captured, task.ID) },
+		Clean:        runner.Clean,
+		Keys:         settings.LocalKeys(),
+		Hosted:       hosted,
+		AllowedHosts: allowedHosts,
 		NewClient: func(context.Context, settings.Settings) (llm.Client, settings.ProviderConfig, error) {
 			if api.model == nil {
 				return nil, settings.ProviderConfig{}, settings.ErrNotConfigured
