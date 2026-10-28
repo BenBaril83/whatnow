@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { api, type Integration, type PullResult, type PushKey, type Via } from '#lib/api.ts';
-	import { formFrom, isOn, newRow, sentLabel } from '#lib/integrations.ts';
+	import { formFrom, isOn, missing, newRow, sentLabel } from '#lib/integrations.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import PullResults from './PullResults.svelte';
@@ -21,7 +21,6 @@
 	const savedFor = 4000;
 	let savedTimer: ReturnType<typeof setTimeout> | undefined;
 	let result = $state<PullResult | null>(null);
-	let disclose = $state<HTMLButtonElement>();
 
 	// Hosted, an integration that takes a push can be reached from the user's own computer instead,
 	// for a Jira behind a VPN that the server can't see.
@@ -101,22 +100,24 @@
 
 	onDestroy(() => clearTimeout(savedTimer));
 
+	/** What's left before a pull: the required fields still empty, then the switch. */
+	function savedText(i: Integration): string {
+		const needs = missing(i);
+		if (needs.length) return `Saved ${i.name} — still needs ${needs.join(', ')}`;
+		if (!i.enabled) return `Saved ${i.name} — switch it on to pull`;
+		return `Saved ${i.name}`;
+	}
+
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
 		saving = true;
 		try {
 			integration = await api.saveIntegration(integration.id, form);
 			form = formFrom(integration);
-			// The card closes on save, so say it worked and what's left before a pull, and keep focus on its header.
-			open = false;
-			result = null;
 			clearSaved();
 			justSaved = true;
 			savedTimer = setTimeout(clearSaved, savedFor);
-			const needsSwitch = integration.ready && !integration.enabled;
-			toasts.success(needsSwitch ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`);
-			await tick();
-			disclose?.focus();
+			toasts.success(savedText(integration));
 		} catch (err) {
 			toasts.error(err);
 		} finally {
@@ -148,7 +149,7 @@
 
 <section class="sticker card">
 	<header>
-		<button class="disclose" bind:this={disclose} aria-expanded={open} onclick={toggleOpen}>
+		<button class="disclose" aria-expanded={open} onclick={toggleOpen}>
 			{open ? '▾' : '▸'}
 			{integration.name}
 		</button>

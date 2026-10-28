@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Field, Integration, PullResult } from './api';
-import { formFrom, isOn, newRow, picked, sentLabel, withoutEvent, withoutTicket } from './integrations';
+import { formFrom, isOn, missing, newRow, picked, sentLabel, withoutEvent, withoutTicket } from './integrations';
 
 const calendars: Field = {
 	key: 'calendars',
@@ -58,6 +58,19 @@ describe('isOn', () => {
 		[false, true, false]
 	])('Should be on only when enabled (%s) and ready (%s)', (enabled, ready, want) => {
 		expect(isOn({ ...gcal, enabled, ready })).toBe(want);
+	});
+});
+
+describe('missing', () => {
+	it('Should name each required field left empty, of every kind', () => {
+		const jql: Field = { key: 'jql', label: 'Search (JQL)', kind: 'text', required: true };
+		const pat: Field = { key: 'pat', label: 'Token', kind: 'secret', required: true };
+		const i = { ...gcal, ready: false, fields: [...gcal.fields, jql, pat], lists: { calendars: [] } };
+		expect(missing(i)).toEqual(['Calendars', 'Search (JQL)', 'Token']);
+	});
+
+	it('Should name nothing once ready, as when the computer sends', () => {
+		expect(missing({ ...gcal, ready: true, lists: { calendars: [] } })).toEqual([]);
 	});
 });
 
