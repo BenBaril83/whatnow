@@ -17,7 +17,8 @@
 	let saving = $state(false);
 	let pulling = $state(false);
 	/** The header's ✓ Saved, until the timer or the card next opens, by the disclose button or the switch. */
-	let saved = $state(false);
+	let justSaved = $state(false);
+	const savedFor = 4000;
 	let savedTimer: ReturnType<typeof setTimeout> | undefined;
 	let result = $state<PullResult | null>(null);
 	let disclose = $state<HTMLButtonElement>();
@@ -85,7 +86,7 @@
 
 	function clearSaved() {
 		clearTimeout(savedTimer);
-		saved = false;
+		justSaved = false;
 	}
 
 	function openCard() {
@@ -110,8 +111,8 @@
 			open = false;
 			result = null;
 			clearSaved();
-			saved = true;
-			savedTimer = setTimeout(clearSaved, 4000);
+			justSaved = true;
+			savedTimer = setTimeout(clearSaved, savedFor);
 			const needsSwitch = integration.ready && !integration.enabled;
 			toasts.success(needsSwitch ? `Saved ${integration.name} — switch it on to pull` : `Saved ${integration.name}`);
 			await tick();
@@ -151,7 +152,7 @@
 			{open ? '▾' : '▸'}
 			{integration.name}
 		</button>
-		{#if saved}<span class="saved" aria-hidden="true"><span>✓</span> Saved</span>{/if}
+		{#if justSaved}<span class="saved" aria-hidden="true"><span>✓</span> Saved</span>{/if}
 		<label class="switch">
 			<input type="checkbox" role="switch" checked={integration.enabled} onchange={toggle} />
 			{integration.enabled ? 'On' : 'Off'}
