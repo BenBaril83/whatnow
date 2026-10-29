@@ -45,6 +45,12 @@ func LocalKeys() Keys {
 	return Keys{store: secrets.Keychain{}, source: KeyFromKeychain, env: true}
 }
 
+// LocalSealedKeys keeps a local app's keys in s, for a machine with no usable keychain, falling
+// back to the environment as LocalKeys does.
+func LocalSealedKeys(s secrets.Store) Keys {
+	return Keys{store: s, source: KeyFromSaved, env: true}
+}
+
 // SealedKeys keeps keys in s alone. The server's environment is never a user's key.
 func SealedKeys(s secrets.Store) Keys {
 	return Keys{store: s, source: KeyFromSaved}

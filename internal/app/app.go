@@ -37,6 +37,9 @@ type Options struct {
 	Loc       *time.Location
 	// LinearURL points Linear at another address, such as a fake in an e2e run. Blank is Linear.
 	LinearURL string
+	// SealKey, when set in local mode, keeps secrets sealed in the database instead of the OS
+	// keychain, for a machine without one, such as a container.
+	SealKey *[32]byte
 	// Hosted makes this one user's App on a shared server. Nil is local mode.
 	Hosted *Hosted
 }
@@ -91,6 +94,11 @@ func Open(o Options) (*App, error) {
 	var vault secrets.Store = secrets.Keychain{}
 	pulls := []integrations.Integration{gcal.New(nil), jira.New(nil), linear.NewAt(nil, o.LinearURL), reviewqueue.New(nil)}
 	loc := o.Loc
+	if o.SealKey != nil && o.Hosted == nil {
+		sealed := secrets.NewSealed(db, *o.SealKey)
+		vault = sealed
+		clients = settings.Clients{Keys: settings.LocalSealedKeys(sealed)}
+	}
 	if o.Hosted != nil {
 		sealed := secrets.NewSealed(db, o.Hosted.SealKey)
 		vault = sealed

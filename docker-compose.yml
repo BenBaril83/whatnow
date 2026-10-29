@@ -25,6 +25,11 @@ services:
       # instead of saving it in Settings. Set whichever provider you use.
       ANTHROPIC_API_KEY:
       OPENAI_API_KEY:
+      # Keeps integration secrets (calendar URLs, Jira and Linear tokens) and any key saved in
+      # Settings encrypted in the database, since a container has no OS keychain. Without it the
+      # Integrations page shows "internal error". Make one with `openssl rand -base64 32` and keep
+      # a copy elsewhere: lose it and those secrets have to be entered again.
+      WHATNOW_SEAL_KEY:
       # Your time zone, for "today" and event times, e.g. America/New_York.
       TZ: ${TZ:-UTC}
     volumes:

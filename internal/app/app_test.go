@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -214,5 +215,26 @@ func TestOpenHostedSealsKeys(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("secrets rows = %d, want 1", n)
+	}
+}
+
+func TestOpenWithSealKeyNeedsNoKeychain(t *testing.T) {
+	keyring.MockInitWithError(errors.New("no secret service"))
+	t.Cleanup(func() { keyring.MockInit() })
+	open := func(key *[32]byte) *app.App {
+		t.Helper()
+		a, err := app.Open(app.Options{DBPath: filepath.Join(t.TempDir(), "w.db"), NewClient: fakeClient, Now: time.Now, Loc: time.UTC, SealKey: key})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { a.Close() })
+		return a
+	}
+
+	if _, err := open(nil).Integrations.Views(context.Background()); err == nil {
+		t.Fatal("Views with no keychain and no seal key succeeded, want the keychain error")
+	}
+	if _, err := open(&[32]byte{1}).Integrations.Views(context.Background()); err != nil {
+		t.Errorf("Views with a seal key: %v", err)
 	}
 }
