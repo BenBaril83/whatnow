@@ -121,13 +121,21 @@ settings. Anyone who can reach an allowed host gets full access, so don't put it
 To run the web UI in a container instead, as `whatnow serve` would on your machine:
 
 ```sh
-export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY; a container has no keychain to save it in
+export ANTHROPIC_API_KEY=...        # or OPENAI_API_KEY
+export WHATNOW_SEAL_KEY=$(openssl rand -base64 32)   # keep this value; see below
 docker compose up -d --build
 ```
 
 Then open <http://localhost:7777>. The database lives in the `whatnow-data` volume, and the port is
 published on this machine only, so the same rules as above apply to reaching it from elsewhere.
 Set `TZ` (for example `TZ=America/New_York`) so "today" matches your clock.
+
+A container has no OS keychain, which is where whatnow keeps integration secrets (calendar URLs, Jira
+and Linear tokens), so set `WHATNOW_SEAL_KEY` to keep them encrypted in the database instead:
+`openssl rand -base64 32`. Without it the Integrations page fails with "internal error". Keep a copy
+of the key somewhere safe: if you lose it, those secrets have to be entered again. Any model key you
+save in Settings is kept the same way; the `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` variables still
+work either way.
 
 On a machine with no browser, set `WHATNOW_ALLOWED_HOSTS` to the name or address you will browse to,
 such as `192.168.1.20` or `nas.local` (comma-separate several), and `WHATNOW_BIND` to an address that

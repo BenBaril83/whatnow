@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"net"
 	"slices"
 	"strings"
@@ -177,5 +178,18 @@ func TestAllowedHostsFromEnv(t *testing.T) {
 	}
 	if got := allowedHostsFromEnv(""); len(got) != 0 {
 		t.Errorf("empty list = %q, want none", got)
+	}
+}
+
+func TestLocalSealKey(t *testing.T) {
+	if key, err := localSealKey(""); key != nil || err != nil {
+		t.Errorf("blank = %v, %v, want no key and no error", key, err)
+	}
+	if _, err := localSealKey("not a key"); err == nil {
+		t.Error("an invalid key was accepted")
+	}
+	valid := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	if key, err := localSealKey(valid); key == nil || err != nil {
+		t.Errorf("valid key = %v, %v, want a key", key, err)
 	}
 }

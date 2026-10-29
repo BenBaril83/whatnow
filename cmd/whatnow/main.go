@@ -92,7 +92,24 @@ func open(dbPath string) (*app.App, error) {
 	if path := os.Getenv("WHATNOW_DEMO_CLOCK"); path != "" {
 		now = demoClock(path)
 	}
-	return app.Open(app.Options{DBPath: dbPath, NewClient: newClient, LinearURL: linearURL, Now: now, Loc: time.Local})
+	sealKey, err := localSealKey(os.Getenv("WHATNOW_SEAL_KEY"))
+	if err != nil {
+		return nil, err
+	}
+	return app.Open(app.Options{DBPath: dbPath, NewClient: newClient, LinearURL: linearURL, Now: now, Loc: time.Local, SealKey: sealKey})
+}
+
+// localSealKey reads the optional key that keeps a local app's secrets in its database, for a
+// machine with no OS keychain. Blank means use the keychain.
+func localSealKey(value string) (*[32]byte, error) {
+	if value == "" {
+		return nil, nil
+	}
+	key, err := secrets.ParseKey(value)
+	if err != nil {
+		return nil, fmt.Errorf("WHATNOW_SEAL_KEY: %w", err)
+	}
+	return &key, nil
 }
 
 func serve(addr, dbPath string) error {
