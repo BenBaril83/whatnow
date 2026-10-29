@@ -33,6 +33,15 @@ export function isOn(i: Integration): boolean {
 	return i.enabled && i.ready;
 }
 
+/** The labels of the required fields still empty, mirroring how the server decides `ready`. */
+export function missing(i: Integration): string[] {
+	if (i.ready) return [];
+	return i.fields
+		.filter((f) => f.required)
+		.filter((f) => (f.kind === 'text' ? !i.values[f.key] : f.kind === 'secret' ? !i.secrets[f.key] : !i.lists[f.key]?.length))
+		.map((f) => f.label);
+}
+
 /** The result without one event, after it was removed or its series skipped. */
 export function withoutEvent(result: PullResult, id: number): PullResult {
 	return {

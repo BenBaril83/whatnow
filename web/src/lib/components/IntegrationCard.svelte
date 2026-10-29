@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { api, type Integration, type PullResult, type PushKey, type Via } from '#lib/api.ts';
-	import { formFrom, isOn, newRow, sentLabel } from '#lib/integrations.ts';
+	import { formFrom, isOn, missing, newRow, sentLabel } from '#lib/integrations.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 	import PullResults from './PullResults.svelte';
@@ -15,6 +16,10 @@
 	let form = $state(formFrom(integration));
 	let saving = $state(false);
 	let pulling = $state(false);
+	/** The header's ✓ Saved, until the timer or the card next opens, by the disclose button or the switch. */
+	let justSaved = $state(false);
+	const savedFor = 4000;
+	let savedTimer: ReturnType<typeof setTimeout> | undefined;
 	let result = $state<PullResult | null>(null);
 
 	// Hosted, an integration that takes a push can be reached from the user's own computer instead,
@@ -71,11 +76,36 @@
 		const input = e.currentTarget;
 		try {
 			integration = await api.enableIntegration(integration.id, input.checked);
-			if (integration.enabled) open = true;
+			if (integration.enabled) openCard();
 		} catch (err) {
 			toasts.error(err);
 			input.checked = integration.enabled;
 		}
+	}
+
+	function clearSaved() {
+		clearTimeout(savedTimer);
+		justSaved = false;
+	}
+
+	function openCard() {
+		open = true;
+		clearSaved();
+	}
+
+	function toggleOpen() {
+		if (open) open = false;
+		else openCard();
+	}
+
+	onDestroy(() => clearTimeout(savedTimer));
+
+	/** What's left before a pull: the required fields still empty, then the switch. */
+	function savedText(i: Integration): string {
+		const needs = missing(i);
+		if (needs.length) return `Saved ${i.name} — still needs ${needs.join(', ')}`;
+		if (!i.enabled) return `Saved ${i.name} — switch it on to pull`;
+		return `Saved ${i.name}`;
 	}
 
 	async function save(e: SubmitEvent) {
@@ -84,6 +114,10 @@
 		try {
 			integration = await api.saveIntegration(integration.id, form);
 			form = formFrom(integration);
+			clearSaved();
+			justSaved = true;
+			savedTimer = setTimeout(clearSaved, savedFor);
+			toasts.success(savedText(integration));
 		} catch (err) {
 			toasts.error(err);
 		} finally {
@@ -115,10 +149,11 @@
 
 <section class="sticker card">
 	<header>
-		<button class="disclose" aria-expanded={open} onclick={() => (open = !open)}>
+		<button class="disclose" aria-expanded={open} onclick={toggleOpen}>
 			{open ? '▾' : '▸'}
 			{integration.name}
 		</button>
+		{#if justSaved}<span class="saved" aria-hidden="true"><span>✓</span> Saved</span>{/if}
 		<label class="switch">
 			<input type="checkbox" role="switch" checked={integration.enabled} onchange={toggle} />
 			{integration.enabled ? 'On' : 'Off'}
@@ -253,6 +288,29 @@
 		padding: 0;
 		font-size: 17px;
 		font-weight: var(--heavy);
+	}
+	.saved {
+		margin-right: auto;
+		background: var(--success);
+		border: var(--line);
+		border-radius: var(--pill);
+		padding: 1px 10px;
+		font-size: 13px;
+		font-weight: var(--heavy);
+		animation: fade-in 0.2s;
+	}
+	.saved span {
+		color: var(--success-ink);
+	}
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.saved {
+			animation: none;
+		}
 	}
 	.switch {
 		display: flex;

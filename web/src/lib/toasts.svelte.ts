@@ -7,6 +7,7 @@ export interface Toast {
 	/** The batch Undo reverts. Absent on an error. */
 	batch?: number;
 	error?: boolean;
+	success?: boolean;
 	/** Set while hovered or focused: the countdown and its fill stand still. */
 	paused?: boolean;
 	/** How long it stays, in ms. Its fill sweeps across in the same time. */
@@ -64,6 +65,11 @@ export class Toasts {
 
 	show(text: string, batch?: number): void {
 		this.#add({ text, batch });
+	}
+
+	/** A write that worked, with no Undo. */
+	success(text: string): void {
+		this.#add({ text, success: true });
 	}
 
 	error(err: unknown): void {
