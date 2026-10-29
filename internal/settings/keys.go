@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/jameynakama/whatnow/internal/llm"
 	"github.com/jameynakama/whatnow/internal/secrets"
@@ -24,6 +25,10 @@ const (
 	KeyFromEnv      KeySource = "env"
 	KeyFromSaved    KeySource = "saved"
 )
+
+// keychainWarned holds the providers whose unavailable keychain has been logged, so a server
+// that never has one, such as a container, says so once instead of on every request.
+var keychainWarned sync.Map
 
 var envVars = map[Provider]string{Anthropic: "ANTHROPIC_API_KEY", OpenAI: "OPENAI_API_KEY"}
 
